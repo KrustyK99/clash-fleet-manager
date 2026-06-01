@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clash Timers</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f13;
+  --surface:#18181f;
+  --surface2:#22222c;
+  --surface3:#2c2c38;
+  --border:#2e2e3c;
+  --border2:#3d3d50;
+  --text:#e8e8f0;
+  --text2:#9898b0;
+  --text3:#5a5a72;
+  --accent:#6c6cff;
+  --accent2:#4040cc;
+  --accent-glow:rgba(108,108,255,0.15);
+  --green:#3dd68c;
+  --green-bg:rgba(61,214,140,0.08);
+  --amber:#f5a623;
+  --amber-bg:rgba(245,166,35,0.08);
+  --red:#ff5c5c;
+  --red-bg:rgba(255,92,92,0.08);
+  --radius:8px;
+  --radius-lg:12px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+h1,h2,h3{font-weight:500}
+
+/* Layout */
+.app{display:grid;grid-template-rows:auto 1fr;height:100vh;overflow:hidden}
+.topbar{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--surface)}
+.topbar-title{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--accent);letter-spacing:0.05em}
+.sync-status{font-size:12px;color:var(--text3);border:1px solid var(--border);border-radius:999px;padding:4px 9px;background:var(--surface2);white-space:nowrap}
+.sync-status.ok{color:var(--green);border-color:rgba(61,214,140,0.35)}
+.sync-status.saving{color:var(--amber);border-color:rgba(245,166,35,0.35)}
+.sync-status.error{color:var(--red);border-color:rgba(255,92,92,0.35)}
+.topbar-spacer{flex:1}
+.main{display:grid;grid-template-columns:280px 1fr;overflow:hidden}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-section{padding:16px;border-bottom:1px solid var(--border)}
+.sidebar-section label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);display:block;margin-bottom:6px}
+.content{display:flex;flex-direction:column;overflow:hidden}
+.toolbar{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;background:var(--surface)}
+.timer-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+
+/* Buttons */
+btn,button{font-family:'DM Sans',sans-serif}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text);font-size:13px;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.btn:hover{background:var(--surface3);border-color:var(--border2)}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-icon{padding:6px;width:30px;height:30px;justify-content:center}
+.btn-danger:hover{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+.btn-success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+
+/* Form elements */
+input[type=text],input[type=number],select,textarea{
+  width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:13px;padding:7px 10px;border-radius:var(--radius);
+  outline:none;transition:border 0.15s
+}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+input::placeholder,textarea::placeholder{color:var(--text3)}
+select option{background:var(--surface2)}
+textarea{resize:vertical;min-height:60px;font-size:13px}
+
+/* Timer card */
+.timer-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:8px;
+  transition:border-color 0.2s;position:relative;overflow:hidden
+}
+.timer-card:hover{border-color:var(--border2)}
+.timer-card.running{border-color:var(--accent);background:linear-gradient(135deg,var(--surface) 0%,rgba(108,108,255,0.04) 100%)}
+.timer-card.expired{border-color:var(--red);background:var(--red-bg);animation:pulse-red 1.5s ease-in-out infinite}
+.timer-card.paused{border-color:var(--amber);background:var(--amber-bg)}
+.timer-card.done{opacity:0.6}
+@keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(255,92,92,0)}50%{box-shadow:0 0 0 4px rgba(255,92,92,0.15)}}
+
+.card-left{min-width:0}
+.card-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.card-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.timer-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.timer-group-badge{font-size:10px;padding:2px 7px;border-radius:100px;background:var(--surface3);color:var(--text2);border:1px solid var(--border);white-space:nowrap}
+.timer-display{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;line-height:1;color:var(--text)}
+.timer-card.running .timer-display{color:var(--accent)}
+.timer-card.expired .timer-display{color:var(--red)}
+.timer-card.paused .timer-display{color:var(--amber)}
+.timer-meta{font-size:11px;color:var(--text3);margin-top:3px}
+.timer-note{font-size:12px;color:var(--text2);margin-top:6px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-actions{display:flex;gap:4px}
+.progress-bar{height:2px;background:var(--surface3);border-radius:1px;margin-top:8px;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);border-radius:1px;transition:width 1s linear}
+.timer-card.expired .progress-fill{background:var(--red);width:100% !important}
+.timer-card.paused .progress-fill{background:var(--amber)}
+
+/* Sort bar */
+.sort-btn{font-size:12px;padding:4px 10px;border:1px solid transparent;background:transparent;color:var(--text2);cursor:pointer;border-radius:var(--radius);font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:4px}
+.sort-btn:hover{background:var(--surface2);color:var(--text)}
+.sort-btn.active{background:var(--surface2);border-color:var(--border);color:var(--accent)}
+.sort-arrow{font-size:10px}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(2px)}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:24px;width:420px;max-width:95vw}
+.modal h2{font-size:16px;margin-bottom:18px;color:var(--text)}
+.form-row{margin-bottom:14px}
+.form-row label{font-size:12px;color:var(--text2);display:block;margin-bottom:5px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* Group filter */
+.group-pill{font-size:12px;padding:4px 10px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+.group-pill:hover{border-color:var(--border2);color:var(--text)}
+.group-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.group-list{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px}
+
+/* Empty state */
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty .big{font-size:40px;margin-bottom:12px;opacity:0.3}
+.empty p{font-size:14px}
+
+/* Toast */
+.toast-container{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:200}
+.toast{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 16px;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px;animation:slide-in 0.2s ease;max-width:300px}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.warning{border-color:var(--amber);color:var(--amber)}
+.toast.expired{border-color:var(--red);color:var(--red)}
+@keyframes slide-in{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* Stats bar */
+.stats-bar{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;gap:20px;background:var(--surface);font-size:12px;color:var(--text3)}
+.stat{display:flex;align-items:center;gap:5px}
+.stat-dot{width:8px;height:8px;border-radius:50%}
+
+/* Sidebar collapse */
+.main{transition:grid-template-columns 0.22s ease}
+.main.sidebar-hidden{grid-template-columns:0px 1fr}
+.main.sidebar-hidden .sidebar{overflow:hidden;border-right:none}
+.sidebar-toggle{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 8px;cursor:pointer;font-size:13px;line-height:1;transition:all 0.15s}
+.sidebar-toggle:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
+
+/* Quick add panel */
+.quick-add{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.quick-add-title{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:8px}
+.quick-add-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.quick-add-row input[type=text]{flex:1}
+.quick-add-time{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px}
+.quick-add-time input{text-align:center;padding:5px 4px;font-size:13px}
+.quick-add-time-label{font-size:10px;color:var(--text3);text-align:center;margin-top:2px}
+
+/* Elapsed/endtime toggle */
+.timer-secondary{font-size:11px;color:var(--text3);margin-top:2px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:1px 4px;transition:background 0.12s;user-select:none}
+.timer-secondary:hover{background:var(--surface3);color:var(--text2)}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Top bar -->
+  <div class="topbar">
+    <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle-btn" title="Toggle sidebar">☰</button>
+    <span class="topbar-title">CLASH TIMERS</span>
+    <span class="topbar-spacer"></span>
+    <span class="sync-status" id="sync-status">Loading…</span>
+    <button class="btn btn-sm" onclick="exportTimers()" title="Export timers to JSON">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </button>
+    <label class="btn btn-sm" style="cursor:pointer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Import
+      <input type="file" accept=".json" onchange="importTimers(event)" style="display:none">
+    </label>
+    <button class="btn btn-primary" onclick="openAddModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Timer
+    </button>
+  </div>
+
+  <div class="main">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <!-- Quick add -->
+      <div class="quick-add">
+        <div class="quick-add-title">Quick add</div>
+        <div class="quick-add-row">
+          <input type="text" id="q-name" placeholder="Timer name…" onkeydown="if(event.key==='Enter')quickAdd()">
+        </div>
+        <div class="quick-add-time">
+          <div>
+            <input type="number" id="q-hours" value="0" min="0" max="999" placeholder="0" onkeydown="if(event.key==='Enter')quickAdd()">
+            <div class="quick-add-time-label">hrs</div>
+          </div>
+          <div>
+            <input type="number" id="q-mins" value="5" min="0" max="59" placeholder="5" onkeydown="if(event.key==='Enter')quickAdd()">
+            <div class="quick-add-time-label">min</div>
+          </div>
+          <div>
+            <input type="number" id="q-secs" value="0" min="0" max="59" placeholder="0" onkeydown="if(event.key==='Enter')quickAdd()">
+            <div class="quick-add-time-label">sec</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="quickAdd()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Start Timer
+        </button>
+      </div>
+      <div class="sidebar-section">
+        <label>Search</label>
+        <input type="text" id="search-input" placeholder="Search timers…" oninput="renderTimers()">
+      </div>
+      <div class="sidebar-section">
+        <label>Sort by</label>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <button class="sort-btn active" id="sort-name" onclick="setSort('name')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg>
+            Name <span class="sort-arrow" id="arr-name">↑</span>
+          </button>
+          <button class="sort-btn" id="sort-remaining" onclick="setSort('remaining')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Time remaining <span class="sort-arrow" id="arr-remaining"></span>
+          </button>
+          <button class="sort-btn" id="sort-duration" onclick="setSort('duration')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+            Duration <span class="sort-arrow" id="arr-duration"></span>
+          </button>
+          <button class="sort-btn" id="sort-status" onclick="setSort('status')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+            Status <span class="sort-arrow" id="arr-status"></span>
+          </button>
+          <button class="sort-btn" id="sort-group" onclick="setSort('group')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+            Group <span class="sort-arrow" id="arr-group"></span>
+          </button>
+          <button class="sort-btn" id="sort-created" onclick="setSort('created')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            Date added <span class="sort-arrow" id="arr-created"></span>
+          </button>
+        </div>
+      </div>
+      <div class="sidebar-section" style="flex:1;overflow-y:auto">
+        <label>Actions</label>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn btn-sm btn-success" onclick="startAll()">▶ Start all stopped</button>
+          <button class="btn btn-sm" onclick="pauseAll()" style="color:var(--amber)">⏸ Pause all running</button>
+          <button class="btn btn-sm" onclick="resetExpired()" style="color:var(--text2)">↺ Reset expired</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="content">
+      <!-- Group filter pills -->
+      <div id="group-bar" class="group-list"></div>
+
+      <!-- Stats -->
+      <div class="stats-bar" id="stats-bar"></div>
+
+      <!-- Sort toolbar label -->
+      <div class="toolbar" style="padding:8px 16px">
+        <span style="font-size:12px;color:var(--text3)">Sorting by:</span>
+        <span style="font-size:12px;color:var(--accent);margin-left:4px" id="sort-label">Name ↑</span>
+        <span class="topbar-spacer"></span>
+        <span style="font-size:12px;color:var(--text3)" id="timer-count"></span>
+      </div>
+
+      <!-- Timer list -->
+      <div class="timer-list" id="timer-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-bg" id="modal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h2 id="modal-title">New Timer</h2>
+    <div class="form-row">
+      <label>Timer name *</label>
+      <input type="text" id="f-name" placeholder="e.g. Coffee brew, Daily standup…">
+    </div>
+    <div class="form-row">
+      <label>Duration</label>
+      <div class="form-grid">
+        <div>
+          <input type="number" id="f-hours" placeholder="0" min="0" max="999" value="0">
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;text-align:center">hours</div>
+        </div>
+        <div>
+          <input type="number" id="f-mins" placeholder="0" min="0" max="59" value="5">
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;text-align:center">minutes</div>
+        </div>
+        <div>
+          <input type="number" id="f-secs" placeholder="0" min="0" max="59" value="0">
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;text-align:center">seconds</div>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Group / category</label>
+      <input type="text" id="f-group" placeholder="e.g. Work, Kitchen, Exercise…" list="group-suggestions">
+      <datalist id="group-suggestions"></datalist>
+    </div>
+    <div class="form-row">
+      <label>Note / label</label>
+      <textarea id="f-note" placeholder="Optional note…"></textarea>
+    </div>
+    <div class="form-row" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="f-repeat" style="width:auto;accent-color:var(--accent)">
+      <label for="f-repeat" style="margin:0;font-size:13px;color:var(--text);cursor:pointer">Repeat automatically when expired</label>
+    </div>
+    <div class="form-row" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="f-sound" checked style="width:auto;accent-color:var(--accent)">
+      <label for="f-sound" style="margin:0;font-size:13px;color:var(--text);cursor:pointer">Play alert sound when expired</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTimer()">Save Timer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let timers = [];
+let sortKey = 'name';
+let sortDir = 1;
+let filterGroup = 'All';
+let editingId = null;
+let tickInterval = null;
+let sidebarVisible = true;
+let cardModes = {}; // id -> 'elapsed' | 'endtime'
+let serverLastUpdated = null;
+let saveInFlight = false;
+let saveQueued = false;
+
+const STORAGE_KEY = 'timerdesk_v2';
+const API_URL = 'api.php';
+const EMERGENCY_BACKUP_KEY = STORAGE_KEY + '_emergency_backup';
+
+function newId() {
+  // crypto.randomUUID() is only available in secure contexts in some browsers.
+  // This fallback keeps the app working over plain HTTP on an internal LAN.
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+  return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+// ── Persistence ──────────────────────────────────────────────────────────
+function setSyncStatus(text, state='') {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  el.textContent = text;
+  el.className = `sync-status ${state}`.trim();
+}
+
+function normalizeTimersAfterLoad() {
+  let needsSave = false;
+  const now = Date.now();
+
+  timers = (Array.isArray(timers) ? timers : []).filter(t => t && t.id && t.name && Number(t.duration) > 0);
+
+  timers.forEach(t => {
+    t.duration = Number(t.duration) || 0;
+    t.remaining = Number(t.remaining);
+    if (!Number.isFinite(t.remaining) || t.remaining < 0 || t.remaining > t.duration) t.remaining = t.duration;
+    if (!['running','paused','stopped','expired'].includes(t.status)) t.status = 'stopped';
+    if (!t.created) t.created = now;
+    if (t.sound === undefined) t.sound = true;
+    if (t.group === undefined) t.group = '';
+    if (t.note === undefined) t.note = '';
+
+    // Recalculate remaining for running timers based on stored endTime.
+    // This is what lets multiple devices share the same countdown without saving every second.
+    if (t.status === 'running' && t.endTime) {
+      const rem = Math.ceil((Number(t.endTime) - now) / 1000);
+      if (rem <= 0) {
+        if (t.repeat) {
+          t.remaining = t.duration;
+          t.endTime = now + t.duration * 1000;
+        } else {
+          t.remaining = 0;
+          t.status = 'expired';
+          t.endTime = null;
+        }
+        needsSave = true;
+      } else {
+        t.remaining = rem;
+      }
+    }
+  });
+
+  return needsSave;
+}
+
+async function save() {
+  if (saveInFlight) {
+    saveQueued = true;
+    return;
+  }
+
+  saveInFlight = true;
+  setSyncStatus('Saving…', 'saving');
+
+  try {
+    const res = await fetch(`${API_URL}?action=save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify({
+        schemaVersion: 1,
+        lastKnownLastUpdated: serverLastUpdated,
+        timers
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Save failed with HTTP ${res.status}`);
+
+    serverLastUpdated = data.lastUpdated || serverLastUpdated;
+    const stamp = serverLastUpdated ? new Date(serverLastUpdated).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : 'now';
+    setSyncStatus(`Saved ${stamp}`, 'ok');
+  } catch (e) {
+    console.error(e);
+    localStorage.setItem(EMERGENCY_BACKUP_KEY, JSON.stringify({
+      savedAt: new Date().toISOString(),
+      timers
+    }));
+    setSyncStatus('Save failed', 'error');
+    toast('Save failed. Emergency backup saved in this browser.', 'warning');
+  } finally {
+    saveInFlight = false;
+    if (saveQueued) {
+      saveQueued = false;
+      save();
+    }
+  }
+}
+
+async function load() {
+  setSyncStatus('Loading…', 'saving');
+
+  try {
+    const res = await fetch(`${API_URL}?action=load`, { cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Load failed with HTTP ${res.status}`);
+
+    timers = Array.isArray(data) ? data : (Array.isArray(data.timers) ? data.timers : []);
+    serverLastUpdated = data.lastUpdated || null;
+
+    const needsSave = normalizeTimersAfterLoad();
+
+    const stamp = serverLastUpdated ? new Date(serverLastUpdated).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : 'ready';
+    setSyncStatus(`Loaded ${stamp}`, 'ok');
+
+    if (needsSave) save();
+  } catch (e) {
+    console.error(e);
+    setSyncStatus('Load failed', 'error');
+
+    const backupRaw = localStorage.getItem(EMERGENCY_BACKUP_KEY);
+    if (backupRaw) {
+      try {
+        const backup = JSON.parse(backupRaw);
+        timers = Array.isArray(backup.timers) ? backup.timers : [];
+        normalizeTimersAfterLoad();
+        toast('NAS load failed. Loaded emergency browser backup.', 'warning');
+        return;
+      } catch (_) {}
+    }
+
+    timers = [];
+    toast('Could not load timers from NAS.', 'warning');
+  }
+}
+
+// ── Audio ─────────────────────────────────────────────────────────────────
+function playAlert() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const beepTimes = [0, 0.15, 0.3];
+    beepTimes.forEach(t => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0, ctx.currentTime + t);
+      gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + t + 0.01);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + t + 0.12);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.15);
+    });
+  } catch(e) {}
+}
+
+// ── Timer logic ────────────────────────────────────────────────────────────
+function tick() {
+  let needsRender = false;
+  let needsSave = false;
+  const now = Date.now();
+
+  timers.forEach(t => {
+    if (t.status !== 'running') return;
+
+    const rem = Math.ceil((t.endTime - now) / 1000);
+    if (rem !== t.remaining) {
+      t.remaining = Math.max(0, rem);
+      needsRender = true;
+    }
+
+    if (t.remaining <= 0) {
+      if (t.repeat) {
+        t.remaining = t.duration;
+        t.endTime = now + t.duration * 1000;
+        if (t.sound) playAlert();
+        toast(`↺ ${t.name} restarted`, 'success');
+      } else {
+        t.status = 'expired';
+        t.endTime = null;
+        if (t.sound) playAlert();
+        toast(`⏰ ${t.name} expired!`, 'expired');
+      }
+      needsSave = true;
+      needsRender = true;
+    }
+  });
+
+  // Do not save every one-second countdown tick to the NAS.
+  // Running timers can be recalculated from endTime on any device.
+  if (needsSave) save();
+  if (needsRender) renderTimers();
+}
+
+function startTimer(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  if (t.remaining <= 0) t.remaining = t.duration;
+  t.status = 'running';
+  t.endTime = Date.now() + t.remaining * 1000;
+  save(); renderTimers();
+}
+
+function pauseTimer(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  t.status = 'paused';
+  t.endTime = null;
+  save(); renderTimers();
+}
+
+function resetTimer(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  t.status = 'stopped';
+  t.remaining = t.duration;
+  t.endTime = null;
+  save(); renderTimers();
+}
+
+function deleteTimer(id) {
+  if (!confirm('Delete this timer?')) return;
+  timers = timers.filter(x => x.id !== id);
+  save(); renderTimers();
+}
+
+function startAll() {
+  let changed = false;
+  timers.filter(t => t.status === 'stopped' || t.status === 'paused').forEach(t => {
+    if (t.remaining <= 0) t.remaining = t.duration;
+    t.status = 'running';
+    t.endTime = Date.now() + t.remaining * 1000;
+    changed = true;
+  });
+  if (changed) { save(); renderTimers(); }
+}
+function pauseAll() {
+  let changed = false;
+  timers.filter(t => t.status === 'running').forEach(t => {
+    t.status = 'paused';
+    t.endTime = null;
+    changed = true;
+  });
+  if (changed) { save(); renderTimers(); }
+}
+function resetExpired() {
+  let changed = false;
+  timers.filter(t => t.status === 'expired').forEach(t => {
+    t.status = 'stopped';
+    t.remaining = t.duration;
+    t.endTime = null;
+    changed = true;
+  });
+  if (changed) save();
+  renderTimers();
+}
+
+// ── Sort ──────────────────────────────────────────────────────────────────
+function setSort(key) {
+  if (sortKey === key) sortDir *= -1;
+  else { sortKey = key; sortDir = 1; }
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sort-'+key).classList.add('active');
+  ['name','remaining','duration','status','group','created'].forEach(k => {
+    const el = document.getElementById('arr-'+k);
+    el.textContent = k === sortKey ? (sortDir === 1 ? '↑' : '↓') : '';
+  });
+  document.getElementById('sort-label').textContent = key.charAt(0).toUpperCase()+key.slice(1).replace('remaining','remaining').replace('created','Date added') + (sortDir===1?' ↑':' ↓');
+  renderTimers();
+}
+
+function sortedTimers(list) {
+  const statusOrder = {running:0,paused:1,stopped:2,expired:3};
+  return [...list].sort((a,b) => {
+    let av, bv;
+    switch(sortKey) {
+      case 'name': av=a.name.toLowerCase(); bv=b.name.toLowerCase(); break;
+      case 'remaining': av=a.remaining; bv=b.remaining; break;
+      case 'duration': av=a.duration; bv=b.duration; break;
+      case 'status': av=statusOrder[a.status]??9; bv=statusOrder[b.status]??9; break;
+      case 'group': av=(a.group||'').toLowerCase(); bv=(b.group||'').toLowerCase(); break;
+      case 'created': av=a.created; bv=b.created; break;
+      default: av=a.name.toLowerCase(); bv=b.name.toLowerCase();
+    }
+    if (av < bv) return -1 * sortDir;
+    if (av > bv) return 1 * sortDir;
+    return 0;
+  });
+}
+
+// ── Format ────────────────────────────────────────────────────────────────
+function fmt(secs) {
+  const s = Math.max(0, secs);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sc = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
+}
+
+function fmtDuration(secs) {
+  const h = Math.floor(secs/3600);
+  const m = Math.floor((secs%3600)/60);
+  const s = secs%60;
+  const parts=[];
+  if(h) parts.push(h+'h');
+  if(m) parts.push(m+'m');
+  if(s||!parts.length) parts.push(s+'s');
+  return parts.join(' ');
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function getGroups() {
+  const gs = new Set(timers.map(t => t.group).filter(Boolean));
+  return ['All', ...Array.from(gs).sort()];
+}
+
+function renderGroupBar() {
+  const bar = document.getElementById('group-bar');
+  const groups = getGroups();
+  if (!groups.some(g => g !== 'All') && filterGroup === 'All') {
+    bar.style.display = 'none'; return;
+  }
+  bar.style.display = 'flex';
+  bar.innerHTML = groups.map(g =>
+    `<button class="group-pill${g===filterGroup?' active':''}" onclick="setGroup('${g.replace(/'/g,"\\'")})">${g}</button>`
+  ).join('');
+  // Populate datalist
+  const dl = document.getElementById('group-suggestions');
+  dl.innerHTML = Array.from(new Set(timers.map(t=>t.group).filter(Boolean))).map(g=>`<option value="${g}">`).join('');
+}
+
+function setGroup(g) {
+  filterGroup = g;
+  renderTimers();
+}
+
+function renderStats() {
+  const running = timers.filter(t=>t.status==='running').length;
+  const paused = timers.filter(t=>t.status==='paused').length;
+  const expired = timers.filter(t=>t.status==='expired').length;
+  const stopped = timers.filter(t=>t.status==='stopped').length;
+  document.getElementById('stats-bar').innerHTML = [
+    `<span class="stat"><span class="stat-dot" style="background:var(--accent)"></span>${running} running</span>`,
+    `<span class="stat"><span class="stat-dot" style="background:var(--amber)"></span>${paused} paused</span>`,
+    `<span class="stat"><span class="stat-dot" style="background:var(--text3)"></span>${stopped} stopped</span>`,
+    `<span class="stat"><span class="stat-dot" style="background:var(--red)"></span>${expired} expired</span>`,
+  ].join('');
+}
+
+function renderTimers() {
+  renderGroupBar();
+  renderStats();
+  const search = document.getElementById('search-input').value.toLowerCase();
+  let list = timers.filter(t => {
+    if (filterGroup !== 'All' && t.group !== filterGroup) return false;
+    if (search && !t.name.toLowerCase().includes(search) && !(t.note||'').toLowerCase().includes(search) && !(t.group||'').toLowerCase().includes(search)) return false;
+    return true;
+  });
+  list = sortedTimers(list);
+  document.getElementById('timer-count').textContent = `${list.length} timer${list.length!==1?'s':''}`;
+  const el = document.getElementById('timer-list');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="big">⏱</div><p>${timers.length?'No timers match your filter.':'No timers yet. Click <strong>New Timer</strong> to get started.'}</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(t => {
+    const pct = t.duration > 0 ? Math.round(100*(1 - t.remaining/t.duration)) : 100;
+    const isPaused = t.status==='paused';
+    const isRunning = t.status==='running';
+    const isExpired = t.status==='expired';
+    const isStopped = t.status==='stopped';
+    const playBtn = (isStopped||isPaused||isExpired) ?
+      `<button class="btn btn-sm btn-success" onclick="startTimer('${t.id}')" title="Start">▶</button>` : '';
+    const pauseBtn = isRunning ?
+      `<button class="btn btn-sm" onclick="pauseTimer('${t.id}')" title="Pause" style="color:var(--amber)">⏸</button>` : '';
+    const resetBtn = (!isStopped) ?
+      `<button class="btn btn-sm" onclick="resetTimer('${t.id}')" title="Reset" style="color:var(--text2)">↺</button>` : '';
+    const repeatIcon = t.repeat ? `<span title="Repeating" style="font-size:10px;color:var(--text3)">↺</span>` : '';
+    const soundIcon = t.sound ? `<span title="Alert on" style="font-size:10px;color:var(--text3)">🔔</span>` : '';
+    // Secondary info: elapsed or end time
+    const showEndTime = (cardModes[t.id] === 'endtime');
+    let secondaryText = '';
+    if (t.status === 'running' || t.status === 'paused') {
+      const elapsed = t.duration - t.remaining;
+      if (showEndTime && t.endTime) {
+        const et = new Date(t.endTime);
+        secondaryText = `ends ${et.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+      } else {
+        secondaryText = `elapsed ${fmt(elapsed)}`;
+      }
+    } else if (t.status === 'expired') {
+      secondaryText = showEndTime ? 'ended' : `elapsed ${fmtDuration(t.duration)}`;
+    }
+    const secondaryEl = secondaryText
+      ? `<span class="timer-secondary" onclick="toggleCardMode('${t.id}')" title="Click to switch view">⇄ ${secondaryText}</span>`
+      : '';
+    return `<div class="timer-card ${t.status}" id="tc-${t.id}">
+      <div class="card-left">
+        <div class="card-top">
+          <span class="timer-name" title="${esc(t.name)}">${esc(t.name)}</span>
+          ${t.group?`<span class="timer-group-badge">${esc(t.group)}</span>`:''}
+          ${repeatIcon}${soundIcon}
+        </div>
+        <div class="timer-display">${fmt(t.remaining)}</div>
+        <div class="timer-meta">of ${fmtDuration(t.duration)} · ${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</div>
+        ${secondaryEl}
+        ${t.note?`<div class="timer-note" title="${esc(t.note)}">📝 ${esc(t.note)}</div>`:''}
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="card-right">
+        <div class="card-actions">
+          ${playBtn}${pauseBtn}${resetBtn}
+          <button class="btn btn-sm btn-icon" onclick="openEditModal('${t.id}')" title="Edit">✎</button>
+          <button class="btn btn-sm btn-icon btn-danger" onclick="deleteTimer('${t.id}')" title="Delete">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'New Timer';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-hours').value = '0';
+  document.getElementById('f-mins').value = '5';
+  document.getElementById('f-secs').value = '0';
+  document.getElementById('f-group').value = '';
+  document.getElementById('f-note').value = '';
+  document.getElementById('f-repeat').checked = false;
+  document.getElementById('f-sound').checked = true;
+  document.getElementById('modal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('f-name').focus(),50);
+}
+
+function openEditModal(id) {
+  const t = timers.find(x=>x.id===id);
+  if (!t) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = 'Edit Timer';
+  document.getElementById('f-name').value = t.name;
+  document.getElementById('f-hours').value = Math.floor(t.duration/3600);
+  document.getElementById('f-mins').value = Math.floor((t.duration%3600)/60);
+  document.getElementById('f-secs').value = t.duration%60;
+  document.getElementById('f-group').value = t.group||'';
+  document.getElementById('f-note').value = t.note||'';
+  document.getElementById('f-repeat').checked = !!t.repeat;
+  document.getElementById('f-sound').checked = t.sound!==false;
+  document.getElementById('modal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('f-name').focus(),50);
+}
+
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+function saveTimer() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { document.getElementById('f-name').focus(); return; }
+  const h = parseInt(document.getElementById('f-hours').value)||0;
+  const m = parseInt(document.getElementById('f-mins').value)||0;
+  const s = parseInt(document.getElementById('f-secs').value)||0;
+  const duration = h*3600 + m*60 + s;
+  if (duration <= 0) { toast('Duration must be > 0', 'warning'); return; }
+  const group = document.getElementById('f-group').value.trim();
+  const note = document.getElementById('f-note').value.trim();
+  const repeat = document.getElementById('f-repeat').checked;
+  const sound = document.getElementById('f-sound').checked;
+
+  if (editingId) {
+    const t = timers.find(x=>x.id===editingId);
+    if (t) {
+      const wasRunning = t.status === 'running';
+      t.name = name; t.group = group; t.note = note; t.repeat = repeat; t.sound = sound;
+      if (t.duration !== duration) {
+        t.duration = duration;
+        t.remaining = duration;
+        t.status = 'stopped';
+        t.endTime = null;
+      }
+    }
+  } else {
+    timers.push({
+      id: newId(),
+      name, duration, remaining: duration,
+      group, note, repeat, sound,
+      status: 'stopped',
+      endTime: null,
+      created: Date.now()
+    });
+  }
+  save(); closeModal(); renderTimers();
+  toast(editingId ? `Updated "${name}"` : `Timer "${name}" added`, 'success');
+}
+
+// ── Import / Export ───────────────────────────────────────────────────────
+function exportTimers() {
+  const data = JSON.stringify({
+    schemaVersion: 1,
+    exportedAt: new Date().toISOString(),
+    source: 'clash-timers-nas',
+    timers
+  }, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  a.download = `clash-timers-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  toast('Timers exported', 'success');
+}
+
+function importTimers(evt) {
+  const file = evt.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      const imported = Array.isArray(parsed) ? parsed : parsed.timers;
+      if (!Array.isArray(imported)) throw new Error();
+
+      const validStatuses = new Set(['running','paused','stopped','expired']);
+      const valid = imported.filter(t => t && t.name && Number(t.duration) > 0).map(t => ({...t}));
+      const now = Date.now();
+
+      valid.forEach(t => {
+        if (!t.id) t.id = newId();
+        t.duration = Number(t.duration);
+        t.remaining = Number(t.remaining);
+        if (!Number.isFinite(t.remaining) || t.remaining < 0 || t.remaining > t.duration) t.remaining = t.duration;
+        if (!validStatuses.has(t.status)) t.status = 'stopped';
+        if (t.status === 'running' && !t.endTime) {
+          t.endTime = now + t.remaining * 1000;
+        }
+        if (t.status !== 'running') t.endTime = null;
+        if (!t.created) t.created = now;
+        if (t.sound === undefined) t.sound = true;
+        if (t.group === undefined) t.group = '';
+        if (t.note === undefined) t.note = '';
+      });
+
+      // Merge: skip duplicates by id
+      const existingIds = new Set(timers.map(t=>t.id));
+      const newOnes = valid.filter(t=>!existingIds.has(t.id));
+      timers.push(...newOnes);
+      normalizeTimersAfterLoad();
+      save(); renderTimers();
+      toast(`Imported ${newOnes.length} timer(s)`, 'success');
+    } catch(e) { toast('Invalid file', 'warning'); }
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function toast(msg, type='') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+
+// ── Keyboard ──────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Enter' && document.getElementById('modal').style.display !== 'none') saveTimer();
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') openAddModal();
+});
+
+// ── Sidebar toggle ─────────────────────────────────────────────────────────
+function toggleSidebar() {
+  sidebarVisible = !sidebarVisible;
+  document.querySelector('.main').classList.toggle('sidebar-hidden', !sidebarVisible);
+  document.getElementById('sidebar-toggle-btn').style.color = sidebarVisible ? '' : 'var(--accent)';
+}
+
+// ── Quick add ─────────────────────────────────────────────────────────────
+function quickAdd() {
+  const name = document.getElementById('q-name').value.trim();
+  if (!name) { document.getElementById('q-name').focus(); return; }
+  const h = parseInt(document.getElementById('q-hours').value)||0;
+  const m = parseInt(document.getElementById('q-mins').value)||0;
+  const s = parseInt(document.getElementById('q-secs').value)||0;
+  const duration = h*3600 + m*60 + s;
+  if (duration <= 0) { toast('Set a duration > 0', 'warning'); return; }
+  const id = newId();
+  timers.push({ id, name, duration, remaining: duration, group:'', note:'', repeat:false, sound:true, status:'stopped', endTime:null, created:Date.now() });
+  startTimer(id);
+  document.getElementById('q-name').value = '';
+  document.getElementById('q-hours').value = '0';
+  document.getElementById('q-mins').value = '5';
+  document.getElementById('q-secs').value = '0';
+  document.getElementById('q-name').focus();
+  toast(`▶ "${name}" started`, 'success');
+}
+
+// ── Card secondary mode toggle ─────────────────────────────────────────────
+function toggleCardMode(id) {
+  cardModes[id] = (cardModes[id] === 'endtime') ? 'elapsed' : 'endtime';
+  renderTimers();
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+async function boot() {
+  await load();
+  renderTimers();
+  tickInterval = setInterval(tick, 500);
+}
+
+boot();
+</script>
+</body>
+</html>
