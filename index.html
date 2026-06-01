@@ -358,13 +358,13 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
       <div class="sidebar-section">
         <label>Sort by</label>
         <div style="display:flex;flex-direction:column;gap:4px">
-          <button class="sort-btn active" id="sort-name" onclick="setSort('name')">
+          <button class="sort-btn" id="sort-name" onclick="setSort('name')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg>
-            Name <span class="sort-arrow" id="arr-name">↑</span>
+            Name <span class="sort-arrow" id="arr-name"></span>
           </button>
-          <button class="sort-btn" id="sort-remaining" onclick="setSort('remaining')">
+          <button class="sort-btn active" id="sort-remaining" onclick="setSort('remaining')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Time remaining <span class="sort-arrow" id="arr-remaining"></span>
+            Time remaining <span class="sort-arrow" id="arr-remaining">↑</span>
           </button>
           <button class="sort-btn" id="sort-due" onclick="setSort('due')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="10"/></svg>
@@ -414,7 +414,7 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
       <!-- Sort toolbar label -->
       <div class="toolbar" style="padding:8px 16px">
         <span style="font-size:12px;color:var(--text3)">Sorting by:</span>
-        <span style="font-size:12px;color:var(--accent);margin-left:4px" id="sort-label">Name ↑</span>
+        <span style="font-size:12px;color:var(--accent);margin-left:4px" id="sort-label">Time remaining ↑</span>
         <span class="topbar-spacer"></span>
         <span style="font-size:12px;color:var(--text3)" id="timer-count"></span>
       </div>
@@ -536,7 +536,7 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 <script>
 // ── State ─────────────────────────────────────────────────────────────────
 let timers = [];
-let sortKey = 'name';
+let sortKey = 'remaining';
 let sortDir = 1;
 let filterGroup = 'All';
 let filterDue = 'All';
