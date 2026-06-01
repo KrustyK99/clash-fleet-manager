@@ -136,6 +136,25 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .bulk-add-row{margin-top:10px}
 @media (max-width: 820px){.modal-wide{width:95vw}.bulk-timer-header{display:none}.bulk-timer-row{grid-template-columns:1fr 1fr}.bulk-timer-row .bulk-remove-btn{grid-column:1/-1;width:100%}}
 
+
+/* Paste list import */
+.bulk-paste-panel{
+  border:1px dashed var(--border2);
+  background:rgba(255,255,255,0.025);
+  border-radius:var(--radius-lg);
+  padding:12px;
+  margin:4px 0 16px 0;
+}
+.bulk-paste-title{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:8px}
+.bulk-paste-help{font-size:12px;color:var(--text3);line-height:1.4;margin-bottom:8px}
+.bulk-paste-text{min-height:108px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.45}
+.bulk-paste-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.bulk-paste-status{font-size:12px;color:var(--text3);min-height:16px}
+.bulk-paste-status.ok{color:var(--green)}
+.bulk-paste-status.warning{color:var(--amber)}
+.bulk-paste-status.error{color:var(--red)}
+@media (max-width: 700px){.bulk-paste-actions .btn{flex:1 1 auto;justify-content:center}}
+
 /* Group filter */
 .group-pill{font-size:12px;padding:4px 10px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
 .group-pill:hover{border-color:var(--border2);color:var(--text)}
@@ -508,6 +527,17 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
         <input type="checkbox" id="bulk-sound" checked>
         Play alert sound when expired
       </label>
+    </div>
+
+    <div class="bulk-paste-panel">
+      <div class="bulk-paste-title">Paste timer list</div>
+      <div class="bulk-paste-help">Paste a simple list like <strong>Upgrade name 6d 7h</strong>. Click <strong>Parse List</strong>, verify the rows below, then add the timers.</div>
+      <textarea id="bulk-paste-text" class="bulk-paste-text" placeholder="X-Bow 3h 57m&#10;Gold Storage 6d 7h&#10;X-Bow 6d 18h&#10;Spell Tower 9d 15h&#10;X-Bow 10d 9h" onkeydown="if(event.ctrlKey&amp;&amp;event.key==='Enter')parseBulkTimerText()"></textarea>
+      <div class="bulk-paste-actions">
+        <button class="btn btn-sm" type="button" onclick="parseBulkTimerText()">Parse List</button>
+        <button class="btn btn-sm" type="button" onclick="clearBulkTimerText()">Clear List</button>
+        <span id="bulk-paste-status" class="bulk-paste-status"></span>
+      </div>
     </div>
 
     <div class="bulk-timer-header" aria-hidden="true">
@@ -1362,6 +1392,7 @@ function openBulkModal() {
   defaultTypeEl.innerHTML = upgradeTypeOptionsHtml(quickType ? quickType.value : '');
   document.getElementById('bulk-start').checked = true;
   document.getElementById('bulk-sound').checked = true;
+  clearBulkTimerText(false);
 
   const rows = document.getElementById('bulk-rows');
   rows.innerHTML = '';
@@ -1369,13 +1400,106 @@ function openBulkModal() {
 
   document.getElementById('bulk-modal').style.display = 'flex';
   setTimeout(() => {
+    const pasteText = document.getElementById('bulk-paste-text');
     const firstName = document.querySelector('#bulk-rows .bulk-name');
-    if (firstName) firstName.focus();
+    if (pasteText) pasteText.focus();
+    else if (firstName) firstName.focus();
   }, 50);
 }
 
 function closeBulkModal() {
   document.getElementById('bulk-modal').style.display = 'none';
+}
+
+function setBulkPasteStatus(message='', state='') {
+  const el = document.getElementById('bulk-paste-status');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `bulk-paste-status ${state}`.trim();
+}
+
+function clearBulkTimerText(showStatus=true) {
+  const el = document.getElementById('bulk-paste-text');
+  if (el) el.value = '';
+  setBulkPasteStatus(showStatus ? 'List cleared.' : '', showStatus ? 'ok' : '');
+}
+
+function parseBulkTimerLine(rawLine) {
+  let line = String(rawLine || '').trim();
+  if (!line) return null;
+
+  // Allow copied lists with bullets or numbering, such as "1. X-Bow 3h 57m".
+  line = line.replace(/^[-*•]+\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
+
+  const durationPattern = /(\d+)\s*(days?|d|hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)\b/gi;
+  const matches = [...line.matchAll(durationPattern)];
+  if (!matches.length) return null;
+
+  let days = 0;
+  let hours = 0;
+  let minutes = 0;
+  let seconds = 0;
+
+  matches.forEach(match => {
+    const value = parseInt(match[1], 10) || 0;
+    const unit = match[2].toLowerCase();
+    if (unit.startsWith('d')) days += value;
+    else if (unit.startsWith('h')) hours += value;
+    else if (unit.startsWith('m')) minutes += value;
+    else if (unit.startsWith('s')) seconds += value;
+  });
+
+  const firstDurationAt = matches[0].index ?? line.length;
+  const name = line.slice(0, firstDurationAt).replace(/[\s:|,\-–—]+$/g, '').trim();
+  if (!name) return null;
+
+  // Normalize overflow in case a pasted value says something like 90m.
+  hours += Math.floor(minutes / 60);
+  minutes = minutes % 60;
+  days += Math.floor(hours / 24);
+  hours = hours % 24;
+
+  return { name, days, hours, minutes, seconds };
+}
+
+function parseBulkTimerText() {
+  const source = document.getElementById('bulk-paste-text');
+  if (!source) return;
+
+  const lines = source.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (!lines.length) {
+    setBulkPasteStatus('Paste one timer per line first.', 'warning');
+    source.focus();
+    return;
+  }
+
+  const parsed = [];
+  const skipped = [];
+  lines.forEach((line, idx) => {
+    const item = parseBulkTimerLine(line);
+    if (item) parsed.push(item);
+    else skipped.push(idx + 1);
+  });
+
+  if (!parsed.length) {
+    setBulkPasteStatus('No timers found. Use format: X-Bow 3h 57m', 'error');
+    toast('No timers found in pasted list.', 'warning');
+    source.focus();
+    return;
+  }
+
+  const rows = document.getElementById('bulk-rows');
+  rows.innerHTML = '';
+  parsed.forEach(item => addBulkTimerRow(item));
+
+  const msg = skipped.length
+    ? `Parsed ${parsed.length} timer${parsed.length === 1 ? '' : 's'}; skipped line${skipped.length === 1 ? '' : 's'} ${skipped.join(', ')}.`
+    : `Parsed ${parsed.length} timer${parsed.length === 1 ? '' : 's'}. Verify rows below.`;
+  setBulkPasteStatus(msg, skipped.length ? 'warning' : 'ok');
+  toast(`Parsed ${parsed.length} timer${parsed.length === 1 ? '' : 's'}`, 'success');
+
+  const firstName = document.querySelector('#bulk-rows .bulk-name');
+  if (firstName) firstName.focus();
 }
 
 function addBulkTimerRow(values={}) {
