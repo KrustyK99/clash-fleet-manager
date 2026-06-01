@@ -48,6 +48,8 @@ h1,h2,h3{font-weight:500}
 .content{display:flex;flex-direction:column;overflow:hidden}
 .toolbar{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;background:var(--surface)}
 .timer-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+/* Prevent timer cards from being compressed when many timers are in the scroll list. */
+.timer-list > *{flex-shrink:0}
 
 /* Buttons */
 btn,button{font-family:'DM Sans',sans-serif}
@@ -119,8 +121,20 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .modal h2{font-size:16px;margin-bottom:18px;color:var(--text)}
 .form-row{margin-bottom:14px}
 .form-row label{font-size:12px;color:var(--text2);display:block;margin-bottom:5px}
-.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.modal-wide{width:900px;max-height:90vh;overflow-y:auto}
+.bulk-help{font-size:12px;color:var(--text3);line-height:1.4;margin-top:-6px;margin-bottom:14px}
+.bulk-options{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.bulk-option{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
+.bulk-option input{width:auto;accent-color:var(--accent)}
+.bulk-timer-header,.bulk-timer-row{display:grid;grid-template-columns:125px minmax(150px,1.35fr) 50px 50px 50px 50px minmax(130px,1fr) 32px;gap:6px;align-items:center}
+.bulk-timer-header{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:6px;padding-right:4px}
+.bulk-rows{display:flex;flex-direction:column;gap:6px;max-height:44vh;overflow-y:auto;padding-right:4px}
+.bulk-timer-row input[type=number]{text-align:center;padding:6px 4px}
+.bulk-timer-row input,.bulk-timer-row select{font-size:12px;padding:6px 7px}
+.bulk-add-row{margin-top:10px}
+@media (max-width: 820px){.modal-wide{width:95vw}.bulk-timer-header{display:none}.bulk-timer-row{grid-template-columns:1fr 1fr}.bulk-timer-row .bulk-remove-btn{grid-column:1/-1;width:100%}}
 
 /* Group filter */
 .group-pill{font-size:12px;padding:4px 10px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
@@ -128,13 +142,66 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .group-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .group-list{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px}
 .filter-bar-label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);align-self:center;margin-right:2px}
-.account-summary{display:flex;flex-direction:column;gap:6px}
-.account-summary-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;font-size:12px;color:var(--text2);padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.03)}
-.account-summary-row:last-child{border-bottom:none}
-.account-summary-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
-.account-summary-counts{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);white-space:nowrap}
-.account-summary-counts .ready{color:var(--red)}
-.account-summary-counts .running{color:var(--accent)}
+/* Account summary table */
+.account-summary{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  color:var(--text3);
+}
+.account-summary-table{display:flex;flex-direction:column;gap:0}
+.account-summary-table-header,
+.account-summary-table-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 24px 24px 24px 24px;
+  gap:2px;
+  align-items:center;
+}
+.account-summary-table-header{
+  position:sticky;
+  top:0;
+  z-index:1;
+  background:var(--surface);
+  padding:0 0 5px 0;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--text3);
+}
+.account-summary-table-row{
+  padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+  cursor:pointer;
+}
+.account-summary-table-row:hover{background:rgba(255,255,255,0.025)}
+.account-summary-table-row:last-child{border-bottom:none}
+.account-summary-account{
+  min-width:0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  text-align:left;
+}
+.account-summary-table-row .account-summary-account{
+  font-family:'DM Sans',sans-serif;
+  font-size:12px;
+  font-weight:500;
+  color:var(--text);
+}
+.account-summary-cell{
+  text-align:right;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  line-height:1.2;
+}
+.account-summary-table-header .account-summary-cell{color:var(--text3)}
+.account-summary-cell.running{color:var(--accent)}
+.account-summary-cell.paused{color:var(--amber)}
+.account-summary-cell.stopped{color:var(--text3)}
+.account-summary-cell.expired{color:var(--red)}
+.account-summary-section{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.account-summary-section label{flex:0 0 auto}
+.account-summary-section .account-summary{flex:1;min-height:0;overflow-y:auto;padding-right:4px}
+.sidebar-actions{flex:0 0 auto}
 .due-section{display:flex;align-items:center;gap:8px;margin:8px 0 0 0;padding:6px 2px 2px 2px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid var(--border)}
 .due-section-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3)}
 
@@ -173,7 +240,7 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .quick-add-title{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:8px}
 .quick-add-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
 .quick-add-row input[type=text]{flex:1}
-.quick-add-time{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px}
+.quick-add-time{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:8px}
 .quick-add-time input{text-align:center;padding:5px 4px;font-size:13px}
 .quick-add-time-label{font-size:10px;color:var(--text3);text-align:center;margin-top:2px}
 
@@ -200,6 +267,10 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
       Import
       <input type="file" accept=".json" onchange="importTimers(event)" style="display:none">
     </label>
+    <button class="btn btn-sm" onclick="openBulkModal()" title="Add multiple timers for one account">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Multi Add
+    </button>
     <button class="btn btn-primary" onclick="openAddModal()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       New Timer
@@ -213,7 +284,7 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
       <div class="quick-add">
         <div class="quick-add-title">Quick add</div>
         <div class="quick-add-row">
-          <input type="text" id="q-account" placeholder="Account…" list="account-suggestions" onkeydown="if(event.key==='Enter')quickAdd()">
+          <select id="q-account" title="Account"></select>
         </div>
         <div class="quick-add-row">
           <select id="q-upgrade-type" title="Upgrade type"></select>
@@ -223,7 +294,11 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
         </div>
         <div class="quick-add-time">
           <div>
-            <input type="number" id="q-hours" value="0" min="0" max="999" placeholder="0" onkeydown="if(event.key==='Enter')quickAdd()">
+            <input type="number" id="q-days" value="0" min="0" max="999" placeholder="0" onkeydown="if(event.key==='Enter')quickAdd()">
+            <div class="quick-add-time-label">days</div>
+          </div>
+          <div>
+            <input type="number" id="q-hours" value="0" min="0" max="23" placeholder="0" onkeydown="if(event.key==='Enter')quickAdd()">
             <div class="quick-add-time-label">hrs</div>
           </div>
           <div>
@@ -277,11 +352,11 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
           </button>
         </div>
       </div>
-      <div class="sidebar-section">
+      <div class="sidebar-section account-summary-section">
         <label>Account summary</label>
         <div id="account-summary" class="account-summary"></div>
       </div>
-      <div class="sidebar-section" style="flex:1;overflow-y:auto">
+      <div class="sidebar-section sidebar-actions">
         <label>Actions</label>
         <div style="display:flex;flex-direction:column;gap:6px">
           <button class="btn btn-sm btn-success" onclick="startAll()">▶ Start all stopped</button>
@@ -335,7 +410,11 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
       <label>Duration</label>
       <div class="form-grid">
         <div>
-          <input type="number" id="f-hours" placeholder="0" min="0" max="999" value="0">
+          <input type="number" id="f-days" placeholder="0" min="0" max="999" value="0">
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;text-align:center">days</div>
+        </div>
+        <div>
+          <input type="number" id="f-hours" placeholder="0" min="0" max="23" value="0">
           <div style="font-size:11px;color:var(--text3);margin-top:3px;text-align:center">hours</div>
         </div>
         <div>
@@ -367,6 +446,50 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
     <div class="modal-actions">
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveTimer()">Save Timer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Add Modal -->
+<div class="modal-bg" id="bulk-modal" style="display:none" onclick="if(event.target===this)closeBulkModal()">
+  <div class="modal modal-wide">
+    <h2>Add Multiple Timers</h2>
+    <div class="bulk-help">Choose one account, then enter several upgrade timers at once. Blank rows are ignored. Use <strong>Ctrl+Enter</strong> to save from this window.</div>
+    <div class="form-row">
+      <label>Account *</label>
+      <select id="bulk-account" title="Account"></select>
+    </div>
+    <div class="form-row">
+      <label>Default upgrade type</label>
+      <select id="bulk-default-type"></select>
+    </div>
+    <div class="form-row bulk-options">
+      <label class="bulk-option" for="bulk-start">
+        <input type="checkbox" id="bulk-start" checked>
+        Start timers immediately
+      </label>
+      <label class="bulk-option" for="bulk-sound">
+        <input type="checkbox" id="bulk-sound" checked>
+        Play alert sound when expired
+      </label>
+    </div>
+
+    <div class="bulk-timer-header" aria-hidden="true">
+      <span>Type</span>
+      <span>Upgrade / timer name</span>
+      <span>Days</span>
+      <span>Hrs</span>
+      <span>Min</span>
+      <span>Sec</span>
+      <span>Note</span>
+      <span></span>
+    </div>
+    <div id="bulk-rows" class="bulk-rows"></div>
+    <button class="btn btn-sm bulk-add-row" onclick="addBulkTimerRow()">+ Add row</button>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeBulkModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveBulkTimers()">Add Timers</button>
     </div>
   </div>
 </div>
@@ -414,6 +537,34 @@ const NOTE_TEMPLATES = [
   'No action needed yet'
 ];
 
+function upgradeTypeOptionsHtml(selected='') {
+  return UPGRADE_TYPES.map(v => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${v || '— Select type —'}</option>`).join('');
+}
+
+// Default account list for quick entry.
+// Edit these labels later if you want names like A01 Main, A02 Rush, etc.
+const ACCOUNT_PRESETS = [
+  'Bart',
+  'bro',
+  'bruh',
+  'Boob',
+  'Dark Lord',
+  'Dark Warrior',
+  'Felicity',
+  'Heisenberg',
+  'Isabella',
+  'Jesse Pinkman',
+  'KrustyK',
+  'Lady Scarlett',
+  'Lord J',
+  'Nigou',
+  'RDP Account',
+  'Saitama',
+  'Terry',
+  'Tortuga',
+  'Zylink'
+];
+
 function newId() {
   // crypto.randomUUID() is only available in secure contexts in some browsers.
   // This fallback keeps the app working over plain HTTP on an internal LAN.
@@ -439,7 +590,7 @@ function dueWindow(t) {
 }
 
 function populateStaticSelects() {
-  const typeOptions = UPGRADE_TYPES.map(v => `<option value="${esc(v)}">${v || '— Select type —'}</option>`).join('');
+  const typeOptions = upgradeTypeOptionsHtml();
   ['f-upgrade-type','q-upgrade-type'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = typeOptions;
@@ -448,6 +599,48 @@ function populateStaticSelects() {
   const noteOptions = NOTE_TEMPLATES.map(v => `<option value="${esc(v)}">${v || '— Choose a quick note —'}</option>`).join('');
   const noteEl = document.getElementById('f-note-template');
   if (noteEl) noteEl.innerHTML = noteOptions;
+
+  populateAccountControls();
+}
+
+function getKnownAccounts() {
+  const accounts = new Set(ACCOUNT_PRESETS);
+  timers.forEach(t => {
+    const account = getAccount(t);
+    if (account) accounts.add(account);
+  });
+  return Array.from(accounts).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+function populateAccountControls() {
+  const accounts = getKnownAccounts();
+
+  function fillAccountSelect(selectEl, placeholderText) {
+    if (!selectEl || selectEl.tagName !== 'SELECT') return;
+    const current = selectEl.value;
+    selectEl.innerHTML = `<option value="">${placeholderText}</option>` + accounts.map(account =>
+      `<option value="${esc(account)}"${account === current ? ' selected' : ''}>${esc(account)}</option>`
+    ).join('');
+
+    // Preserve any current custom account value even if it is not in the preset list yet.
+    if (current && !accounts.includes(current)) {
+      const opt = document.createElement('option');
+      opt.value = current;
+      opt.textContent = current;
+      opt.selected = true;
+      selectEl.appendChild(opt);
+    }
+  }
+
+  // Real selects are more reliable than datalist pulldowns over local/internal web hosting.
+  fillAccountSelect(document.getElementById('q-account'), '— Select account —');
+  fillAccountSelect(document.getElementById('bulk-account'), '— Select account —');
+
+  // The single-timer modal still uses free text plus autocomplete so you can create custom account names.
+  const dl = document.getElementById('account-suggestions');
+  if (dl) {
+    dl.innerHTML = accounts.map(account => `<option value="${esc(account)}">`).join('');
+  }
 }
 
 function applyNoteTemplate() {
@@ -749,19 +942,26 @@ function sortedTimers(list) {
 
 // ── Format ────────────────────────────────────────────────────────────────
 function fmt(secs) {
-  const s = Math.max(0, secs);
-  const h = Math.floor(s/3600);
-  const m = Math.floor((s%3600)/60);
-  const sc = s % 60;
+  const total = Math.max(0, Math.floor(Number(secs) || 0));
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sc = total % 60;
+
+  // Keep short timers compact, but show days once the timer is 24h+.
+  if (d > 0) return `${d}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
   if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
   return `${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
 }
 
 function fmtDuration(secs) {
-  const h = Math.floor(secs/3600);
-  const m = Math.floor((secs%3600)/60);
-  const s = secs%60;
+  const total = Math.max(0, Math.floor(Number(secs) || 0));
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
   const parts=[];
+  if(d) parts.push(d+'d');
   if(h) parts.push(h+'h');
   if(m) parts.push(m+'m');
   if(s||!parts.length) parts.push(s+'s');
@@ -786,16 +986,27 @@ function renderGroupBar() {
     )).join('');
   }
 
-  const dl = document.getElementById('account-suggestions');
-  if (dl) {
-    dl.innerHTML = Array.from(new Set(timers.map(t=>getAccount(t)).filter(Boolean))).sort().map(g=>`<option value="${esc(g)}">`).join('');
-  }
+  populateAccountControls();
+}
+
+function timerMatchesAccountAndSearch(t) {
+  const searchEl = document.getElementById('search-input');
+  const search = searchEl ? searchEl.value.toLowerCase() : '';
+
+  if (filterGroup !== 'All' && getAccount(t) !== filterGroup) return false;
+  if (search && !t.name.toLowerCase().includes(search) && !(t.note||'').toLowerCase().includes(search) && !getAccount(t).toLowerCase().includes(search) && !getUpgradeType(t).toLowerCase().includes(search)) return false;
+  return true;
 }
 
 function renderDueBar() {
   const bar = document.getElementById('due-bar');
-  const counts = {All: timers.length, Ready:0, Soon:0, Today:0, Later:0};
-  timers.forEach(t => counts[dueWindow(t).key]++);
+
+  // Due pill counts should reflect the currently selected account/search context,
+  // but should not be reduced by the currently selected due pill.
+  const countBase = timers.filter(timerMatchesAccountAndSearch);
+  const counts = {All: countBase.length, Ready:0, Soon:0, Today:0, Later:0};
+  countBase.forEach(t => counts[dueWindow(t).key]++);
+
   const windows = [
     ['All', 'All'],
     ['Ready', 'Ready now'],
@@ -826,23 +1037,41 @@ function renderAccountSummary() {
   const accounts = new Map();
   timers.forEach(t => {
     const account = getAccount(t) || 'Unassigned';
-    if (!accounts.has(account)) accounts.set(account, {running:0, ready:0, total:0});
+    if (!accounts.has(account)) accounts.set(account, {running:0, paused:0, stopped:0, expired:0});
     const row = accounts.get(account);
-    row.total++;
     if (t.status === 'running') row.running++;
-    if (dueWindow(t).key === 'Ready') row.ready++;
+    else if (t.status === 'paused') row.paused++;
+    else if (t.status === 'stopped') row.stopped++;
+    else if (t.status === 'expired') row.expired++;
   });
   const rows = Array.from(accounts.entries()).sort((a,b)=>a[0].localeCompare(b[0]));
   if (!rows.length) {
     el.innerHTML = '<span style="font-size:12px;color:var(--text3)">No accounts yet.</span>';
     return;
   }
-  el.innerHTML = rows.map(([account, c]) => `
-    <div class="account-summary-row" onclick="setGroup('${account.replace(/'/g,"\\'")}')" title="Filter to ${esc(account)}" style="cursor:pointer">
-      <span class="account-summary-name">${esc(account)}</span>
-      <span class="account-summary-counts"><span class="running">${c.running}</span> run · <span class="ready">${c.ready}</span> ready · ${c.total}</span>
+  el.innerHTML = `
+    <div class="account-summary-table" aria-label="Account summary by status">
+      <div class="account-summary-table-header">
+        <span class="account-summary-account">Acct</span>
+        <span class="account-summary-cell" title="Running">R</span>
+        <span class="account-summary-cell" title="Paused">P</span>
+        <span class="account-summary-cell" title="Stopped">S</span>
+        <span class="account-summary-cell" title="Expired">E</span>
+      </div>
+      ${rows.map(([account, c]) => `
+        <div class="account-summary-table-row"
+             onclick="setGroup('${account.replace(/'/g,"\\'") }')"
+             title="Filter to ${esc(account)}"
+             aria-label="${esc(account)}: ${c.running} running, ${c.paused} paused, ${c.stopped} stopped, ${c.expired} expired">
+          <span class="account-summary-account">${esc(account)}</span>
+          <span class="account-summary-cell running">${c.running}</span>
+          <span class="account-summary-cell paused">${c.paused}</span>
+          <span class="account-summary-cell stopped">${c.stopped}</span>
+          <span class="account-summary-cell expired">${c.expired}</span>
+        </div>
+      `).join('')}
     </div>
-  `).join('');
+  `;
 }
 
 function renderStats() {
@@ -865,9 +1094,8 @@ function renderTimers() {
   renderStats();
   const search = document.getElementById('search-input').value.toLowerCase();
   let list = timers.filter(t => {
-    if (filterGroup !== 'All' && getAccount(t) !== filterGroup) return false;
+    if (!timerMatchesAccountAndSearch(t)) return false;
     if (filterDue !== 'All' && dueWindow(t).key !== filterDue) return false;
-    if (search && !t.name.toLowerCase().includes(search) && !(t.note||'').toLowerCase().includes(search) && !getAccount(t).toLowerCase().includes(search) && !getUpgradeType(t).toLowerCase().includes(search)) return false;
     return true;
   });
   list = sortedTimers(list);
@@ -961,6 +1189,7 @@ function openAddModal() {
   document.getElementById('f-account').value = '';
   document.getElementById('f-upgrade-type').value = '';
   document.getElementById('f-name').value = '';
+  document.getElementById('f-days').value = '0';
   document.getElementById('f-hours').value = '0';
   document.getElementById('f-mins').value = '5';
   document.getElementById('f-secs').value = '0';
@@ -980,7 +1209,8 @@ function openEditModal(id) {
   document.getElementById('f-account').value = getAccount(t);
   document.getElementById('f-upgrade-type').value = getUpgradeType(t);
   document.getElementById('f-name').value = t.name;
-  document.getElementById('f-hours').value = Math.floor(t.duration/3600);
+  document.getElementById('f-days').value = Math.floor(t.duration/86400);
+  document.getElementById('f-hours').value = Math.floor((t.duration%86400)/3600);
   document.getElementById('f-mins').value = Math.floor((t.duration%3600)/60);
   document.getElementById('f-secs').value = t.duration%60;
   document.getElementById('f-note-template').value = '';
@@ -998,10 +1228,11 @@ function closeModal() {
 function saveTimer() {
   const name = document.getElementById('f-name').value.trim();
   if (!name) { document.getElementById('f-name').focus(); return; }
+  const d = parseInt(document.getElementById('f-days').value)||0;
   const h = parseInt(document.getElementById('f-hours').value)||0;
   const m = parseInt(document.getElementById('f-mins').value)||0;
   const s = parseInt(document.getElementById('f-secs').value)||0;
-  const duration = h*3600 + m*60 + s;
+  const duration = d*86400 + h*3600 + m*60 + s;
   if (duration <= 0) { toast('Duration must be > 0', 'warning'); return; }
   const account = document.getElementById('f-account').value.trim();
   const upgradeType = document.getElementById('f-upgrade-type').value.trim();
@@ -1033,6 +1264,146 @@ function saveTimer() {
   }
   save(); closeModal(); renderTimers();
   toast(editingId ? `Updated "${name}"` : `Timer "${name}" added`, 'success');
+}
+
+// ── Bulk Add Modal ─────────────────────────────────────────────────────────
+function openBulkModal() {
+  populateAccountControls();
+  const accountEl = document.getElementById('bulk-account');
+  const defaultTypeEl = document.getElementById('bulk-default-type');
+  const quickAccount = document.getElementById('q-account');
+  const quickType = document.getElementById('q-upgrade-type');
+
+  accountEl.value = filterGroup !== 'All' ? filterGroup : (quickAccount ? quickAccount.value : '');
+  defaultTypeEl.innerHTML = upgradeTypeOptionsHtml(quickType ? quickType.value : '');
+  document.getElementById('bulk-start').checked = true;
+  document.getElementById('bulk-sound').checked = true;
+
+  const rows = document.getElementById('bulk-rows');
+  rows.innerHTML = '';
+  for (let i = 0; i < 5; i++) addBulkTimerRow();
+
+  document.getElementById('bulk-modal').style.display = 'flex';
+  setTimeout(() => {
+    const firstName = document.querySelector('#bulk-rows .bulk-name');
+    if (firstName) firstName.focus();
+  }, 50);
+}
+
+function closeBulkModal() {
+  document.getElementById('bulk-modal').style.display = 'none';
+}
+
+function addBulkTimerRow(values={}) {
+  const rows = document.getElementById('bulk-rows');
+  const defaultType = document.getElementById('bulk-default-type')?.value || '';
+  const selectedType = values.upgradeType ?? defaultType;
+  const row = document.createElement('div');
+  row.className = 'bulk-timer-row';
+  row.innerHTML = `
+    <select class="bulk-type" title="Upgrade type">${upgradeTypeOptionsHtml(selectedType)}</select>
+    <input type="text" class="bulk-name" placeholder="Upgrade name…" value="${esc(values.name || '')}">
+    <input type="number" class="bulk-days" min="0" max="999" value="${Number(values.days) || 0}" placeholder="0" title="Days">
+    <input type="number" class="bulk-hours" min="0" max="23" value="${Number(values.hours) || 0}" placeholder="0" title="Hours">
+    <input type="number" class="bulk-mins" min="0" max="59" value="${values.minutes ?? 0}" placeholder="0" title="Minutes">
+    <input type="number" class="bulk-secs" min="0" max="59" value="${values.seconds ?? 0}" placeholder="0" title="Seconds">
+    <input type="text" class="bulk-note" placeholder="Optional note…" value="${esc(values.note || '')}">
+    <button class="btn btn-sm btn-icon btn-danger bulk-remove-btn" onclick="removeBulkTimerRow(this)" title="Remove row">✕</button>
+  `;
+  rows.appendChild(row);
+}
+
+function removeBulkTimerRow(btn) {
+  const rows = document.querySelectorAll('#bulk-rows .bulk-timer-row');
+  const row = btn.closest('.bulk-timer-row');
+  if (!row) return;
+
+  // Keep at least one row available so the modal never becomes empty.
+  if (rows.length <= 1) {
+    row.querySelector('.bulk-type').value = document.getElementById('bulk-default-type')?.value || '';
+    row.querySelector('.bulk-name').value = '';
+    row.querySelector('.bulk-days').value = '0';
+    row.querySelector('.bulk-hours').value = '0';
+    row.querySelector('.bulk-mins').value = '0';
+    row.querySelector('.bulk-secs').value = '0';
+    row.querySelector('.bulk-note').value = '';
+    row.querySelector('.bulk-name').focus();
+    return;
+  }
+
+  row.remove();
+}
+
+function saveBulkTimers() {
+  const account = document.getElementById('bulk-account').value.trim();
+  if (!account) {
+    toast('Choose an account first.', 'warning');
+    document.getElementById('bulk-account').focus();
+    return;
+  }
+
+  const defaultType = document.getElementById('bulk-default-type').value.trim();
+  const shouldStart = document.getElementById('bulk-start').checked;
+  const sound = document.getElementById('bulk-sound').checked;
+  const now = Date.now();
+  const newTimers = [];
+
+  for (const row of document.querySelectorAll('#bulk-rows .bulk-timer-row')) {
+    const nameEl = row.querySelector('.bulk-name');
+    const name = nameEl.value.trim();
+    const upgradeType = row.querySelector('.bulk-type').value.trim() || defaultType;
+    const note = row.querySelector('.bulk-note').value.trim();
+    const d = parseInt(row.querySelector('.bulk-days').value) || 0;
+    const h = parseInt(row.querySelector('.bulk-hours').value) || 0;
+    const m = parseInt(row.querySelector('.bulk-mins').value) || 0;
+    const s = parseInt(row.querySelector('.bulk-secs').value) || 0;
+    const duration = d*86400 + h*3600 + m*60 + s;
+    const rowHasAnything = name || upgradeType || note || d || h || m || s;
+
+    if (!rowHasAnything) continue;
+
+    if (!name) {
+      toast('Each non-blank row needs an upgrade name.', 'warning');
+      nameEl.focus();
+      return;
+    }
+
+    if (duration <= 0) {
+      toast(`Set a duration > 0 for "${name}".`, 'warning');
+      row.querySelector('.bulk-days').focus();
+      return;
+    }
+
+    newTimers.push({
+      id: newId(),
+      name,
+      duration,
+      remaining: duration,
+      account,
+      group: account,
+      upgradeType,
+      note,
+      repeat: false,
+      sound,
+      status: shouldStart ? 'running' : 'stopped',
+      endTime: shouldStart ? now + duration * 1000 : null,
+      created: now
+    });
+  }
+
+  if (!newTimers.length) {
+    toast('Enter at least one timer row.', 'warning');
+    const firstName = document.querySelector('#bulk-rows .bulk-name');
+    if (firstName) firstName.focus();
+    return;
+  }
+
+  timers.push(...newTimers);
+  filterGroup = account;
+  save();
+  closeBulkModal();
+  renderTimers();
+  toast(`${newTimers.length} timer${newTimers.length === 1 ? '' : 's'} added for ${account}`, 'success');
 }
 
 // ── Import / Export ───────────────────────────────────────────────────────
@@ -1107,9 +1478,17 @@ function toast(msg, type='') {
 
 // ── Keyboard ──────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
-  if (e.key === 'Enter' && document.getElementById('modal').style.display !== 'none') saveTimer();
-  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') openAddModal();
+  const regularModalOpen = document.getElementById('modal').style.display !== 'none';
+  const bulkModalOpen = document.getElementById('bulk-modal').style.display !== 'none';
+
+  if (e.key === 'Escape') {
+    if (bulkModalOpen) closeBulkModal();
+    else closeModal();
+  }
+
+  if (e.key === 'Enter' && regularModalOpen) saveTimer();
+  if (e.key === 'Enter' && bulkModalOpen && (e.ctrlKey || e.metaKey)) saveBulkTimers();
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !bulkModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') openAddModal();
 });
 
 // ── Sidebar toggle ─────────────────────────────────────────────────────────
@@ -1125,15 +1504,17 @@ function quickAdd() {
   const upgradeType = document.getElementById('q-upgrade-type').value.trim();
   const name = document.getElementById('q-name').value.trim();
   if (!name) { document.getElementById('q-name').focus(); return; }
+  const d = parseInt(document.getElementById('q-days').value)||0;
   const h = parseInt(document.getElementById('q-hours').value)||0;
   const m = parseInt(document.getElementById('q-mins').value)||0;
   const s = parseInt(document.getElementById('q-secs').value)||0;
-  const duration = h*3600 + m*60 + s;
+  const duration = d*86400 + h*3600 + m*60 + s;
   if (duration <= 0) { toast('Set a duration > 0', 'warning'); return; }
   const id = newId();
   timers.push({ id, name, duration, remaining: duration, account, group: account, upgradeType, note:'', repeat:false, sound:true, status:'stopped', endTime:null, created:Date.now() });
   startTimer(id);
   document.getElementById('q-name').value = '';
+  document.getElementById('q-days').value = '0';
   document.getElementById('q-hours').value = '0';
   document.getElementById('q-mins').value = '5';
   document.getElementById('q-secs').value = '0';
