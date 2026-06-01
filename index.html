@@ -90,6 +90,11 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .card-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .timer-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .timer-group-badge{font-size:10px;padding:2px 7px;border-radius:100px;background:var(--surface3);color:var(--text2);border:1px solid var(--border);white-space:nowrap}
+.timer-type-badge{font-size:10px;padding:2px 7px;border-radius:100px;background:var(--accent-glow);color:var(--accent);border:1px solid rgba(108,108,255,0.35);white-space:nowrap}
+.timer-due-badge{font-size:10px;padding:2px 7px;border-radius:100px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);white-space:nowrap}
+.timer-due-badge.ready{background:var(--red-bg);color:var(--red);border-color:rgba(255,92,92,0.35)}
+.timer-due-badge.soon{background:var(--amber-bg);color:var(--amber);border-color:rgba(245,166,35,0.35)}
+.timer-due-badge.today{background:var(--green-bg);color:var(--green);border-color:rgba(61,214,140,0.35)}
 .timer-display{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;line-height:1;color:var(--text)}
 .timer-card.running .timer-display{color:var(--accent)}
 .timer-card.expired .timer-display{color:var(--red)}
@@ -122,6 +127,16 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .group-pill:hover{border-color:var(--border2);color:var(--text)}
 .group-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .group-list{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px}
+.filter-bar-label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);align-self:center;margin-right:2px}
+.account-summary{display:flex;flex-direction:column;gap:6px}
+.account-summary-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;font-size:12px;color:var(--text2);padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.03)}
+.account-summary-row:last-child{border-bottom:none}
+.account-summary-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.account-summary-counts{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);white-space:nowrap}
+.account-summary-counts .ready{color:var(--red)}
+.account-summary-counts .running{color:var(--accent)}
+.due-section{display:flex;align-items:center;gap:8px;margin:8px 0 0 0;padding:6px 2px 2px 2px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid var(--border)}
+.due-section-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3)}
 
 /* Empty state */
 .empty{text-align:center;padding:60px 20px;color:var(--text3)}
@@ -198,7 +213,13 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
       <div class="quick-add">
         <div class="quick-add-title">Quick add</div>
         <div class="quick-add-row">
-          <input type="text" id="q-name" placeholder="Timer name…" onkeydown="if(event.key==='Enter')quickAdd()">
+          <input type="text" id="q-account" placeholder="Account…" list="account-suggestions" onkeydown="if(event.key==='Enter')quickAdd()">
+        </div>
+        <div class="quick-add-row">
+          <select id="q-upgrade-type" title="Upgrade type"></select>
+        </div>
+        <div class="quick-add-row">
+          <input type="text" id="q-name" placeholder="Upgrade name…" onkeydown="if(event.key==='Enter')quickAdd()">
         </div>
         <div class="quick-add-time">
           <div>
@@ -221,7 +242,7 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
       </div>
       <div class="sidebar-section">
         <label>Search</label>
-        <input type="text" id="search-input" placeholder="Search timers…" oninput="renderTimers()">
+        <input type="text" id="search-input" placeholder="Search account, type, upgrade…" oninput="renderTimers()">
       </div>
       <div class="sidebar-section">
         <label>Sort by</label>
@@ -234,6 +255,10 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             Time remaining <span class="sort-arrow" id="arr-remaining"></span>
           </button>
+          <button class="sort-btn" id="sort-due" onclick="setSort('due')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="10"/></svg>
+            Due window <span class="sort-arrow" id="arr-due"></span>
+          </button>
           <button class="sort-btn" id="sort-duration" onclick="setSort('duration')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
             Duration <span class="sort-arrow" id="arr-duration"></span>
@@ -244,13 +269,17 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
           </button>
           <button class="sort-btn" id="sort-group" onclick="setSort('group')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-            Group <span class="sort-arrow" id="arr-group"></span>
+            Account <span class="sort-arrow" id="arr-group"></span>
           </button>
           <button class="sort-btn" id="sort-created" onclick="setSort('created')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
             Date added <span class="sort-arrow" id="arr-created"></span>
           </button>
         </div>
+      </div>
+      <div class="sidebar-section">
+        <label>Account summary</label>
+        <div id="account-summary" class="account-summary"></div>
       </div>
       <div class="sidebar-section" style="flex:1;overflow-y:auto">
         <label>Actions</label>
@@ -264,8 +293,9 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 
     <!-- Main content -->
     <div class="content">
-      <!-- Group filter pills -->
+      <!-- Account filter pills -->
       <div id="group-bar" class="group-list"></div>
+      <div id="due-bar" class="group-list"></div>
 
       <!-- Stats -->
       <div class="stats-bar" id="stats-bar"></div>
@@ -289,8 +319,17 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
   <div class="modal">
     <h2 id="modal-title">New Timer</h2>
     <div class="form-row">
-      <label>Timer name *</label>
-      <input type="text" id="f-name" placeholder="e.g. Coffee brew, Daily standup…">
+      <label>Account</label>
+      <input type="text" id="f-account" placeholder="e.g. A01 Main, A12 Mini…" list="account-suggestions">
+      <datalist id="account-suggestions"></datalist>
+    </div>
+    <div class="form-row">
+      <label>Upgrade type</label>
+      <select id="f-upgrade-type"></select>
+    </div>
+    <div class="form-row">
+      <label>Upgrade / timer name *</label>
+      <input type="text" id="f-name" placeholder="e.g. Archer Queen, Lab, Cannon L13…">
     </div>
     <div class="form-row">
       <label>Duration</label>
@@ -310,13 +349,12 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
       </div>
     </div>
     <div class="form-row">
-      <label>Group / category</label>
-      <input type="text" id="f-group" placeholder="e.g. Work, Kitchen, Exercise…" list="group-suggestions">
-      <datalist id="group-suggestions"></datalist>
+      <label>Quick next-action note</label>
+      <select id="f-note-template" onchange="applyNoteTemplate()"></select>
     </div>
     <div class="form-row">
-      <label>Note / label</label>
-      <textarea id="f-note" placeholder="Optional note…"></textarea>
+      <label>Note / next action</label>
+      <textarea id="f-note" placeholder="Optional next action, e.g. Start next cheap defense upgrade…"></textarea>
     </div>
     <div class="form-row" style="display:flex;align-items:center;gap:10px">
       <input type="checkbox" id="f-repeat" style="width:auto;accent-color:var(--accent)">
@@ -342,6 +380,7 @@ let timers = [];
 let sortKey = 'name';
 let sortDir = 1;
 let filterGroup = 'All';
+let filterDue = 'All';
 let editingId = null;
 let tickInterval = null;
 let sidebarVisible = true;
@@ -354,6 +393,27 @@ const STORAGE_KEY = 'timerdesk_v2';
 const API_URL = 'api.php';
 const EMERGENCY_BACKUP_KEY = STORAGE_KEY + '_emergency_backup';
 
+const UPGRADE_TYPES = [
+  '',
+  'Builder',
+  'Lab',
+  'Hero',
+  'Pet',
+  'Equipment',
+  'Capital / Other'
+];
+
+const NOTE_TEMPLATES = [
+  '',
+  'Start next builder upgrade',
+  'Check lab',
+  'Collect resources first',
+  'Wait for builder potion',
+  'Use book/hammer?',
+  'Coordinate with family member',
+  'No action needed yet'
+];
+
 function newId() {
   // crypto.randomUUID() is only available in secure contexts in some browsers.
   // This fallback keeps the app working over plain HTTP on an internal LAN.
@@ -361,6 +421,42 @@ function newId() {
     return window.crypto.randomUUID();
   }
   return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+function getAccount(t) {
+  return String(t.account || t.group || '').trim();
+}
+
+function getUpgradeType(t) {
+  return String(t.upgradeType || '').trim();
+}
+
+function dueWindow(t) {
+  if (t.status === 'expired' || Number(t.remaining) <= 0) return { key:'Ready', label:'Ready now', cls:'ready', order:0 };
+  if (Number(t.remaining) <= 3600) return { key:'Soon', label:'Soon', cls:'soon', order:1 };
+  if (Number(t.remaining) <= 86400) return { key:'Today', label:'Today', cls:'today', order:2 };
+  return { key:'Later', label:'Later', cls:'later', order:3 };
+}
+
+function populateStaticSelects() {
+  const typeOptions = UPGRADE_TYPES.map(v => `<option value="${esc(v)}">${v || '— Select type —'}</option>`).join('');
+  ['f-upgrade-type','q-upgrade-type'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = typeOptions;
+  });
+
+  const noteOptions = NOTE_TEMPLATES.map(v => `<option value="${esc(v)}">${v || '— Choose a quick note —'}</option>`).join('');
+  const noteEl = document.getElementById('f-note-template');
+  if (noteEl) noteEl.innerHTML = noteOptions;
+}
+
+function applyNoteTemplate() {
+  const tpl = document.getElementById('f-note-template').value;
+  if (!tpl) return;
+  const note = document.getElementById('f-note');
+  note.value = note.value ? `${note.value} ${tpl}` : tpl;
+  document.getElementById('f-note-template').value = '';
+  note.focus();
 }
 // ── Persistence ──────────────────────────────────────────────────────────
 function setSyncStatus(text, state='') {
@@ -383,7 +479,11 @@ function normalizeTimersAfterLoad() {
     if (!['running','paused','stopped','expired'].includes(t.status)) t.status = 'stopped';
     if (!t.created) t.created = now;
     if (t.sound === undefined) t.sound = true;
+    if (t.account === undefined && t.group !== undefined) t.account = t.group;
+    if (t.group === undefined && t.account !== undefined) t.group = t.account;
+    if (t.account === undefined) t.account = '';
     if (t.group === undefined) t.group = '';
+    if (t.upgradeType === undefined) t.upgradeType = '';
     if (t.note === undefined) t.note = '';
 
     // Recalculate remaining for running timers based on stored endTime.
@@ -618,11 +718,12 @@ function setSort(key) {
   else { sortKey = key; sortDir = 1; }
   document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('sort-'+key).classList.add('active');
-  ['name','remaining','duration','status','group','created'].forEach(k => {
+  ['name','remaining','due','duration','status','group','created'].forEach(k => {
     const el = document.getElementById('arr-'+k);
     el.textContent = k === sortKey ? (sortDir === 1 ? '↑' : '↓') : '';
   });
-  document.getElementById('sort-label').textContent = key.charAt(0).toUpperCase()+key.slice(1).replace('remaining','remaining').replace('created','Date added') + (sortDir===1?' ↑':' ↓');
+  const labels = {name:'Name', remaining:'Time remaining', due:'Due window', duration:'Duration', status:'Status', group:'Account', created:'Date added'};
+  document.getElementById('sort-label').textContent = (labels[key] || key) + (sortDir===1?' ↑':' ↓');
   renderTimers();
 }
 
@@ -633,9 +734,10 @@ function sortedTimers(list) {
     switch(sortKey) {
       case 'name': av=a.name.toLowerCase(); bv=b.name.toLowerCase(); break;
       case 'remaining': av=a.remaining; bv=b.remaining; break;
+      case 'due': av=dueWindow(a).order; bv=dueWindow(b).order; break;
       case 'duration': av=a.duration; bv=b.duration; break;
       case 'status': av=statusOrder[a.status]??9; bv=statusOrder[b.status]??9; break;
-      case 'group': av=(a.group||'').toLowerCase(); bv=(b.group||'').toLowerCase(); break;
+      case 'group': av=getAccount(a).toLowerCase(); bv=getAccount(b).toLowerCase(); break;
       case 'created': av=a.created; bv=b.created; break;
       default: av=a.name.toLowerCase(); bv=b.name.toLowerCase();
     }
@@ -668,7 +770,7 @@ function fmtDuration(secs) {
 
 // ── Render ────────────────────────────────────────────────────────────────
 function getGroups() {
-  const gs = new Set(timers.map(t => t.group).filter(Boolean));
+  const gs = new Set(timers.map(t => getAccount(t)).filter(Boolean));
   return ['All', ...Array.from(gs).sort()];
 }
 
@@ -676,20 +778,71 @@ function renderGroupBar() {
   const bar = document.getElementById('group-bar');
   const groups = getGroups();
   if (!groups.some(g => g !== 'All') && filterGroup === 'All') {
-    bar.style.display = 'none'; return;
+    bar.style.display = 'none';
+  } else {
+    bar.style.display = 'flex';
+    bar.innerHTML = [`<span class="filter-bar-label">Account</span>`].concat(groups.map(g =>
+      `<button class="group-pill${g===filterGroup?' active':''}" onclick="setGroup('${g.replace(/'/g,"\\'")}')">${esc(g)}</button>`
+    )).join('');
   }
+
+  const dl = document.getElementById('account-suggestions');
+  if (dl) {
+    dl.innerHTML = Array.from(new Set(timers.map(t=>getAccount(t)).filter(Boolean))).sort().map(g=>`<option value="${esc(g)}">`).join('');
+  }
+}
+
+function renderDueBar() {
+  const bar = document.getElementById('due-bar');
+  const counts = {All: timers.length, Ready:0, Soon:0, Today:0, Later:0};
+  timers.forEach(t => counts[dueWindow(t).key]++);
+  const windows = [
+    ['All', 'All'],
+    ['Ready', 'Ready now'],
+    ['Soon', 'Soon'],
+    ['Today', 'Today'],
+    ['Later', 'Later']
+  ];
+  if (!timers.length) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
-  bar.innerHTML = groups.map(g =>
-    `<button class="group-pill${g===filterGroup?' active':''}" onclick="setGroup('${g.replace(/'/g,"\\'")})">${g}</button>`
-  ).join('');
-  // Populate datalist
-  const dl = document.getElementById('group-suggestions');
-  dl.innerHTML = Array.from(new Set(timers.map(t=>t.group).filter(Boolean))).map(g=>`<option value="${g}">`).join('');
+  bar.innerHTML = [`<span class="filter-bar-label">Due</span>`].concat(windows.map(([key,label]) =>
+    `<button class="group-pill${key===filterDue?' active':''}" onclick="setDueFilter('${key}')">${label} (${counts[key] || 0})</button>`
+  )).join('');
 }
 
 function setGroup(g) {
   filterGroup = g;
   renderTimers();
+}
+
+function setDueFilter(g) {
+  filterDue = g;
+  renderTimers();
+}
+
+function renderAccountSummary() {
+  const el = document.getElementById('account-summary');
+  if (!el) return;
+  const accounts = new Map();
+  timers.forEach(t => {
+    const account = getAccount(t) || 'Unassigned';
+    if (!accounts.has(account)) accounts.set(account, {running:0, ready:0, total:0});
+    const row = accounts.get(account);
+    row.total++;
+    if (t.status === 'running') row.running++;
+    if (dueWindow(t).key === 'Ready') row.ready++;
+  });
+  const rows = Array.from(accounts.entries()).sort((a,b)=>a[0].localeCompare(b[0]));
+  if (!rows.length) {
+    el.innerHTML = '<span style="font-size:12px;color:var(--text3)">No accounts yet.</span>';
+    return;
+  }
+  el.innerHTML = rows.map(([account, c]) => `
+    <div class="account-summary-row" onclick="setGroup('${account.replace(/'/g,"\\'")}')" title="Filter to ${esc(account)}" style="cursor:pointer">
+      <span class="account-summary-name">${esc(account)}</span>
+      <span class="account-summary-counts"><span class="running">${c.running}</span> run · <span class="ready">${c.ready}</span> ready · ${c.total}</span>
+    </div>
+  `).join('');
 }
 
 function renderStats() {
@@ -707,11 +860,14 @@ function renderStats() {
 
 function renderTimers() {
   renderGroupBar();
+  renderDueBar();
+  renderAccountSummary();
   renderStats();
   const search = document.getElementById('search-input').value.toLowerCase();
   let list = timers.filter(t => {
-    if (filterGroup !== 'All' && t.group !== filterGroup) return false;
-    if (search && !t.name.toLowerCase().includes(search) && !(t.note||'').toLowerCase().includes(search) && !(t.group||'').toLowerCase().includes(search)) return false;
+    if (filterGroup !== 'All' && getAccount(t) !== filterGroup) return false;
+    if (filterDue !== 'All' && dueWindow(t).key !== filterDue) return false;
+    if (search && !t.name.toLowerCase().includes(search) && !(t.note||'').toLowerCase().includes(search) && !getAccount(t).toLowerCase().includes(search) && !getUpgradeType(t).toLowerCase().includes(search)) return false;
     return true;
   });
   list = sortedTimers(list);
@@ -721,7 +877,7 @@ function renderTimers() {
     el.innerHTML = `<div class="empty"><div class="big">⏱</div><p>${timers.length?'No timers match your filter.':'No timers yet. Click <strong>New Timer</strong> to get started.'}</p></div>`;
     return;
   }
-  el.innerHTML = list.map(t => {
+  const renderCard = (t) => {
     const pct = t.duration > 0 ? Math.round(100*(1 - t.remaining/t.duration)) : 100;
     const isPaused = t.status==='paused';
     const isRunning = t.status==='running';
@@ -756,7 +912,9 @@ function renderTimers() {
       <div class="card-left">
         <div class="card-top">
           <span class="timer-name" title="${esc(t.name)}">${esc(t.name)}</span>
-          ${t.group?`<span class="timer-group-badge">${esc(t.group)}</span>`:''}
+          ${getAccount(t)?`<span class="timer-group-badge">${esc(getAccount(t))}</span>`:''}
+          ${getUpgradeType(t)?`<span class="timer-type-badge">${esc(getUpgradeType(t))}</span>`:''}
+          <span class="timer-due-badge ${dueWindow(t).cls}">${dueWindow(t).label}</span>
           ${repeatIcon}${soundIcon}
         </div>
         <div class="timer-display">${fmt(t.remaining)}</div>
@@ -773,7 +931,23 @@ function renderTimers() {
         </div>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  if (sortKey === 'due') {
+    const sections = [
+      ['Ready','Ready now'],
+      ['Soon','Soon'],
+      ['Today','Today'],
+      ['Later','Later']
+    ];
+    el.innerHTML = sections.map(([key,label]) => {
+      const items = list.filter(t => dueWindow(t).key === key);
+      if (!items.length) return '';
+      return `<div class="due-section">${label}<span class="due-section-count">${items.length}</span></div>` + items.map(renderCard).join('');
+    }).join('');
+  } else {
+    el.innerHTML = list.map(renderCard).join('');
+  }
 }
 
 function esc(s) {
@@ -784,11 +958,13 @@ function esc(s) {
 function openAddModal() {
   editingId = null;
   document.getElementById('modal-title').textContent = 'New Timer';
+  document.getElementById('f-account').value = '';
+  document.getElementById('f-upgrade-type').value = '';
   document.getElementById('f-name').value = '';
   document.getElementById('f-hours').value = '0';
   document.getElementById('f-mins').value = '5';
   document.getElementById('f-secs').value = '0';
-  document.getElementById('f-group').value = '';
+  document.getElementById('f-note-template').value = '';
   document.getElementById('f-note').value = '';
   document.getElementById('f-repeat').checked = false;
   document.getElementById('f-sound').checked = true;
@@ -801,11 +977,13 @@ function openEditModal(id) {
   if (!t) return;
   editingId = id;
   document.getElementById('modal-title').textContent = 'Edit Timer';
+  document.getElementById('f-account').value = getAccount(t);
+  document.getElementById('f-upgrade-type').value = getUpgradeType(t);
   document.getElementById('f-name').value = t.name;
   document.getElementById('f-hours').value = Math.floor(t.duration/3600);
   document.getElementById('f-mins').value = Math.floor((t.duration%3600)/60);
   document.getElementById('f-secs').value = t.duration%60;
-  document.getElementById('f-group').value = t.group||'';
+  document.getElementById('f-note-template').value = '';
   document.getElementById('f-note').value = t.note||'';
   document.getElementById('f-repeat').checked = !!t.repeat;
   document.getElementById('f-sound').checked = t.sound!==false;
@@ -825,7 +1003,8 @@ function saveTimer() {
   const s = parseInt(document.getElementById('f-secs').value)||0;
   const duration = h*3600 + m*60 + s;
   if (duration <= 0) { toast('Duration must be > 0', 'warning'); return; }
-  const group = document.getElementById('f-group').value.trim();
+  const account = document.getElementById('f-account').value.trim();
+  const upgradeType = document.getElementById('f-upgrade-type').value.trim();
   const note = document.getElementById('f-note').value.trim();
   const repeat = document.getElementById('f-repeat').checked;
   const sound = document.getElementById('f-sound').checked;
@@ -834,7 +1013,7 @@ function saveTimer() {
     const t = timers.find(x=>x.id===editingId);
     if (t) {
       const wasRunning = t.status === 'running';
-      t.name = name; t.group = group; t.note = note; t.repeat = repeat; t.sound = sound;
+      t.name = name; t.account = account; t.group = account; t.upgradeType = upgradeType; t.note = note; t.repeat = repeat; t.sound = sound;
       if (t.duration !== duration) {
         t.duration = duration;
         t.remaining = duration;
@@ -846,7 +1025,7 @@ function saveTimer() {
     timers.push({
       id: newId(),
       name, duration, remaining: duration,
-      group, note, repeat, sound,
+      account, group: account, upgradeType, note, repeat, sound,
       status: 'stopped',
       endTime: null,
       created: Date.now()
@@ -896,7 +1075,11 @@ function importTimers(evt) {
         if (t.status !== 'running') t.endTime = null;
         if (!t.created) t.created = now;
         if (t.sound === undefined) t.sound = true;
+        if (t.account === undefined && t.group !== undefined) t.account = t.group;
+        if (t.group === undefined && t.account !== undefined) t.group = t.account;
+        if (t.account === undefined) t.account = '';
         if (t.group === undefined) t.group = '';
+        if (t.upgradeType === undefined) t.upgradeType = '';
         if (t.note === undefined) t.note = '';
       });
 
@@ -938,6 +1121,8 @@ function toggleSidebar() {
 
 // ── Quick add ─────────────────────────────────────────────────────────────
 function quickAdd() {
+  const account = document.getElementById('q-account').value.trim();
+  const upgradeType = document.getElementById('q-upgrade-type').value.trim();
   const name = document.getElementById('q-name').value.trim();
   if (!name) { document.getElementById('q-name').focus(); return; }
   const h = parseInt(document.getElementById('q-hours').value)||0;
@@ -946,7 +1131,7 @@ function quickAdd() {
   const duration = h*3600 + m*60 + s;
   if (duration <= 0) { toast('Set a duration > 0', 'warning'); return; }
   const id = newId();
-  timers.push({ id, name, duration, remaining: duration, group:'', note:'', repeat:false, sound:true, status:'stopped', endTime:null, created:Date.now() });
+  timers.push({ id, name, duration, remaining: duration, account, group: account, upgradeType, note:'', repeat:false, sound:true, status:'stopped', endTime:null, created:Date.now() });
   startTimer(id);
   document.getElementById('q-name').value = '';
   document.getElementById('q-hours').value = '0';
@@ -964,6 +1149,7 @@ function toggleCardMode(id) {
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 async function boot() {
+  populateStaticSelects();
   await load();
   renderTimers();
   tickInterval = setInterval(tick, 500);
