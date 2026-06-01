@@ -511,6 +511,10 @@ let cardModes = {}; // id -> 'elapsed' | 'endtime'
 let serverLastUpdated = null;
 let saveInFlight = false;
 let saveQueued = false;
+let accountControlsSignature = '';
+let accountControlsRefreshQueued = false;
+let nativeSelectActive = false;
+let renderQueuedUntilSelectCloses = false;
 
 const STORAGE_KEY = 'timerdesk_v2';
 const API_URL = 'api.php';
@@ -612,8 +616,20 @@ function getKnownAccounts() {
   return Array.from(accounts).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
-function populateAccountControls() {
+function populateAccountControls(force=false) {
   const accounts = getKnownAccounts();
+  const signature = accounts.join('\u001f');
+  const active = document.activeElement;
+  const accountSelectIsOpen = active && (active.id === 'q-account' || active.id === 'bulk-account');
+
+  // Mobile browsers can flicker or collapse a native <select> picker if its options
+  // are rebuilt while the picker is open. Most timer renders do not change the
+  // account list, so avoid touching these controls unless the account list changed.
+  if (!force && signature === accountControlsSignature) return;
+  if (!force && accountSelectIsOpen) {
+    accountControlsRefreshQueued = true;
+    return;
+  }
 
   function fillAccountSelect(selectEl, placeholderText) {
     if (!selectEl || selectEl.tagName !== 'SELECT') return;
@@ -641,6 +657,38 @@ function populateAccountControls() {
   if (dl) {
     dl.innerHTML = accounts.map(account => `<option value="${esc(account)}">`).join('');
   }
+
+  accountControlsSignature = signature;
+  accountControlsRefreshQueued = false;
+}
+
+function setupNativeSelectRenderGuard() {
+  const markSelectActive = (target) => {
+    if (target && target.tagName === 'SELECT') nativeSelectActive = true;
+  };
+
+  const releaseSelectGuard = () => {
+    nativeSelectActive = false;
+    if (accountControlsRefreshQueued) populateAccountControls(true);
+    if (renderQueuedUntilSelectCloses) {
+      renderQueuedUntilSelectCloses = false;
+      renderTimers();
+    }
+  };
+
+  document.addEventListener('pointerdown', e => markSelectActive(e.target), true);
+  document.addEventListener('touchstart', e => markSelectActive(e.target), true);
+  document.addEventListener('focusin', e => markSelectActive(e.target), true);
+  document.addEventListener('change', e => { if (e.target && e.target.tagName === 'SELECT') setTimeout(releaseSelectGuard, 0); }, true);
+  document.addEventListener('blur', e => { if (e.target && e.target.tagName === 'SELECT') setTimeout(releaseSelectGuard, 0); }, true);
+}
+
+function renderTimersSafely() {
+  // Keep countdown displays updating even while a mobile native <select> picker is open.
+  // The flicker fix lives in populateAccountControls(), which avoids rebuilding the
+  // account <select> options while the picker is active. Freezing the whole render here
+  // made the timers appear stopped until focus moved away from the select.
+  renderTimers();
 }
 
 function applyNoteTemplate() {
@@ -839,7 +887,7 @@ function tick() {
   // Do not save every one-second countdown tick to the NAS.
   // Running timers can be recalculated from endTime on any device.
   if (needsSave) save();
-  if (needsRender) renderTimers();
+  if (needsRender) renderTimersSafely();
 }
 
 function startTimer(id) {
@@ -1530,6 +1578,7 @@ function toggleCardMode(id) {
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 async function boot() {
+  setupNativeSelectRenderGuard();
   populateStaticSelects();
   await load();
   renderTimers();
