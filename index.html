@@ -349,6 +349,105 @@ body.focus-mode .timer-list{padding:12px}
 .timer-secondary:hover{background:var(--surface3);color:var(--text2)}
 
 
+/* Inline time adjust panel */
+.timer-display.adjustable{
+  display:inline-block;
+  cursor:pointer;
+  border-radius:var(--radius);
+  padding:2px 6px 2px 0;
+  margin-left:-1px;
+  transition:background 0.12s,color 0.12s;
+}
+.timer-display.adjustable:hover,
+.timer-display.adjustable:focus{
+  background:var(--surface3);
+  outline:none;
+}
+.timer-display.adjustable::after{
+  content:' ⏱';
+  font-family:'DM Sans',sans-serif;
+  font-size:13px;
+  font-weight:400;
+  color:var(--text3);
+  vertical-align:middle;
+}
+.timer-adjust-panel{
+  grid-column:1 / -1;
+  border-top:1px solid rgba(255,255,255,0.06);
+  margin-top:4px;
+  padding-top:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.timer-adjust-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+.timer-adjust-title{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--text3);
+}
+.timer-adjust-current{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  color:var(--text2);
+}
+.timer-adjust-quick{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.timer-adjust-chip{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  padding:5px 8px;
+  border-radius:999px;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  color:var(--text);
+  cursor:pointer;
+  transition:all 0.12s;
+}
+.timer-adjust-chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+.timer-adjust-exact{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(54px,74px)) auto;
+  gap:7px;
+  align-items:end;
+}
+.timer-adjust-field label{
+  display:block;
+  font-size:10px;
+  color:var(--text3);
+  text-align:center;
+  margin-bottom:3px;
+}
+.timer-adjust-field input{
+  text-align:center;
+  padding:6px 4px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;
+}
+.timer-adjust-actions{
+  display:flex;
+  align-items:end;
+  gap:6px;
+}
+@media (max-width:700px){
+  .timer-adjust-panel{gap:9px}
+  .timer-adjust-quick{display:grid;grid-template-columns:repeat(4,1fr)}
+  .timer-adjust-chip{padding:7px 4px;text-align:center}
+  .timer-adjust-exact{grid-template-columns:repeat(4,1fr)}
+  .timer-adjust-actions{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr}
+  .timer-adjust-actions .btn{justify-content:center}
+}
+
+
 /* Tablet layout fixes
    Tablets around 701–1024px wide were still using the desktop two-column layout,
    leaving the Account Summary trapped in a narrow 280px sidebar. At this width,
@@ -714,6 +813,9 @@ let tickInterval = null;
 let sidebarVisible = true;
 let focusMode = false;
 let cardModes = {}; // id -> 'elapsed' | 'endtime'
+let adjustingTimerId = null;
+let inlineAdjustEditing = false;
+let renderQueuedUntilAdjustEditEnds = false;
 let serverLastUpdated = null;
 let saveInFlight = false;
 let saveQueued = false;
@@ -895,6 +997,12 @@ function renderTimersSafely() {
   // The flicker fix lives in populateAccountControls(), which avoids rebuilding the
   // account <select> options while the picker is active. Freezing the whole render here
   // made the timers appear stopped until focus moved away from the select.
+  // Exception: while typing in the inline time-adjust fields, defer the full re-render
+  // so mobile browsers do not drop focus or reset partially-entered values every tick.
+  if (inlineAdjustEditing) {
+    renderQueuedUntilAdjustEditEnds = true;
+    return;
+  }
   renderTimers();
 }
 
@@ -1293,6 +1401,164 @@ function resetExpired() {
   renderTimers();
 }
 
+// ── Inline time adjustment ────────────────────────────────────────────────
+function splitSeconds(secs) {
+  const total = Math.max(0, Math.floor(Number(secs) || 0));
+  return {
+    d: Math.floor(total / 86400),
+    h: Math.floor((total % 86400) / 3600),
+    m: Math.floor((total % 3600) / 60),
+    s: total % 60
+  };
+}
+
+function clampNonNegativeSeconds(value) {
+  const n = Math.floor(Number(value) || 0);
+  return Math.max(0, n);
+}
+
+function timerIdArg(id) {
+  return esc(JSON.stringify(String(id || '')));
+}
+
+function toggleTimerAdjustPanel(id) {
+  adjustingTimerId = adjustingTimerId === id ? null : id;
+  inlineAdjustEditing = false;
+  renderQueuedUntilAdjustEditEnds = false;
+  renderTimers();
+}
+
+function closeTimerAdjustPanel(id) {
+  if (adjustingTimerId === id) adjustingTimerId = null;
+  inlineAdjustEditing = false;
+  renderQueuedUntilAdjustEditEnds = false;
+  renderTimers();
+}
+
+function enterTimerAdjustEdit() {
+  inlineAdjustEditing = true;
+}
+
+function leaveTimerAdjustEdit() {
+  setTimeout(() => {
+    const active = document.activeElement;
+    if (!active || !active.closest || !active.closest('.timer-adjust-panel')) {
+      inlineAdjustEditing = false;
+      if (renderQueuedUntilAdjustEditEnds) {
+        renderQueuedUntilAdjustEditEnds = false;
+        renderTimers();
+      }
+    }
+  }, 0);
+}
+
+function applyTimerRemaining(t, newRemaining, actionLabel='updated') {
+  if (!t) return;
+  const previousRemaining = Number(t.remaining) || 0;
+  const previousDuration = Math.max(Number(t.duration) || 0, previousRemaining);
+  const elapsed = Math.max(0, previousDuration - previousRemaining);
+  const remaining = clampNonNegativeSeconds(newRemaining);
+
+  t.remaining = remaining;
+
+  // Keep the original duration unless the correction extends the total expected time.
+  // This preserves useful progress for builder-potion reductions, while preventing
+  // negative progress if the original timer was entered too short.
+  const correctedDuration = elapsed + remaining;
+  if (correctedDuration > previousDuration) t.duration = correctedDuration;
+
+  if (remaining <= 0) {
+    t.remaining = 0;
+    t.status = 'expired';
+    t.endTime = null;
+    t.expiredAt = Date.now();
+  } else if (t.status === 'running' || t.status === 'expired') {
+    t.status = 'running';
+    t.expiredAt = null;
+    t.endTime = Date.now() + remaining * 1000;
+  } else {
+    t.endTime = null;
+    t.expiredAt = null;
+  }
+
+  save();
+  renderTimers();
+  toast(`${t.name} time ${actionLabel}: ${fmt(remaining)}`, 'success');
+}
+
+function adjustTimerRemainingBy(id, deltaSeconds) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  const current = Number(t.remaining) || 0;
+  const next = current + Number(deltaSeconds || 0);
+  const label = deltaSeconds < 0 ? `adjusted by -${fmtDuration(Math.abs(deltaSeconds))}` : `adjusted by +${fmtDuration(deltaSeconds)}`;
+  applyTimerRemaining(t, next, label);
+}
+
+function setTimerRemainingFromPanel(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  const d = parseInt(document.getElementById(`adj-days-${id}`)?.value, 10) || 0;
+  const h = parseInt(document.getElementById(`adj-hours-${id}`)?.value, 10) || 0;
+  const m = parseInt(document.getElementById(`adj-mins-${id}`)?.value, 10) || 0;
+  const s = parseInt(document.getElementById(`adj-secs-${id}`)?.value, 10) || 0;
+  const remaining = d*86400 + h*3600 + m*60 + s;
+  inlineAdjustEditing = false;
+  renderQueuedUntilAdjustEditEnds = false;
+  applyTimerRemaining(t, remaining, 'set to');
+}
+
+function renderTimerAdjustPanel(t) {
+  if (!t || adjustingTimerId !== t.id) return '';
+  const parts = splitSeconds(t.remaining);
+  const id = t.id;
+  const idArg = timerIdArg(id);
+  const quickAdjustments = [
+    [-86400, '-1d'],
+    [-21600, '-6h'],
+    [-3600, '-1h'],
+    [-1800, '-30m'],
+    [1800, '+30m'],
+    [3600, '+1h'],
+    [21600, '+6h'],
+    [86400, '+1d']
+  ];
+
+  return `
+    <div class="timer-adjust-panel" onclick="event.stopPropagation()">
+      <div class="timer-adjust-head">
+        <span class="timer-adjust-title">Adjust remaining time</span>
+        <span class="timer-adjust-current">Now ${esc(fmt(t.remaining))}</span>
+      </div>
+      <div class="timer-adjust-quick" aria-label="Quick time adjustments">
+        ${quickAdjustments.map(([delta, label]) => `<button class="timer-adjust-chip" type="button" onclick="adjustTimerRemainingBy(${idArg}, ${delta})">${label}</button>`).join('')}
+      </div>
+      <div class="timer-adjust-exact">
+        <div class="timer-adjust-field">
+          <label for="adj-days-${esc(id)}">days</label>
+          <input type="number" id="adj-days-${esc(id)}" value="${parts.d}" min="0" max="999" onfocus="enterTimerAdjustEdit()" onblur="leaveTimerAdjustEdit()" onkeydown="if(event.key==='Enter')setTimerRemainingFromPanel(${idArg})">
+        </div>
+        <div class="timer-adjust-field">
+          <label for="adj-hours-${esc(id)}">hrs</label>
+          <input type="number" id="adj-hours-${esc(id)}" value="${parts.h}" min="0" max="23" onfocus="enterTimerAdjustEdit()" onblur="leaveTimerAdjustEdit()" onkeydown="if(event.key==='Enter')setTimerRemainingFromPanel(${idArg})">
+        </div>
+        <div class="timer-adjust-field">
+          <label for="adj-mins-${esc(id)}">min</label>
+          <input type="number" id="adj-mins-${esc(id)}" value="${parts.m}" min="0" max="59" onfocus="enterTimerAdjustEdit()" onblur="leaveTimerAdjustEdit()" onkeydown="if(event.key==='Enter')setTimerRemainingFromPanel(${idArg})">
+        </div>
+        <div class="timer-adjust-field">
+          <label for="adj-secs-${esc(id)}">sec</label>
+          <input type="number" id="adj-secs-${esc(id)}" value="${parts.s}" min="0" max="59" onfocus="enterTimerAdjustEdit()" onblur="leaveTimerAdjustEdit()" onkeydown="if(event.key==='Enter')setTimerRemainingFromPanel(${idArg})">
+        </div>
+        <div class="timer-adjust-actions">
+          <button class="btn btn-sm btn-primary" type="button" onclick="setTimerRemainingFromPanel(${idArg})">Apply</button>
+          <button class="btn btn-sm" type="button" onclick="closeTimerAdjustPanel(${idArg})">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // ── Sort ──────────────────────────────────────────────────────────────────
 function updateSortControls() {
   const labels = {name:'Name', remaining:'Time remaining', due:'Due window', duration:'Duration', status:'Status', group:'Account', created:'Date added'};
@@ -1621,6 +1887,7 @@ function renderTimers() {
     const isRunning = t.status==='running';
     const isExpired = t.status==='expired';
     const isStopped = t.status==='stopped';
+    const idArg = timerIdArg(t.id);
     const playBtn = (isStopped||isPaused||isExpired) ?
       `<button class="btn btn-sm btn-success" onclick="startTimer('${t.id}')" title="Start">▶</button>` : '';
     const pauseBtn = isRunning ?
@@ -1660,7 +1927,7 @@ function renderTimers() {
           <span class="timer-due-badge ${dueWindow(t).cls}">${dueWindow(t).label}</span>
           ${repeatIcon}${soundIcon}
         </div>
-        <div class="timer-display">${fmt(t.remaining)}</div>
+        <div class="timer-display adjustable" onclick="toggleTimerAdjustPanel(${idArg})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTimerAdjustPanel(${idArg})}" role="button" tabindex="0" title="Tap to adjust remaining time">${fmt(t.remaining)}</div>
         <div class="timer-meta">of ${fmtDuration(t.duration)} · ${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</div>
         ${secondaryEl}
         ${t.note?`<div class="timer-note" title="${esc(t.note)}">📝 ${esc(t.note)}</div>`:''}
@@ -1669,10 +1936,12 @@ function renderTimers() {
       <div class="card-right">
         <div class="card-actions">
           ${playBtn}${pauseBtn}${resetBtn}
-          <button class="btn btn-sm btn-icon" onclick="openEditModal('${t.id}')" title="Edit">✎</button>
+          <button class="btn btn-sm btn-icon" onclick="toggleTimerAdjustPanel(${idArg})" title="Adjust time">⏱</button>
+          <button class="btn btn-sm btn-icon" onclick="openEditModal('${t.id}')" title="Edit full timer">✎</button>
           <button class="btn btn-sm btn-icon btn-danger" onclick="deleteTimer('${t.id}')" title="Delete">✕</button>
         </div>
       </div>
+      ${renderTimerAdjustPanel(t)}
     </div>`;
   };
 
