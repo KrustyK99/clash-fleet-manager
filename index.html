@@ -56,6 +56,7 @@ btn,button{font-family:'DM Sans',sans-serif}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text);font-size:13px;cursor:pointer;transition:all 0.15s;white-space:nowrap}
 .btn:hover{background:var(--surface3);border-color:var(--border2)}
 .btn:active{transform:scale(0.97)}
+.btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn-primary:hover{background:var(--accent2);border-color:var(--accent2)}
 .btn-sm{padding:4px 10px;font-size:12px}
@@ -364,6 +365,10 @@ body.focus-mode .timer-list{padding:12px}
     <span class="topbar-title">CLASH TIMERS</span>
     <span class="topbar-spacer"></span>
     <span class="sync-status" id="sync-status">Loading…</span>
+    <button class="btn btn-sm" onclick="reloadTimerFile()" id="reload-timers-btn" title="Reload timers from the NAS file and keep current filters/sort">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/><path d="M20.49 15a9 9 0 01-14.85 3.36L1 14"/></svg>
+      Reload
+    </button>
     <button class="btn btn-sm" onclick="exportTimers()" title="Export timers to JSON">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Export
@@ -999,6 +1004,7 @@ async function load() {
     setSyncStatus(`Loaded ${stamp}`, 'ok');
 
     if (needsSave) save();
+    return true;
   } catch (e) {
     console.error(e);
     setSyncStatus('Load failed', 'error');
@@ -1010,12 +1016,61 @@ async function load() {
         timers = Array.isArray(backup.timers) ? backup.timers : [];
         normalizeTimersAfterLoad();
         toast('NAS load failed. Loaded emergency browser backup.', 'warning');
-        return;
+        return false;
       } catch (_) {}
     }
 
     timers = [];
     toast('Could not load timers from NAS.', 'warning');
+    return false;
+  }
+}
+
+function getViewState() {
+  const searchEl = document.getElementById('search-input');
+  return {
+    sortKey,
+    sortDir,
+    filterGroup,
+    filterDue,
+    search: searchEl ? searchEl.value : ''
+  };
+}
+
+function restoreViewState(state) {
+  if (!state) return;
+  sortKey = state.sortKey || sortKey;
+  sortDir = Number(state.sortDir) || sortDir;
+  filterGroup = state.filterGroup || 'All';
+  filterDue = state.filterDue || 'All';
+
+  const searchEl = document.getElementById('search-input');
+  if (searchEl) searchEl.value = state.search || '';
+
+  updateSortControls();
+}
+
+function setReloadButtonBusy(isBusy) {
+  const btn = document.getElementById('reload-timers-btn');
+  if (!btn) return;
+  btn.disabled = !!isBusy;
+  btn.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+}
+
+async function reloadTimerFile() {
+  const preservedState = getViewState();
+  setReloadButtonBusy(true);
+
+  try {
+    const loadedFromServer = await load();
+    restoreViewState(preservedState);
+    renderTimers();
+
+    if (loadedFromServer) {
+      toast('Reloaded timer file.', 'success');
+    }
+  } finally {
+    setReloadButtonBusy(false);
   }
 }
 
@@ -1142,17 +1197,26 @@ function resetExpired() {
 }
 
 // ── Sort ──────────────────────────────────────────────────────────────────
+function updateSortControls() {
+  const labels = {name:'Name', remaining:'Time remaining', due:'Due window', duration:'Duration', status:'Status', group:'Account', created:'Date added'};
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+
+  const activeBtn = document.getElementById('sort-' + sortKey);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  ['name','remaining','due','duration','status','group','created'].forEach(k => {
+    const el = document.getElementById('arr-' + k);
+    if (el) el.textContent = k === sortKey ? (sortDir === 1 ? '↑' : '↓') : '';
+  });
+
+  const label = document.getElementById('sort-label');
+  if (label) label.textContent = (labels[sortKey] || sortKey) + (sortDir === 1 ? ' ↑' : ' ↓');
+}
+
 function setSort(key) {
   if (sortKey === key) sortDir *= -1;
   else { sortKey = key; sortDir = 1; }
-  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('sort-'+key).classList.add('active');
-  ['name','remaining','due','duration','status','group','created'].forEach(k => {
-    const el = document.getElementById('arr-'+k);
-    el.textContent = k === sortKey ? (sortDir === 1 ? '↑' : '↓') : '';
-  });
-  const labels = {name:'Name', remaining:'Time remaining', due:'Due window', duration:'Duration', status:'Status', group:'Account', created:'Date added'};
-  document.getElementById('sort-label').textContent = (labels[key] || key) + (sortDir===1?' ↑':' ↓');
+  updateSortControls();
   renderTimers();
 }
 
@@ -1213,6 +1277,7 @@ function getGroups() {
 function renderGroupBar() {
   const bar = document.getElementById('group-bar');
   const groups = getGroups();
+  if (filterGroup !== 'All' && !groups.includes(filterGroup)) groups.push(filterGroup);
   if (!groups.some(g => g !== 'All') && filterGroup === 'All') {
     bar.style.display = 'none';
   } else {
