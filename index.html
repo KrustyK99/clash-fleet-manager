@@ -253,6 +253,19 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .main.sidebar-hidden .sidebar{overflow:hidden;border-right:none}
 .sidebar-toggle{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 8px;cursor:pointer;font-size:13px;line-height:1;transition:all 0.15s}
 .sidebar-toggle:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
+.focus-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:12px;line-height:1;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap}
+.focus-toggle-btn:hover,.focus-toggle-btn.active{background:var(--surface2);color:var(--accent);border-color:var(--accent)}
+.focus-exit-btn{display:none;position:fixed;top:10px;right:10px;z-index:150;box-shadow:0 8px 24px rgba(0,0,0,0.35);background:rgba(24,24,31,0.92);backdrop-filter:blur(4px)}
+body.focus-mode .focus-exit-btn{display:inline-flex}
+body.focus-mode .app{grid-template-rows:1fr}
+body.focus-mode .topbar{display:none}
+body.focus-mode .main{grid-template-columns:1fr}
+body.focus-mode .sidebar{display:none}
+body.focus-mode .content{height:100vh}
+body.focus-mode .group-list,
+body.focus-mode .stats-bar,
+body.focus-mode .toolbar{display:none !important}
+body.focus-mode .timer-list{padding:12px}
 
 /* Quick add panel */
 .quick-add{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
@@ -298,6 +311,13 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
   .timer-display{font-size:24px;overflow-wrap:anywhere}
   .timer-note{white-space:normal}
 
+  .focus-toggle-btn{flex:0 0 auto;padding:7px 9px}
+  .focus-toggle-btn .focus-toggle-label{display:none}
+  .focus-exit-btn{top:8px;right:8px}
+  body.focus-mode .app{height:auto;min-height:100vh;overflow:visible}
+  body.focus-mode .content{height:auto;min-height:100vh}
+  body.focus-mode .timer-list{padding:10px}
+
   .modal{width:95vw;padding:18px}
   .form-grid{grid-template-columns:1fr 1fr}
 }
@@ -310,6 +330,7 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
   <!-- Top bar -->
   <div class="topbar">
     <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle-btn" title="Toggle sidebar">☰</button>
+    <button class="focus-toggle-btn" onclick="toggleFocusMode()" id="focus-toggle-btn" title="Show timers only" aria-label="Show timers only" aria-pressed="false">☰ <span class="focus-toggle-label">Focus</span></button>
     <span class="topbar-title">CLASH TIMERS</span>
     <span class="topbar-spacer"></span>
     <span class="sync-status" id="sync-status">Loading…</span>
@@ -444,6 +465,8 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
   </div>
 </div>
 
+<button class="focus-toggle-btn focus-exit-btn" onclick="toggleFocusMode()" id="focus-exit-btn" title="Exit focus view" aria-label="Exit focus view" aria-pressed="true">☰ <span class="focus-toggle-label">Exit</span></button>
+
 <!-- Add/Edit Modal -->
 <div class="modal-bg" id="modal" style="display:none" onclick="if(event.target===this)closeModal()">
   <div class="modal">
@@ -573,6 +596,7 @@ let filterDue = 'All';
 let editingId = null;
 let tickInterval = null;
 let sidebarVisible = true;
+let focusMode = false;
 let cardModes = {}; // id -> 'elapsed' | 'endtime'
 let serverLastUpdated = null;
 let saveInFlight = false;
@@ -585,6 +609,7 @@ let renderQueuedUntilSelectCloses = false;
 const STORAGE_KEY = 'timerdesk_v2';
 const API_URL = 'api.php';
 const EMERGENCY_BACKUP_KEY = STORAGE_KEY + '_emergency_backup';
+const FOCUS_MODE_KEY = STORAGE_KEY + '_focus_mode';
 
 const UPGRADE_TYPES = [
   '',
@@ -1697,7 +1722,44 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && regularModalOpen) saveTimer();
   if (e.key === 'Enter' && bulkModalOpen && (e.ctrlKey || e.metaKey)) saveBulkTimers();
   if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !bulkModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') openAddModal();
+  if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !regularModalOpen && !bulkModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleFocusMode();
 });
+
+// ── Focus view ─────────────────────────────────────────────────────────────
+function applyFocusMode() {
+  const app = document.querySelector('.app');
+  if (app) app.classList.toggle('focus-mode', focusMode);
+  document.body.classList.toggle('focus-mode', focusMode);
+
+  const mainBtn = document.getElementById('focus-toggle-btn');
+  const exitBtn = document.getElementById('focus-exit-btn');
+
+  [mainBtn, exitBtn].forEach(btn => {
+    if (!btn) return;
+    btn.classList.toggle('active', focusMode);
+    btn.setAttribute('aria-pressed', focusMode ? 'true' : 'false');
+  });
+
+  if (mainBtn) {
+    mainBtn.title = focusMode ? 'Exit focus view' : 'Show timers only';
+    mainBtn.setAttribute('aria-label', mainBtn.title);
+  }
+  if (exitBtn) {
+    exitBtn.title = focusMode ? 'Exit focus view' : 'Show timers only';
+    exitBtn.setAttribute('aria-label', exitBtn.title);
+  }
+}
+
+function toggleFocusMode() {
+  focusMode = !focusMode;
+  localStorage.setItem(FOCUS_MODE_KEY, focusMode ? '1' : '0');
+  applyFocusMode();
+}
+
+function applySavedFocusMode() {
+  focusMode = localStorage.getItem(FOCUS_MODE_KEY) === '1';
+  applyFocusMode();
+}
 
 // ── Sidebar toggle ─────────────────────────────────────────────────────────
 function toggleSidebar() {
@@ -1753,6 +1815,7 @@ function toggleCardMode(id) {
 async function boot() {
   setupNativeSelectRenderGuard();
   applyInitialMobileLayout();
+  applySavedFocusMode();
   populateStaticSelects();
   await load();
   renderTimers();
