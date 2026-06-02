@@ -413,7 +413,7 @@ body.focus-mode .timer-list{padding:12px}
             <div class="quick-add-time-label">hrs</div>
           </div>
           <div>
-            <input type="number" id="q-mins" value="5" min="0" max="59" placeholder="5" onkeydown="if(event.key==='Enter')quickAdd()">
+            <input type="number" id="q-mins" value="0" min="0" max="59" placeholder="5" onkeydown="if(event.key==='Enter')quickAdd()">
             <div class="quick-add-time-label">min</div>
           </div>
           <div>
@@ -919,6 +919,20 @@ function normalizeTimersAfterLoad() {
     if (t.group === undefined) t.group = '';
     if (t.upgradeType === undefined) t.upgradeType = '';
     if (t.note === undefined) t.note = '';
+    if (t.expiredAt === undefined) t.expiredAt = null;
+    if (t.finishedAt !== undefined && !t.expiredAt) t.expiredAt = t.finishedAt;
+    if (t.status === 'expired' && !t.expiredAt && t.endTime) {
+      t.expiredAt = Number(t.endTime) || null;
+      needsSave = true;
+    }
+    if (t.status !== 'running' && t.endTime) {
+      t.endTime = null;
+      needsSave = true;
+    }
+    if (t.status !== 'expired' && t.expiredAt) {
+      t.expiredAt = null;
+      needsSave = true;
+    }
 
     // Recalculate remaining for running timers based on stored endTime.
     // This is what lets multiple devices share the same countdown without saving every second.
@@ -927,10 +941,12 @@ function normalizeTimersAfterLoad() {
       if (rem <= 0) {
         if (t.repeat) {
           t.remaining = t.duration;
+          t.expiredAt = null;
           t.endTime = now + t.duration * 1000;
         } else {
           t.remaining = 0;
           t.status = 'expired';
+          t.expiredAt = Number(t.endTime) || now;
           t.endTime = null;
         }
         needsSave = true;
@@ -1113,11 +1129,13 @@ function tick() {
     if (t.remaining <= 0) {
       if (t.repeat) {
         t.remaining = t.duration;
+        t.expiredAt = null;
         t.endTime = now + t.duration * 1000;
         if (t.sound) playAlert();
         toast(`↺ ${t.name} restarted`, 'success');
       } else {
         t.status = 'expired';
+        t.expiredAt = Number(t.endTime) || now;
         t.endTime = null;
         if (t.sound) playAlert();
         toast(`⏰ ${t.name} expired!`, 'expired');
@@ -1138,6 +1156,7 @@ function startTimer(id) {
   if (!t) return;
   if (t.remaining <= 0) t.remaining = t.duration;
   t.status = 'running';
+  t.expiredAt = null;
   t.endTime = Date.now() + t.remaining * 1000;
   save(); renderTimers();
 }
@@ -1156,6 +1175,7 @@ function resetTimer(id) {
   t.status = 'stopped';
   t.remaining = t.duration;
   t.endTime = null;
+  t.expiredAt = null;
   save(); renderTimers();
 }
 
@@ -1170,6 +1190,7 @@ function startAll() {
   timers.filter(t => t.status === 'stopped' || t.status === 'paused').forEach(t => {
     if (t.remaining <= 0) t.remaining = t.duration;
     t.status = 'running';
+    t.expiredAt = null;
     t.endTime = Date.now() + t.remaining * 1000;
     changed = true;
   });
@@ -1190,6 +1211,7 @@ function resetExpired() {
     t.status = 'stopped';
     t.remaining = t.duration;
     t.endTime = null;
+    t.expiredAt = null;
     changed = true;
   });
   if (changed) save();
@@ -1266,6 +1288,29 @@ function fmtDuration(secs) {
   if(m) parts.push(m+'m');
   if(s||!parts.length) parts.push(s+'s');
   return parts.join(' ');
+}
+
+function fmtDateTime(ts) {
+  const n = Number(ts);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  const d = new Date(n);
+  const date = d.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+  const time = d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  return `${date}, ${time}`;
+}
+
+function timerDateTimeLabel(t) {
+  if (!t) return '';
+  if (t.status === 'running' && t.endTime) {
+    const due = fmtDateTime(t.endTime);
+    return due ? `Ends ${due}` : '';
+  }
+  if (t.status === 'expired') {
+    const expiredAt = t.expiredAt || t.finishedAt;
+    const when = fmtDateTime(expiredAt);
+    return when ? `Expired ${when}` : 'Expired time not recorded';
+  }
+  return '';
 }
 
 // ── Render ────────────────────────────────────────────────────────────────
@@ -1427,13 +1472,18 @@ function renderTimers() {
     if (t.status === 'running' || t.status === 'paused') {
       const elapsed = t.duration - t.remaining;
       if (showEndTime && t.endTime) {
-        const et = new Date(t.endTime);
-        secondaryText = `ends ${et.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+        secondaryText = `ends ${fmtDateTime(t.endTime)}`;
       } else {
         secondaryText = `elapsed ${fmt(elapsed)}`;
       }
     } else if (t.status === 'expired') {
-      secondaryText = showEndTime ? 'ended' : `elapsed ${fmtDuration(t.duration)}`;
+      if (showEndTime) {
+        const expiredAt = t.expiredAt || t.finishedAt;
+        const when = fmtDateTime(expiredAt);
+        secondaryText = when ? `expired ${when}` : 'expired time not recorded';
+      } else {
+        secondaryText = `elapsed ${fmtDuration(t.duration)}`;
+      }
     }
     const secondaryEl = secondaryText
       ? `<span class="timer-secondary" onclick="toggleCardMode('${t.id}')" title="Click to switch view">⇄ ${secondaryText}</span>`
@@ -1553,6 +1603,7 @@ function saveTimer() {
         t.remaining = duration;
         t.status = 'stopped';
         t.endTime = null;
+        t.expiredAt = null;
       }
     }
   } else {
@@ -1562,6 +1613,7 @@ function saveTimer() {
       account, group: account, upgradeType, note, repeat, sound,
       status: 'stopped',
       endTime: null,
+      expiredAt: null,
       created: Date.now()
     });
   }
@@ -1784,6 +1836,7 @@ function saveBulkTimers() {
       sound,
       status: shouldStart ? 'running' : 'stopped',
       endTime: shouldStart ? now + duration * 1000 : null,
+      expiredAt: null,
       created: now
     });
   }
@@ -1840,6 +1893,7 @@ function importTimers(evt) {
         if (t.status === 'running' && !t.endTime) {
           t.endTime = now + t.remaining * 1000;
         }
+        if (t.status === 'expired' && !t.expiredAt && t.endTime) t.expiredAt = Number(t.endTime) || null;
         if (t.status !== 'running') t.endTime = null;
         if (!t.created) t.created = now;
         if (t.sound === undefined) t.sound = true;
@@ -1849,6 +1903,8 @@ function importTimers(evt) {
         if (t.group === undefined) t.group = '';
         if (t.upgradeType === undefined) t.upgradeType = '';
         if (t.note === undefined) t.note = '';
+        if (t.expiredAt === undefined) t.expiredAt = null;
+        if (t.finishedAt !== undefined && !t.expiredAt) t.expiredAt = t.finishedAt;
       });
 
       // Merge: skip duplicates by id
@@ -1961,12 +2017,12 @@ function quickAdd() {
   const duration = d*86400 + h*3600 + m*60 + s;
   if (duration <= 0) { toast('Set a duration > 0', 'warning'); return; }
   const id = newId();
-  timers.push({ id, name, duration, remaining: duration, account, group: account, upgradeType, note:'', repeat:false, sound:true, status:'stopped', endTime:null, created:Date.now() });
+  timers.push({ id, name, duration, remaining: duration, account, group: account, upgradeType, note:'', repeat:false, sound:true, status:'stopped', endTime:null, expiredAt:null, created:Date.now() });
   startTimer(id);
   document.getElementById('q-name').value = '';
   document.getElementById('q-days').value = '0';
   document.getElementById('q-hours').value = '0';
-  document.getElementById('q-mins').value = '5';
+  document.getElementById('q-mins').value = '0';
   document.getElementById('q-secs').value = '0';
   document.getElementById('q-name').focus();
   toast(`▶ "${name}" started`, 'success');
