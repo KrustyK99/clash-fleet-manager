@@ -5,9 +5,15 @@ header('Content-Type: application/json; charset=utf-8');
 
 $dataDir = __DIR__ . '/data';
 $dataFile = $dataDir . '/timers.json';
+$backupDir = $dataDir . '/backups';
+$maxBackups = 50;
 
 if (!is_dir($dataDir)) {
     mkdir($dataDir, 0755, true);
+}
+
+if (!is_dir($backupDir)) {
+    mkdir($backupDir, 0755, true);
 }
 
 if (!file_exists($dataFile)) {
@@ -24,6 +30,36 @@ function respond($payload, int $status = 200): void {
     http_response_code($status);
     echo json_encode($payload, JSON_PRETTY_PRINT);
     exit;
+}
+
+function makeBackupFilename(string $backupDir): string {
+    $now = microtime(true);
+    $seconds = (int) $now;
+    $micros = (int) (($now - $seconds) * 1000000);
+
+    return sprintf(
+        '%s/timers-%s-%06d.json',
+        $backupDir,
+        gmdate('Ymd-His', $seconds),
+        $micros
+    );
+}
+
+function pruneBackups(string $backupDir, int $maxBackups): void {
+    $files = glob($backupDir . '/timers-*.json');
+    if ($files === false || count($files) <= $maxBackups) {
+        return;
+    }
+
+    usort($files, static function (string $a, string $b): int {
+        return (filemtime($b) ?: 0) <=> (filemtime($a) ?: 0);
+    });
+
+    foreach (array_slice($files, $maxBackups) as $oldFile) {
+        if (is_file($oldFile)) {
+            unlink($oldFile);
+        }
+    }
 }
 
 if ($action === 'load') {
@@ -66,6 +102,20 @@ if ($action === 'save') {
     }
 
     flock($fp, LOCK_EX);
+
+    rewind($fp);
+    $currentRaw = stream_get_contents($fp);
+    $backupFile = null;
+
+    if (is_string($currentRaw) && trim($currentRaw) !== '') {
+        $backupFile = makeBackupFilename($GLOBALS['backupDir']);
+        if (file_put_contents($backupFile, $currentRaw, LOCK_EX) === false) {
+            flock($fp, LOCK_UN);
+            fclose($fp);
+            respond(['error' => 'Could not create timer backup. Save cancelled.'], 500);
+        }
+    }
+
     ftruncate($fp, 0);
     rewind($fp);
     fwrite($fp, json_encode($payload, JSON_PRETTY_PRINT));
@@ -73,9 +123,12 @@ if ($action === 'save') {
     flock($fp, LOCK_UN);
     fclose($fp);
 
+    pruneBackups($GLOBALS['backupDir'], $GLOBALS['maxBackups']);
+
     respond([
         'ok' => true,
-        'lastUpdated' => $payload['lastUpdated']
+        'lastUpdated' => $payload['lastUpdated'],
+        'backupCreated' => $backupFile ? basename($backupFile) : null
     ]);
 }
 
