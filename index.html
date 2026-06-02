@@ -311,6 +311,43 @@ body.focus-mode .timer-list{padding:12px}
 .timer-secondary{font-size:11px;color:var(--text3);margin-top:2px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:1px 4px;transition:background 0.12s;user-select:none}
 .timer-secondary:hover{background:var(--surface3);color:var(--text2)}
 
+
+/* Tablet layout fixes
+   Tablets around 701–1024px wide were still using the desktop two-column layout,
+   leaving the Account Summary trapped in a narrow 280px sidebar. At this width,
+   stack the sidebar above the timer list so summary rows have room to render. */
+@media (max-width: 1024px){
+  body{overflow-x:hidden}
+  .app{height:auto;min-height:100vh;overflow-x:hidden;overflow-y:visible}
+
+  .topbar{padding:10px 12px;flex-wrap:wrap;gap:8px;overflow:visible}
+  .topbar-title{flex:1 1 auto;min-width:0}
+  .topbar > .topbar-spacer{display:none}
+  .topbar .sync-status{flex:0 1 auto;text-align:center;min-width:0}
+  .topbar .btn{flex:0 1 auto;justify-content:center;padding:7px 10px;min-width:0}
+
+  .main{display:block;overflow:visible}
+  .main.sidebar-hidden .sidebar{display:none}
+  .sidebar{width:100%;max-height:none;border-right:0;border-bottom:1px solid var(--border);overflow:visible}
+  .content{width:100%;overflow:visible;min-width:0}
+
+  .account-summary-section{flex:0 0 auto;overflow:visible}
+  .account-summary-section .account-summary{max-height:280px;overflow-y:auto;padding-right:4px}
+  .account-summary-table-header,
+  .account-summary-table-row{
+    grid-template-columns:minmax(140px,1fr) 40px 40px 40px 40px;
+    gap:6px;
+  }
+  .account-summary-table-row{padding:7px 0}
+  .account-summary-cell{font-size:11px}
+
+  .group-list,.stats-bar,.toolbar{padding-left:12px !important;padding-right:12px !important;flex-wrap:wrap}
+  .timer-list{padding:12px;overflow:visible}
+
+  body.focus-mode .app{height:auto;min-height:100vh;overflow:visible}
+  body.focus-mode .content{height:auto;min-height:100vh}
+}
+
 /* Mobile layout fixes */
 @media (max-width: 700px){
   body{overflow-x:hidden}
