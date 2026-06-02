@@ -218,6 +218,43 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .account-summary-cell.paused{color:var(--amber)}
 .account-summary-cell.stopped{color:var(--text3)}
 .account-summary-cell.expired{color:var(--red)}
+.account-summary-table-row.expanded{background:rgba(108,108,255,0.07);border-color:rgba(108,108,255,0.18)}
+.account-summary-account-wrap{display:flex;align-items:center;gap:5px;min-width:0}
+.account-summary-chevron{display:inline-block;width:10px;color:var(--text3);font-size:10px;line-height:1;flex:0 0 auto}
+.account-summary-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-summary-detail{
+  margin:0 0 6px 0;
+  padding:5px 0 8px 15px;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+}
+.account-summary-detail-list{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  max-height:180px;
+  overflow-y:auto;
+  padding-right:3px;
+}
+.account-summary-detail-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px;
+  align-items:center;
+  padding:4px 5px;
+  border-radius:var(--radius);
+  font-family:'DM Sans',sans-serif;
+  font-size:11px;
+  color:var(--text2);
+}
+.account-summary-detail-row:hover{background:rgba(255,255,255,0.025)}
+.account-summary-detail-main{min-width:0;display:flex;align-items:center;gap:5px}
+.account-summary-detail-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.account-summary-detail-type{font-size:10px;color:var(--accent);background:var(--accent-glow);border:1px solid rgba(108,108,255,0.25);border-radius:999px;padding:1px 5px;white-space:nowrap}
+.account-summary-detail-time{font-family:'JetBrains Mono',monospace;font-size:10px;white-space:nowrap;color:var(--text3)}
+.account-summary-detail-time.running{color:var(--accent)}
+.account-summary-detail-time.paused{color:var(--amber)}
+.account-summary-detail-time.expired{color:var(--red)}
+.account-summary-detail-time.stopped{color:var(--text3)}
 .account-summary-section{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
 .account-summary-section label{flex:0 0 auto}
 .account-summary-section .account-summary{flex:1;min-height:0;overflow-y:auto;padding-right:4px}
@@ -671,6 +708,7 @@ let sortKey = 'remaining';
 let sortDir = 1;
 let filterGroup = 'All';
 let filterDue = 'All';
+let expandedAccount = null;
 let editingId = null;
 let tickInterval = null;
 let sidebarVisible = true;
@@ -1414,24 +1452,95 @@ function setDueFilter(g) {
   renderTimers();
 }
 
+function accountSummaryTimerLabel(t) {
+  if (t.status === 'expired' || Number(t.remaining) <= 0) return 'Ready';
+  if (t.status === 'running') return fmt(t.remaining);
+  if (t.status === 'paused') return `Paused ${fmt(t.remaining)}`;
+  if (t.status === 'stopped') return 'Stopped';
+  return fmt(t.remaining);
+}
+
+function accountSummaryTimerSort(list) {
+  const statusOrder = { expired:0, running:1, paused:2, stopped:3 };
+  return [...list].sort((a,b) => {
+    const aw = dueWindow(a).order;
+    const bw = dueWindow(b).order;
+    if (aw !== bw) return aw - bw;
+
+    const as = statusOrder[a.status] ?? 9;
+    const bs = statusOrder[b.status] ?? 9;
+    if (as !== bs) return as - bs;
+
+    if (Number(a.remaining) !== Number(b.remaining)) return Number(a.remaining) - Number(b.remaining);
+    return String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric:true, sensitivity:'base' });
+  });
+}
+
+function toggleAccountSummaryDetails(event, account) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  expandedAccount = expandedAccount === account ? null : account;
+  filterGroup = account;
+  renderTimers();
+}
+
+function renderAccountSummaryDetail(account, accountTimers) {
+  const sorted = accountSummaryTimerSort(accountTimers);
+
+  return `
+    <div class="account-summary-detail">
+      <div class="account-summary-detail-list">
+        ${sorted.map(t => {
+          const type = getUpgradeType(t);
+          const label = accountSummaryTimerLabel(t);
+          const statusClass = ['running','paused','stopped','expired'].includes(t.status) ? t.status : '';
+          return `
+            <div class="account-summary-detail-row" title="${esc(t.name)} — ${esc(label)}">
+              <span class="account-summary-detail-main">
+                <span aria-hidden="true">↳</span>
+                <span class="account-summary-detail-name">${esc(t.name)}</span>
+                ${type ? `<span class="account-summary-detail-type">${esc(type)}</span>` : ''}
+              </span>
+              <span class="account-summary-detail-time ${statusClass}">${esc(label)}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderAccountSummary() {
   const el = document.getElementById('account-summary');
   if (!el) return;
+
+  const previousScrollTop = el.scrollTop;
+  const previousDetail = el.querySelector('.account-summary-detail-list');
+  const previousDetailScrollTop = previousDetail ? previousDetail.scrollTop : 0;
+
   const accounts = new Map();
   timers.forEach(t => {
     const account = getAccount(t) || 'Unassigned';
-    if (!accounts.has(account)) accounts.set(account, {running:0, paused:0, stopped:0, expired:0});
+    if (!accounts.has(account)) accounts.set(account, {running:0, paused:0, stopped:0, expired:0, timers:[]});
     const row = accounts.get(account);
+    row.timers.push(t);
     if (t.status === 'running') row.running++;
     else if (t.status === 'paused') row.paused++;
     else if (t.status === 'stopped') row.stopped++;
     else if (t.status === 'expired') row.expired++;
   });
-  const rows = Array.from(accounts.entries()).sort((a,b)=>a[0].localeCompare(b[0]));
+
+  const rows = Array.from(accounts.entries()).sort((a,b)=>a[0].localeCompare(b[0], undefined, { numeric:true, sensitivity:'base' }));
+  if (expandedAccount && !accounts.has(expandedAccount)) expandedAccount = null;
+
   if (!rows.length) {
     el.innerHTML = '<span style="font-size:12px;color:var(--text3)">No accounts yet.</span>';
     return;
   }
+
   el.innerHTML = `
     <div class="account-summary-table" aria-label="Account summary by status">
       <div class="account-summary-table-header">
@@ -1441,22 +1550,39 @@ function renderAccountSummary() {
         <span class="account-summary-cell" title="Stopped">S</span>
         <span class="account-summary-cell" title="Expired">E</span>
       </div>
-      ${rows.map(([account, c]) => `
-        <div class="account-summary-table-row"
-             onclick="setGroup('${account.replace(/'/g,"\\'") }')"
-             title="Filter to ${esc(account)}"
-             aria-label="${esc(account)}: ${c.running} running, ${c.paused} paused, ${c.stopped} stopped, ${c.expired} expired">
-          <span class="account-summary-account">${esc(account)}</span>
-          <span class="account-summary-cell running">${c.running}</span>
-          <span class="account-summary-cell paused">${c.paused}</span>
-          <span class="account-summary-cell stopped">${c.stopped}</span>
-          <span class="account-summary-cell expired">${c.expired}</span>
-        </div>
-      `).join('')}
+      ${rows.map(([account, c]) => {
+        const expanded = expandedAccount === account;
+        const accountArg = esc(JSON.stringify(account));
+        return `
+          <div class="account-summary-table-row${expanded ? ' expanded' : ''}"
+               onclick="toggleAccountSummaryDetails(event, ${accountArg})"
+               onkeydown="if(event.key==='Enter'||event.key===' '){toggleAccountSummaryDetails(event, ${accountArg})}"
+               tabindex="0"
+               role="button"
+               title="${expanded ? 'Collapse' : 'Expand'} ${esc(account)} and filter timer list"
+               aria-expanded="${expanded ? 'true' : 'false'}"
+               aria-label="${esc(account)}: ${c.running} running, ${c.paused} paused, ${c.stopped} stopped, ${c.expired} expired">
+            <span class="account-summary-account">
+              <span class="account-summary-account-wrap">
+                <span class="account-summary-chevron" aria-hidden="true">${expanded ? '▾' : '▸'}</span>
+                <span class="account-summary-name">${esc(account)}</span>
+              </span>
+            </span>
+            <span class="account-summary-cell running">${c.running}</span>
+            <span class="account-summary-cell paused">${c.paused}</span>
+            <span class="account-summary-cell stopped">${c.stopped}</span>
+            <span class="account-summary-cell expired">${c.expired}</span>
+          </div>
+          ${expanded ? renderAccountSummaryDetail(account, c.timers) : ''}
+        `;
+      }).join('')}
     </div>
   `;
-}
 
+  el.scrollTop = previousScrollTop;
+  const restoredDetail = el.querySelector('.account-summary-detail-list');
+  if (restoredDetail) restoredDetail.scrollTop = previousDetailScrollTop;
+}
 function renderStats() {
   const running = timers.filter(t=>t.status==='running').length;
   const paused = timers.filter(t=>t.status==='paused').length;
