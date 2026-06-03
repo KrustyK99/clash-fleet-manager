@@ -42,7 +42,7 @@ h1,h2,h3{font-weight:500}
 .sync-status.error{color:var(--red);border-color:rgba(255,92,92,0.35)}
 .topbar-spacer{flex:1}
 .main{display:grid;grid-template-columns:280px minmax(0,1fr);overflow:hidden}
-.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-x:hidden;overflow-y:auto;min-height:0}
 .sidebar-section{padding:16px;border-bottom:1px solid var(--border)}
 .sidebar-section label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);display:block;margin-bottom:6px}
 .content{display:flex;flex-direction:column;overflow:hidden;min-width:0}
@@ -255,9 +255,11 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .account-summary-detail-time.paused{color:var(--amber)}
 .account-summary-detail-time.expired{color:var(--red)}
 .account-summary-detail-time.stopped{color:var(--text3)}
-.account-summary-section{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+/* Keep Account Summary visible when the sidebar itself scrolls.
+   The section should use its natural height instead of flex-shrinking to zero. */
+.account-summary-section{flex:0 0 auto;overflow:visible;display:flex;flex-direction:column}
 .account-summary-section label{flex:0 0 auto}
-.account-summary-section .account-summary{flex:1;min-height:0;overflow-y:auto;padding-right:4px}
+.account-summary-section .account-summary{flex:0 0 auto;max-height:260px;overflow-y:auto;padding-right:4px}
 .sidebar-actions{flex:0 0 auto}
 .due-section{display:flex;align-items:center;gap:8px;margin:8px 0 0 0;padding:6px 2px 2px 2px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid var(--border)}
 .due-section-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3)}
@@ -319,10 +321,11 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .main{transition:grid-template-columns 0.22s ease}
 .main.sidebar-hidden{grid-template-columns:0px 1fr}
 .main.sidebar-hidden .sidebar{overflow:hidden;border-right:none}
-.sidebar-toggle{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 8px;cursor:pointer;font-size:13px;line-height:1;transition:all 0.15s}
-.sidebar-toggle:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
-.focus-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:12px;line-height:1;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap}
-.focus-toggle-btn:hover,.focus-toggle-btn.active{background:var(--surface2);color:var(--accent);border-color:var(--accent)}
+.sidebar-toggle,.focus-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:12px;line-height:1;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap}
+.sidebar-toggle:hover,.focus-toggle-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
+.sidebar-toggle.active,.focus-toggle-btn.active{background:var(--surface2);color:var(--accent);border-color:var(--accent)}
+.view-toggle-icon{font-size:13px;line-height:1;opacity:0.9}
+.view-toggle-label{font-weight:500}
 .focus-exit-btn{display:none;position:fixed;top:10px;right:10px;z-index:150;box-shadow:0 8px 24px rgba(0,0,0,0.35);background:rgba(24,24,31,0.92);backdrop-filter:blur(4px)}
 body.focus-mode .focus-exit-btn{display:inline-flex}
 body.focus-mode .app{grid-template-rows:1fr}
@@ -334,6 +337,35 @@ body.focus-mode .group-list,
 body.focus-mode .stats-bar,
 body.focus-mode .toolbar{display:none !important}
 body.focus-mode .timer-list{padding:12px}
+
+/* Compact timer cards */
+body.compact-mode .timer-list{gap:6px}
+body.compact-mode .timer-card{
+  padding:8px 10px;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:6px;
+  align-items:center;
+}
+body.compact-mode .card-top{gap:5px;margin-bottom:1px}
+body.compact-mode .timer-name{font-size:13px}
+body.compact-mode .timer-group-badge,
+body.compact-mode .timer-type-badge,
+body.compact-mode .timer-due-badge{font-size:9px;padding:1px 6px}
+body.compact-mode .timer-display{font-size:22px;line-height:1.05}
+body.compact-mode .timer-display.adjustable{padding:0 4px 0 0;margin-left:0}
+body.compact-mode .timer-display.adjustable::after{font-size:10px}
+body.compact-mode .timer-meta,
+body.compact-mode .timer-secondary,
+body.compact-mode .timer-note,
+body.compact-mode .progress-bar{display:none}
+body.compact-mode .card-right{justify-content:center}
+body.compact-mode .card-actions{gap:3px;align-items:center}
+body.compact-mode .card-actions .btn{padding:4px 7px;font-size:12px;min-width:0}
+body.compact-mode .card-actions .btn-icon{width:26px;height:26px;padding:4px}
+body.compact-mode .timer-adjust-panel{margin-top:6px;padding-top:8px}
+body.compact-mode .timer-adjust-title,
+body.compact-mode .timer-adjust-current{font-size:10px}
+body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 
 /* Quick add panel */
 .quick-add{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
@@ -542,12 +574,25 @@ body.focus-mode .timer-list{padding:12px}
   .account-summary-detail-row{font-size:13px}
   .account-summary-detail-time{font-size:12px}
 
-  .focus-toggle-btn{flex:0 0 auto;padding:7px 9px}
-  .focus-toggle-btn .focus-toggle-label{display:none}
+  .sidebar-toggle,.focus-toggle-btn{flex:0 1 auto;padding:7px 9px;font-size:12px}
+  .view-toggle-icon{font-size:12px}
   .focus-exit-btn{top:8px;right:8px}
   body.focus-mode .app{height:auto;min-height:100vh;overflow:visible}
   body.focus-mode .content{height:auto;min-height:100vh}
   body.focus-mode .timer-list{padding:10px}
+
+  body.compact-mode .timer-list{padding:8px;gap:6px}
+  body.compact-mode .timer-card{grid-template-columns:minmax(0,1fr);padding:8px 9px;gap:6px}
+  body.compact-mode .card-left{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:center}
+  body.compact-mode .card-top{grid-column:1 / -1;margin-bottom:2px}
+  body.compact-mode .timer-name{font-size:14px;flex:1 1 auto;white-space:nowrap}
+  body.compact-mode .timer-display{font-size:24px;grid-column:1}
+  body.compact-mode .card-right{align-items:flex-start}
+  body.compact-mode .card-actions{justify-content:flex-start}
+  body.compact-mode .card-actions .btn{font-size:13px}
+  body.compact-mode .timer-group-badge,
+  body.compact-mode .timer-type-badge,
+  body.compact-mode .timer-due-badge{font-size:10px}
 
   .modal{width:95vw;padding:18px}
   .form-grid{grid-template-columns:1fr 1fr}
@@ -560,8 +605,9 @@ body.focus-mode .timer-list{padding:12px}
 <div class="app">
   <!-- Top bar -->
   <div class="topbar">
-    <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle-btn" title="Toggle sidebar">☰</button>
-    <button class="focus-toggle-btn" onclick="toggleFocusMode()" id="focus-toggle-btn" title="Show timers only" aria-label="Show timers only" aria-pressed="false">☰ <span class="focus-toggle-label">Focus</span></button>
+    <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle-btn" title="Hide filters and summary" aria-label="Hide filters and summary" aria-pressed="true"><span class="view-toggle-icon" aria-hidden="true">☰</span><span class="view-toggle-label" id="sidebar-toggle-label">Menu On</span></button>
+    <button class="focus-toggle-btn" onclick="toggleFocusMode()" id="focus-toggle-btn" title="Show timers only" aria-label="Show timers only" aria-pressed="false"><span class="view-toggle-icon" aria-hidden="true">◱</span><span class="view-toggle-label" id="focus-toggle-label">Focus</span></button>
+    <button class="focus-toggle-btn" onclick="toggleCompactMode()" id="compact-toggle-btn" title="Use compact timer cards" aria-label="Use compact timer cards" aria-pressed="false"><span class="view-toggle-icon" aria-hidden="true">▤</span><span class="view-toggle-label" id="compact-toggle-label">Compact</span></button>
     <span class="topbar-title">CLASH TIMERS</span>
     <span class="topbar-spacer"></span>
     <span class="sync-status" id="sync-status">Loading…</span>
@@ -700,7 +746,7 @@ body.focus-mode .timer-list{padding:12px}
   </div>
 </div>
 
-<button class="focus-toggle-btn focus-exit-btn" onclick="toggleFocusMode()" id="focus-exit-btn" title="Exit focus view" aria-label="Exit focus view" aria-pressed="true">☰ <span class="focus-toggle-label">Exit</span></button>
+<button class="focus-toggle-btn focus-exit-btn" onclick="toggleFocusMode()" id="focus-exit-btn" title="Exit focus view" aria-label="Exit focus view" aria-pressed="true"><span class="view-toggle-icon" aria-hidden="true">◱</span><span class="view-toggle-label">Exit Focus</span></button>
 
 <button class="scroll-top-btn" onclick="scrollToPageTop()" id="scroll-top-btn" title="Scroll to top" aria-label="Scroll to top">
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -839,6 +885,7 @@ let editingId = null;
 let tickInterval = null;
 let sidebarVisible = true;
 let focusMode = false;
+let compactMode = false;
 let cardModes = {}; // id -> 'elapsed' | 'endtime'
 let adjustingTimerId = null;
 let inlineAdjustEditing = false;
@@ -855,6 +902,7 @@ const STORAGE_KEY = 'timerdesk_v2';
 const API_URL = 'api.php';
 const EMERGENCY_BACKUP_KEY = STORAGE_KEY + '_emergency_backup';
 const FOCUS_MODE_KEY = STORAGE_KEY + '_focus_mode';
+const COMPACT_MODE_KEY = STORAGE_KEY + '_compact_mode';
 
 const UPGRADE_TYPES = [
   '',
@@ -2402,6 +2450,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && bulkModalOpen && (e.ctrlKey || e.metaKey)) saveBulkTimers();
   if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !bulkModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') openAddModal();
   if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !regularModalOpen && !bulkModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleFocusMode();
+  if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !regularModalOpen && !bulkModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleCompactMode();
 });
 
 // ── Focus view ─────────────────────────────────────────────────────────────
@@ -2412,6 +2461,7 @@ function applyFocusMode() {
 
   const mainBtn = document.getElementById('focus-toggle-btn');
   const exitBtn = document.getElementById('focus-exit-btn');
+  const label = document.getElementById('focus-toggle-label');
 
   [mainBtn, exitBtn].forEach(btn => {
     if (!btn) return;
@@ -2419,12 +2469,14 @@ function applyFocusMode() {
     btn.setAttribute('aria-pressed', focusMode ? 'true' : 'false');
   });
 
+  if (label) label.textContent = focusMode ? 'Focus On' : 'Focus';
+
   if (mainBtn) {
     mainBtn.title = focusMode ? 'Exit focus view' : 'Show timers only';
     mainBtn.setAttribute('aria-label', mainBtn.title);
   }
   if (exitBtn) {
-    exitBtn.title = focusMode ? 'Exit focus view' : 'Show timers only';
+    exitBtn.title = 'Exit focus view';
     exitBtn.setAttribute('aria-label', exitBtn.title);
   }
 
@@ -2442,25 +2494,66 @@ function applySavedFocusMode() {
   applyFocusMode();
 }
 
+// ── Compact timer cards ────────────────────────────────────────────────────
+function applyCompactMode() {
+  const app = document.querySelector('.app');
+  if (app) app.classList.toggle('compact-mode', compactMode);
+  document.body.classList.toggle('compact-mode', compactMode);
+
+  const btn = document.getElementById('compact-toggle-btn');
+  const label = document.getElementById('compact-toggle-label');
+  if (btn) {
+    btn.classList.toggle('active', compactMode);
+    btn.setAttribute('aria-pressed', compactMode ? 'true' : 'false');
+    btn.title = compactMode ? 'Use normal timer cards' : 'Use compact timer cards';
+    btn.setAttribute('aria-label', btn.title);
+  }
+  if (label) label.textContent = compactMode ? 'Compact On' : 'Compact';
+
+  setTimeout(updateScrollTopButton, 0);
+}
+
+function toggleCompactMode() {
+  compactMode = !compactMode;
+  localStorage.setItem(COMPACT_MODE_KEY, compactMode ? '1' : '0');
+  applyCompactMode();
+}
+
+function applySavedCompactMode() {
+  compactMode = localStorage.getItem(COMPACT_MODE_KEY) === '1';
+  applyCompactMode();
+}
+
 // ── Sidebar toggle ─────────────────────────────────────────────────────────
+function applySidebarToggleState() {
+  const main = document.querySelector('.main');
+  if (main) main.classList.toggle('sidebar-hidden', !sidebarVisible);
+
+  const btn = document.getElementById('sidebar-toggle-btn');
+  const label = document.getElementById('sidebar-toggle-label');
+  if (btn) {
+    btn.classList.toggle('active', sidebarVisible);
+    btn.setAttribute('aria-pressed', sidebarVisible ? 'true' : 'false');
+    btn.title = sidebarVisible ? 'Hide menu' : 'Show menu';
+    btn.setAttribute('aria-label', btn.title);
+  }
+  if (label) label.textContent = sidebarVisible ? 'Menu On' : 'Menu';
+}
+
 function toggleSidebar() {
   sidebarVisible = !sidebarVisible;
-  document.querySelector('.main').classList.toggle('sidebar-hidden', !sidebarVisible);
-  document.getElementById('sidebar-toggle-btn').style.color = sidebarVisible ? '' : 'var(--accent)';
+  applySidebarToggleState();
   setTimeout(updateScrollTopButton, 0);
 }
 
 
 function applyInitialMobileLayout() {
   // Phones do not have room for the 280px sidebar plus the timer list.
-  // Start with the sidebar hidden so the timers render full-width; the hamburger still opens it.
+  // Start with the sidebar hidden so the timers render full-width; the Menu button still opens it.
   if (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) {
     sidebarVisible = false;
-    const main = document.querySelector('.main');
-    if (main) main.classList.add('sidebar-hidden');
-    const btn = document.getElementById('sidebar-toggle-btn');
-    if (btn) btn.style.color = 'var(--accent)';
   }
+  applySidebarToggleState();
 }
 
 // ── Quick add ─────────────────────────────────────────────────────────────
@@ -2498,6 +2591,7 @@ async function boot() {
   setupNativeSelectRenderGuard();
   applyInitialMobileLayout();
   applySavedFocusMode();
+  applySavedCompactMode();
   populateStaticSelects();
   await load();
   renderTimers();
