@@ -512,8 +512,35 @@ body.focus-mode .timer-list{padding:12px}
   .card-actions{justify-content:flex-start}
   .card-actions .btn{flex:0 0 auto}
   .timer-name{flex:1 1 100%;white-space:normal}
-  .timer-display{font-size:24px;overflow-wrap:anywhere}
+  .timer-display{font-size:34px;overflow-wrap:anywhere}
   .timer-note{white-space:normal}
+
+  /* Mobile readability tuning */
+  .timer-name{font-size:17px}
+  .timer-meta{font-size:13px}
+  .timer-note{font-size:14px}
+  .timer-secondary{font-size:13px}
+
+  input[type=text],
+  input[type=number],
+  select,
+  textarea{
+    font-size:17px;
+  }
+
+  .btn{font-size:15px}
+  .btn-sm{font-size:14px}
+
+  .timer-group-badge,
+  .timer-type-badge,
+  .timer-due-badge{
+    font-size:12px;
+  }
+
+  .account-summary-table-row .account-summary-account{font-size:14px}
+  .account-summary-cell{font-size:13px}
+  .account-summary-detail-row{font-size:13px}
+  .account-summary-detail-time{font-size:12px}
 
   .focus-toggle-btn{flex:0 0 auto;padding:7px 9px}
   .focus-toggle-btn .focus-toggle-label{display:none}
