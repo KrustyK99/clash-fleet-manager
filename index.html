@@ -47,6 +47,39 @@ h1,h2,h3{font-weight:500}
 .sidebar-section label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);display:block;margin-bottom:6px}
 .content{display:flex;flex-direction:column;overflow:hidden;min-width:0}
 .toolbar{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;background:var(--surface)}
+.active-search-pill{
+  display:none;
+  align-items:center;
+  gap:6px;
+  max-width:min(360px,42vw);
+  border:1px solid rgba(108,108,255,0.35);
+  background:var(--accent-glow);
+  color:var(--accent);
+  border-radius:999px;
+  padding:4px 8px 4px 10px;
+  font-size:12px;
+  line-height:1;
+  white-space:nowrap;
+}
+.active-search-pill.visible{display:inline-flex}
+.active-search-label{flex:0 0 auto}
+.active-search-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'JetBrains Mono',monospace;color:var(--text)}
+.active-search-clear{
+  border:0;
+  background:transparent;
+  color:var(--accent);
+  width:18px;
+  height:18px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+}
+.active-search-clear:hover{background:rgba(108,108,255,0.18);color:#fff}
 .timer-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
 /* Prevent timer cards from being compressed when many timers are in the scroll list. */
 .timer-list > *{flex-shrink:0}
@@ -344,6 +377,9 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .sidebar-toggle,.focus-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:12px;line-height:1;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap}
 .sidebar-toggle:hover,.focus-toggle-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
 .sidebar-toggle.active,.focus-toggle-btn.active{background:var(--surface2);color:var(--accent);border-color:var(--accent)}
+.sidebar-search-indicator{display:none;align-items:center;font-size:12px;line-height:1;color:var(--accent)}
+.sidebar-toggle.search-active .sidebar-search-indicator,.focus-exit-btn.search-active .sidebar-search-indicator{display:inline-flex}
+.sidebar-toggle.search-active:not(.active),.focus-exit-btn.search-active{background:var(--accent-glow);border-color:rgba(108,108,255,0.45);color:var(--accent)}
 .view-toggle-icon{font-size:13px;line-height:1;opacity:0.9}
 .view-toggle-label{font-weight:500}
 .focus-exit-btn{display:none;position:fixed;top:10px;right:10px;z-index:150;box-shadow:0 8px 24px rgba(0,0,0,0.35);background:rgba(24,24,31,0.92);backdrop-filter:blur(4px)}
@@ -535,6 +571,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .account-summary-cell{font-size:11px}
 
   .group-list,.stats-bar,.toolbar{padding-left:12px !important;padding-right:12px !important;flex-wrap:wrap}
+  .active-search-pill{max-width:100%;flex:1 1 100%;order:3}
   .timer-list{padding:12px;overflow:visible}
 
   body.focus-mode .app{height:auto;min-height:100vh;overflow:visible}
@@ -560,6 +597,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .content{width:100%;overflow:visible;min-width:0}
 
   .group-list,.stats-bar,.toolbar{padding-left:12px !important;padding-right:12px !important;flex-wrap:wrap}
+  .active-search-pill{max-width:100%;flex:1 1 100%;order:3}
   .timer-list{padding:12px;overflow:visible}
 
   /* Stack each timer card so actions and badges cannot force horizontal overflow. */
@@ -635,7 +673,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 <div class="app">
   <!-- Top bar -->
   <div class="topbar">
-    <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle-btn" title="Hide filters and summary" aria-label="Hide filters and summary" aria-pressed="true"><span class="view-toggle-icon" aria-hidden="true">☰</span><span class="view-toggle-label" id="sidebar-toggle-label">Menu On</span></button>
+    <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle-btn" title="Hide filters and summary" aria-label="Hide filters and summary" aria-pressed="true"><span class="view-toggle-icon" aria-hidden="true">☰</span><span class="view-toggle-label" id="sidebar-toggle-label">Menu On</span><span class="sidebar-search-indicator" id="sidebar-search-indicator" aria-hidden="true">🔎</span></button>
     <button class="focus-toggle-btn" onclick="toggleFocusMode()" id="focus-toggle-btn" title="Show timers only" aria-label="Show timers only" aria-pressed="false"><span class="view-toggle-icon" aria-hidden="true">◱</span><span class="view-toggle-label" id="focus-toggle-label">Focus</span></button>
     <button class="focus-toggle-btn" onclick="toggleCompactMode()" id="compact-toggle-btn" title="Use compact timer cards" aria-label="Use compact timer cards" aria-pressed="false"><span class="view-toggle-icon" aria-hidden="true">▤</span><span class="view-toggle-label" id="compact-toggle-label">Compact</span></button>
     <span class="topbar-title">CLASH TIMERS</span>
@@ -767,6 +805,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
       <div class="toolbar" style="padding:8px 16px">
         <span style="font-size:12px;color:var(--text3)">Sorting by:</span>
         <span style="font-size:12px;color:var(--accent);margin-left:4px" id="sort-label">Time remaining ↑</span>
+        <span class="active-search-pill" id="active-search-pill" aria-live="polite"></span>
         <span class="topbar-spacer"></span>
         <span style="font-size:12px;color:var(--text3)" id="timer-count"></span>
       </div>
@@ -777,7 +816,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   </div>
 </div>
 
-<button class="focus-toggle-btn focus-exit-btn" onclick="toggleFocusMode()" id="focus-exit-btn" title="Exit focus view" aria-label="Exit focus view" aria-pressed="true"><span class="view-toggle-icon" aria-hidden="true">◱</span><span class="view-toggle-label">Exit Focus</span></button>
+<button class="focus-toggle-btn focus-exit-btn" onclick="toggleFocusMode()" id="focus-exit-btn" title="Exit focus view" aria-label="Exit focus view" aria-pressed="true"><span class="view-toggle-icon" aria-hidden="true">◱</span><span class="view-toggle-label">Exit Focus</span><span class="sidebar-search-indicator" aria-hidden="true">🔎</span></button>
 
 <button class="scroll-top-btn" onclick="scrollToPageTop()" id="scroll-top-btn" title="Scroll to top" aria-label="Scroll to top">
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1797,9 +1836,61 @@ function renderGroupBar() {
   populateAccountControls();
 }
 
-function timerMatchesAccountAndSearch(t) {
+function getSearchFilter() {
   const searchEl = document.getElementById('search-input');
-  const search = searchEl ? searchEl.value.toLowerCase() : '';
+  return searchEl ? searchEl.value.trim() : '';
+}
+
+function hasActiveFilters() {
+  return filterGroup !== 'All' || filterDue !== 'All' || filterType !== 'All' || filterStatus !== 'All' || !!getSearchFilter();
+}
+
+function clearSearchFilter() {
+  const searchEl = document.getElementById('search-input');
+  if (searchEl) searchEl.value = '';
+  renderTimers();
+}
+
+function updateSearchFilterIndicators() {
+  const search = getSearchFilter();
+  const active = !!search;
+
+  const pill = document.getElementById('active-search-pill');
+  if (pill) {
+    pill.classList.toggle('visible', active);
+    if (active) {
+      pill.title = `Search filter active: ${search}`;
+      pill.innerHTML = `
+        <span class="active-search-label">🔎 Search:</span>
+        <span class="active-search-value">${esc(search)}</span>
+        <button class="active-search-clear" type="button" onclick="clearSearchFilter()" aria-label="Clear search filter" title="Clear search filter">×</button>
+      `;
+    } else {
+      pill.title = '';
+      pill.innerHTML = '';
+    }
+  }
+
+  const menuBtn = document.getElementById('sidebar-toggle-btn');
+  if (menuBtn) {
+    menuBtn.classList.toggle('search-active', active);
+    const baseTitle = sidebarVisible ? 'Hide menu' : 'Show menu';
+    const title = active ? `${baseTitle} — search filter active: ${search}` : baseTitle;
+    menuBtn.title = title;
+    menuBtn.setAttribute('aria-label', title);
+  }
+
+  const focusExitBtn = document.getElementById('focus-exit-btn');
+  if (focusExitBtn) {
+    focusExitBtn.classList.toggle('search-active', active);
+    const title = active ? `Exit focus view — search filter active: ${search}` : 'Exit focus view';
+    focusExitBtn.title = title;
+    focusExitBtn.setAttribute('aria-label', title);
+  }
+}
+
+function timerMatchesAccountAndSearch(t) {
+  const search = getSearchFilter().toLowerCase();
 
   if (filterGroup !== 'All' && getAccount(t) !== filterGroup) return false;
   if (search && !t.name.toLowerCase().includes(search) && !(t.note||'').toLowerCase().includes(search) && !getAccount(t).toLowerCase().includes(search) && !getUpgradeType(t).toLowerCase().includes(search)) return false;
@@ -2143,7 +2234,12 @@ function renderTimers() {
     return true;
   });
   list = sortedTimers(list);
-  document.getElementById('timer-count').textContent = `${list.length} timer${list.length!==1?'s':''}`;
+  updateSearchFilterIndicators();
+  const timerCountEl = document.getElementById('timer-count');
+  if (timerCountEl) {
+    const timerLabel = list.length === 1 ? 'timer' : 'timers';
+    timerCountEl.textContent = hasActiveFilters() ? `${list.length} of ${timers.length} ${timerLabel}` : `${list.length} ${timerLabel}`;
+  }
   const el = document.getElementById('timer-list');
   if (!list.length) {
     el.innerHTML = `<div class="empty"><div class="big">⏱</div><p>${timers.length?'No timers match your filter.':'No timers yet. Click <strong>New Timer</strong> to get started.'}</p></div>`;
@@ -2740,6 +2836,7 @@ function applySidebarToggleState() {
     btn.setAttribute('aria-label', btn.title);
   }
   if (label) label.textContent = sidebarVisible ? 'Menu On' : 'Menu';
+  updateSearchFilterIndicators();
 }
 
 function toggleSidebar() {
