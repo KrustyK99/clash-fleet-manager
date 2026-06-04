@@ -362,6 +362,11 @@ body.compact-mode .card-right{justify-content:center}
 body.compact-mode .card-actions{gap:3px;align-items:center}
 body.compact-mode .card-actions .btn{padding:4px 7px;font-size:12px;min-width:0}
 body.compact-mode .card-actions .btn-icon{width:26px;height:26px;padding:4px}
+.card-actions-toggle{display:none}
+body.compact-mode .card-actions-toggle{display:inline-flex}
+body.compact-mode .timer-card:not(.actions-expanded) .card-actions{display:none}
+body.compact-mode .timer-card.actions-expanded .card-actions{display:flex}
+body.compact-mode .timer-card.actions-expanded .card-actions-toggle{color:var(--accent);border-color:var(--accent);background:var(--accent-glow)}
 body.compact-mode .timer-adjust-panel{margin-top:6px;padding-top:8px}
 body.compact-mode .timer-adjust-title,
 body.compact-mode .timer-adjust-current{font-size:10px}
@@ -581,18 +586,23 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   body.focus-mode .content{height:auto;min-height:100vh}
   body.focus-mode .timer-list{padding:10px}
 
-  body.compact-mode .timer-list{padding:8px;gap:6px}
-  body.compact-mode .timer-card{grid-template-columns:minmax(0,1fr);padding:8px 9px;gap:6px}
-  body.compact-mode .card-left{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:center}
-  body.compact-mode .card-top{grid-column:1 / -1;margin-bottom:2px}
-  body.compact-mode .timer-name{font-size:14px;flex:1 1 auto;white-space:nowrap}
-  body.compact-mode .timer-display{font-size:24px;grid-column:1}
-  body.compact-mode .card-right{align-items:flex-start}
+  body.compact-mode .timer-list{padding:6px;gap:4px}
+  body.compact-mode .timer-card{grid-template-columns:minmax(0,1fr) auto;padding:6px 8px;gap:4px 6px;align-items:center}
+  body.compact-mode .card-left{grid-column:1;grid-row:1;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:6px;align-items:center}
+  body.compact-mode .card-top{grid-column:1 / -1;margin-bottom:1px;gap:4px}
+  body.compact-mode .timer-name{font-size:13px;flex:1 1 auto;white-space:nowrap}
+  body.compact-mode .timer-display{font-size:22px;grid-column:1;line-height:1}
+  body.compact-mode .timer-display.adjustable::after{font-size:9px}
+  body.compact-mode .card-right{grid-column:2;grid-row:1;align-self:end;align-items:flex-end;justify-content:flex-end;gap:4px}
+  body.compact-mode .card-actions-toggle{width:26px;height:26px;padding:4px;font-size:16px;line-height:1}
   body.compact-mode .card-actions{justify-content:flex-start}
-  body.compact-mode .card-actions .btn{font-size:13px}
+  body.compact-mode .card-actions .btn{font-size:12px}
+  body.compact-mode .timer-card.actions-expanded{grid-template-columns:minmax(0,1fr);gap:5px}
+  body.compact-mode .timer-card.actions-expanded .card-left{grid-column:1;grid-row:auto}
+  body.compact-mode .timer-card.actions-expanded .card-right{grid-column:1;grid-row:auto;align-self:auto;align-items:center;justify-content:flex-start;flex-direction:row}
   body.compact-mode .timer-group-badge,
   body.compact-mode .timer-type-badge,
-  body.compact-mode .timer-due-badge{font-size:10px}
+  body.compact-mode .timer-due-badge{font-size:9px;padding:1px 5px}
 
   .modal{width:95vw;padding:18px}
   .form-grid{grid-template-columns:1fr 1fr}
@@ -888,6 +898,7 @@ let focusMode = false;
 let compactMode = false;
 let cardModes = {}; // id -> 'elapsed' | 'endtime'
 let adjustingTimerId = null;
+let expandedActionsTimerId = null;
 let inlineAdjustEditing = false;
 let renderQueuedUntilAdjustEditEnds = false;
 let serverLastUpdated = null;
@@ -968,6 +979,14 @@ function getAccount(t) {
 
 function getUpgradeType(t) {
   return String(t.upgradeType || '').trim();
+}
+
+function compactUpgradeTypeLabel(type) {
+  const labels = {
+    'Capital / Other': 'Capital',
+    'Equipment': 'Equip'
+  };
+  return labels[type] || type;
 }
 
 function dueWindow(t) {
@@ -1937,6 +1956,20 @@ function renderStats() {
   ].join('');
 }
 
+function toggleTimerActions(id, event) {
+  if (event) event.stopPropagation();
+  expandedActionsTimerId = expandedActionsTimerId === id ? null : id;
+  renderTimers();
+}
+
+function toggleTimerActionsFromCard(event, id) {
+  if (!compactMode) return;
+  const interactive = event.target.closest('button,input,select,textarea,a,[role="button"],.timer-secondary,.timer-adjust-panel');
+  if (interactive) return;
+  expandedActionsTimerId = expandedActionsTimerId === id ? null : id;
+  renderTimers();
+}
+
 function renderTimers() {
   renderGroupBar();
   renderDueBar();
@@ -1971,6 +2004,11 @@ function renderTimers() {
       `<button class="btn btn-sm" onclick="resetTimer('${t.id}')" title="Reset" style="color:var(--text2)">↺</button>` : '';
     const repeatIcon = t.repeat ? `<span title="Repeating" style="font-size:10px;color:var(--text3)">↺</span>` : '';
     const soundIcon = t.sound ? `<span title="Alert on" style="font-size:10px;color:var(--text3)">🔔</span>` : '';
+    const due = dueWindow(t);
+    const dueLabel = compactMode ? due.key : due.label;
+    const upgradeType = getUpgradeType(t);
+    const upgradeTypeLabel = compactMode ? compactUpgradeTypeLabel(upgradeType) : upgradeType;
+    const actionsExpanded = expandedActionsTimerId === t.id;
     // Secondary info: elapsed or end time
     const showEndTime = (cardModes[t.id] === 'endtime');
     let secondaryText = '';
@@ -1993,13 +2031,13 @@ function renderTimers() {
     const secondaryEl = secondaryText
       ? `<span class="timer-secondary" onclick="toggleCardMode('${t.id}')" title="Click to switch view">⇄ ${secondaryText}</span>`
       : '';
-    return `<div class="timer-card ${t.status}" id="tc-${t.id}">
+    return `<div class="timer-card ${t.status}${actionsExpanded ? ' actions-expanded' : ''}" id="tc-${t.id}" onclick="toggleTimerActionsFromCard(event, ${idArg})">
       <div class="card-left">
         <div class="card-top">
           <span class="timer-name" title="${esc(t.name)}">${esc(t.name)}</span>
           ${getAccount(t)?`<span class="timer-group-badge">${esc(getAccount(t))}</span>`:''}
-          ${getUpgradeType(t)?`<span class="timer-type-badge">${esc(getUpgradeType(t))}</span>`:''}
-          <span class="timer-due-badge ${dueWindow(t).cls}">${dueWindow(t).label}</span>
+          ${upgradeType?`<span class="timer-type-badge" title="${esc(upgradeType)}">${esc(upgradeTypeLabel)}</span>`:''}
+          <span class="timer-due-badge ${due.cls}" title="${esc(due.label)}">${dueLabel}</span>
           ${repeatIcon}${soundIcon}
         </div>
         <div class="timer-display adjustable" onclick="toggleTimerAdjustPanel(${idArg})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTimerAdjustPanel(${idArg})}" role="button" tabindex="0" title="Tap to adjust remaining time">${fmt(t.remaining)}</div>
@@ -2009,6 +2047,7 @@ function renderTimers() {
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
       </div>
       <div class="card-right">
+        <button class="btn btn-sm btn-icon card-actions-toggle" onclick="toggleTimerActions(${idArg}, event)" title="${actionsExpanded ? 'Hide actions' : 'Show actions'}" aria-label="${actionsExpanded ? 'Hide timer actions' : 'Show timer actions'}" aria-expanded="${actionsExpanded ? 'true' : 'false'}">⋯</button>
         <div class="card-actions">
           ${playBtn}${pauseBtn}${resetBtn}
           <button class="btn btn-sm btn-icon" onclick="toggleTimerAdjustPanel(${idArg})" title="Adjust time">⏱</button>
@@ -2515,8 +2554,10 @@ function applyCompactMode() {
 
 function toggleCompactMode() {
   compactMode = !compactMode;
+  if (!compactMode) expandedActionsTimerId = null;
   localStorage.setItem(COMPACT_MODE_KEY, compactMode ? '1' : '0');
   applyCompactMode();
+  renderTimers();
 }
 
 function applySavedCompactMode() {
