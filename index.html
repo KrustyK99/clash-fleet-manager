@@ -318,6 +318,24 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .stat:hover{border-color:var(--border2);background:var(--surface2);color:var(--text)}
 .stat.active{border-color:var(--accent);background:var(--accent);color:#fff}
 .stat-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.filter-reset-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  border:1px dashed var(--border2);
+  background:transparent;
+  color:var(--text2);
+  border-radius:999px;
+  padding:4px 10px;
+  font-family:'DM Sans',sans-serif;
+  font-size:12px;
+  line-height:1;
+  cursor:pointer;
+  transition:all 0.15s;
+  white-space:nowrap;
+}
+.filter-reset-pill:hover{border-color:var(--accent);background:var(--accent-glow);color:var(--accent)}
+.filter-reset-pill:active{transform:scale(0.97)}
 
 /* Sidebar collapse */
 .main{transition:grid-template-columns 0.22s ease}
@@ -740,6 +758,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
       <!-- Account filter pills -->
       <div id="group-bar" class="group-list"></div>
       <div id="due-bar" class="group-list"></div>
+      <div id="type-bar" class="group-list"></div>
 
       <!-- Stats -->
       <div class="stats-bar" id="stats-bar"></div>
@@ -892,6 +911,7 @@ let sortKey = 'remaining';
 let sortDir = 1;
 let filterGroup = 'All';
 let filterDue = 'All';
+let filterType = 'All';
 let filterStatus = 'All';
 let expandedAccount = null;
 let editingId = null;
@@ -1329,6 +1349,7 @@ function getViewState() {
     sortDir,
     filterGroup,
     filterDue,
+    filterType,
     filterStatus,
     search: searchEl ? searchEl.value : ''
   };
@@ -1340,6 +1361,7 @@ function restoreViewState(state) {
   sortDir = Number(state.sortDir) || sortDir;
   filterGroup = state.filterGroup || 'All';
   filterDue = state.filterDue || 'All';
+  filterType = state.filterType || 'All';
   filterStatus = state.filterStatus || 'All';
 
   const searchEl = document.getElementById('search-input');
@@ -1788,6 +1810,14 @@ function timerMatchesStatus(t) {
   return filterStatus === 'All' || t.status === filterStatus;
 }
 
+function timerTypeKey(t) {
+  return getUpgradeType(t) || 'No type';
+}
+
+function timerMatchesType(t) {
+  return filterType === 'All' || timerTypeKey(t) === filterType;
+}
+
 function timerMatchesAccountSearchAndDue(t) {
   if (!timerMatchesAccountAndSearch(t)) return false;
   if (filterDue !== 'All' && dueWindow(t).key !== filterDue) return false;
@@ -1799,7 +1829,7 @@ function renderDueBar() {
 
   // Due pill counts should reflect the currently selected account/search context,
   // but should not be reduced by the currently selected due pill.
-  const countBase = timers.filter(t => timerMatchesAccountAndSearch(t) && timerMatchesStatus(t));
+  const countBase = timers.filter(t => timerMatchesAccountAndSearch(t) && timerMatchesType(t) && timerMatchesStatus(t));
   const counts = {All: countBase.length, Ready:0, Soon:0, Today:0, Later:0};
   countBase.forEach(t => counts[dueWindow(t).key]++);
 
@@ -1817,6 +1847,55 @@ function renderDueBar() {
   )).join('');
 }
 
+function getTypeFilterKeys() {
+  const preferred = UPGRADE_TYPES.filter(Boolean);
+  const dynamic = Array.from(new Set(timers.map(timerTypeKey).filter(Boolean)));
+
+  const ordered = preferred.filter(type => dynamic.includes(type));
+  dynamic
+    .filter(type => !preferred.includes(type))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric:true, sensitivity:'base' }))
+    .forEach(type => ordered.push(type));
+
+  // Keep the configured upgrade types visible even when their current count is zero,
+  // so the Type row behaves like the Due row and does not jump around while filtering.
+  preferred.forEach(type => {
+    if (!ordered.includes(type)) ordered.push(type);
+  });
+
+  return ['All', ...ordered];
+}
+
+function renderTypeBar() {
+  const bar = document.getElementById('type-bar');
+  if (!bar) return;
+
+  if (!timers.length) {
+    bar.style.display = 'none';
+    return;
+  }
+
+  const keys = getTypeFilterKeys();
+  if (filterType !== 'All' && !keys.includes(filterType)) keys.push(filterType);
+
+  // Type pill counts reflect account/search/due/status context,
+  // but not the currently selected type pill.
+  const countBase = timers.filter(t => timerMatchesAccountSearchAndDue(t) && timerMatchesStatus(t));
+  const counts = { All: countBase.length };
+  countBase.forEach(t => {
+    const key = timerTypeKey(t);
+    counts[key] = (counts[key] || 0) + 1;
+  });
+
+  bar.style.display = 'flex';
+  bar.innerHTML = [`<span class="filter-bar-label">Type</span>`].concat(keys.map(key => {
+    const active = key === filterType;
+    const arg = esc(JSON.stringify(key));
+    const label = key === 'All' ? 'All' : key;
+    return `<button class="group-pill${active ? ' active' : ''}" onclick="setTypeFilter(${arg})">${esc(label)} (${counts[key] || 0})</button>`;
+  })).join('');
+}
+
 function setGroup(g) {
   filterGroup = g;
   renderTimers();
@@ -1827,8 +1906,26 @@ function setDueFilter(g) {
   renderTimers();
 }
 
+function setTypeFilter(type) {
+  filterType = type;
+  renderTimers();
+}
+
 function setStatusFilter(status) {
   filterStatus = filterStatus === status ? 'All' : status;
+  renderTimers();
+}
+
+function resetFilters() {
+  filterGroup = 'All';
+  filterDue = 'All';
+  filterType = 'All';
+  filterStatus = 'All';
+  expandedAccount = null;
+
+  const searchEl = document.getElementById('search-input');
+  if (searchEl) searchEl.value = '';
+
   renderTimers();
 }
 
@@ -1967,10 +2064,10 @@ function renderStats() {
   const bar = document.getElementById('stats-bar');
   if (!bar) return;
 
-  // Status pill counts reflect the current account/search/due context,
+  // Status pill counts reflect the current account/search/due/type context,
   // but not the currently selected status pill. That keeps the pills useful
   // for switching status filters without making the other counts disappear.
-  const countBase = timers.filter(timerMatchesAccountSearchAndDue);
+  const countBase = timers.filter(t => timerMatchesAccountSearchAndDue(t) && timerMatchesType(t));
   const counts = {
     All: countBase.length,
     running: countBase.filter(t => t.status === 'running').length,
@@ -1987,7 +2084,16 @@ function renderStats() {
     ['expired', 'expired', 'var(--red)']
   ];
 
-  bar.innerHTML = statuses.map(([key, label, color]) => {
+  const resetButton = `
+    <button class="filter-reset-pill"
+            type="button"
+            onclick="resetFilters()"
+            title="Reset account, due, type, status, and search filters">
+      ↺ Reset filters
+    </button>
+  `;
+
+  const statusButtons = statuses.map(([key, label, color]) => {
     const active = filterStatus === key;
     const title = key === 'All'
       ? 'Show all status timers'
@@ -2006,6 +2112,8 @@ function renderStats() {
       </button>
     `;
   }).join('');
+
+  bar.innerHTML = `<span class="filter-bar-label">Status</span>${resetButton}${statusButtons}`;
 }
 
 function toggleTimerActions(id, event) {
@@ -2025,10 +2133,12 @@ function toggleTimerActionsFromCard(event, id) {
 function renderTimers() {
   renderGroupBar();
   renderDueBar();
+  renderTypeBar();
   renderAccountSummary();
   renderStats();
   let list = timers.filter(t => {
     if (!timerMatchesAccountSearchAndDue(t)) return false;
+    if (!timerMatchesType(t)) return false;
     if (!timerMatchesStatus(t)) return false;
     return true;
   });
