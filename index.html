@@ -312,10 +312,12 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 
-/* Stats bar */
-.stats-bar{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;gap:20px;background:var(--surface);font-size:12px;color:var(--text3);flex-wrap:wrap}
-.stat{display:flex;align-items:center;gap:5px}
-.stat-dot{width:8px;height:8px;border-radius:50%}
+/* Stats/status filter bar */
+.stats-bar{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;gap:8px;background:var(--surface);font-size:12px;color:var(--text3);flex-wrap:wrap}
+.stat{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:999px;padding:4px 10px;font-family:'DM Sans',sans-serif;font-size:12px;line-height:1;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.stat:hover{border-color:var(--border2);background:var(--surface2);color:var(--text)}
+.stat.active{border-color:var(--accent);background:var(--accent);color:#fff}
+.stat-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
 
 /* Sidebar collapse */
 .main{transition:grid-template-columns 0.22s ease}
@@ -890,6 +892,7 @@ let sortKey = 'remaining';
 let sortDir = 1;
 let filterGroup = 'All';
 let filterDue = 'All';
+let filterStatus = 'All';
 let expandedAccount = null;
 let editingId = null;
 let tickInterval = null;
@@ -1326,6 +1329,7 @@ function getViewState() {
     sortDir,
     filterGroup,
     filterDue,
+    filterStatus,
     search: searchEl ? searchEl.value : ''
   };
 }
@@ -1336,6 +1340,7 @@ function restoreViewState(state) {
   sortDir = Number(state.sortDir) || sortDir;
   filterGroup = state.filterGroup || 'All';
   filterDue = state.filterDue || 'All';
+  filterStatus = state.filterStatus || 'All';
 
   const searchEl = document.getElementById('search-input');
   if (searchEl) searchEl.value = state.search || '';
@@ -1779,12 +1784,22 @@ function timerMatchesAccountAndSearch(t) {
   return true;
 }
 
+function timerMatchesStatus(t) {
+  return filterStatus === 'All' || t.status === filterStatus;
+}
+
+function timerMatchesAccountSearchAndDue(t) {
+  if (!timerMatchesAccountAndSearch(t)) return false;
+  if (filterDue !== 'All' && dueWindow(t).key !== filterDue) return false;
+  return true;
+}
+
 function renderDueBar() {
   const bar = document.getElementById('due-bar');
 
   // Due pill counts should reflect the currently selected account/search context,
   // but should not be reduced by the currently selected due pill.
-  const countBase = timers.filter(timerMatchesAccountAndSearch);
+  const countBase = timers.filter(t => timerMatchesAccountAndSearch(t) && timerMatchesStatus(t));
   const counts = {All: countBase.length, Ready:0, Soon:0, Today:0, Later:0};
   countBase.forEach(t => counts[dueWindow(t).key]++);
 
@@ -1809,6 +1824,11 @@ function setGroup(g) {
 
 function setDueFilter(g) {
   filterDue = g;
+  renderTimers();
+}
+
+function setStatusFilter(status) {
+  filterStatus = filterStatus === status ? 'All' : status;
   renderTimers();
 }
 
@@ -1944,16 +1964,48 @@ function renderAccountSummary() {
   if (restoredDetail) restoredDetail.scrollTop = previousDetailScrollTop;
 }
 function renderStats() {
-  const running = timers.filter(t=>t.status==='running').length;
-  const paused = timers.filter(t=>t.status==='paused').length;
-  const expired = timers.filter(t=>t.status==='expired').length;
-  const stopped = timers.filter(t=>t.status==='stopped').length;
-  document.getElementById('stats-bar').innerHTML = [
-    `<span class="stat"><span class="stat-dot" style="background:var(--accent)"></span>${running} running</span>`,
-    `<span class="stat"><span class="stat-dot" style="background:var(--amber)"></span>${paused} paused</span>`,
-    `<span class="stat"><span class="stat-dot" style="background:var(--text3)"></span>${stopped} stopped</span>`,
-    `<span class="stat"><span class="stat-dot" style="background:var(--red)"></span>${expired} expired</span>`,
-  ].join('');
+  const bar = document.getElementById('stats-bar');
+  if (!bar) return;
+
+  // Status pill counts reflect the current account/search/due context,
+  // but not the currently selected status pill. That keeps the pills useful
+  // for switching status filters without making the other counts disappear.
+  const countBase = timers.filter(timerMatchesAccountSearchAndDue);
+  const counts = {
+    All: countBase.length,
+    running: countBase.filter(t => t.status === 'running').length,
+    paused: countBase.filter(t => t.status === 'paused').length,
+    stopped: countBase.filter(t => t.status === 'stopped').length,
+    expired: countBase.filter(t => t.status === 'expired').length
+  };
+
+  const statuses = [
+    ['All', 'All', ''],
+    ['running', 'running', 'var(--accent)'],
+    ['paused', 'paused', 'var(--amber)'],
+    ['stopped', 'stopped', 'var(--text3)'],
+    ['expired', 'expired', 'var(--red)']
+  ];
+
+  bar.innerHTML = statuses.map(([key, label, color]) => {
+    const active = filterStatus === key;
+    const title = key === 'All'
+      ? 'Show all status timers'
+      : (active ? `Clear ${label} filter` : `Show ${label} timers`);
+    const dot = color ? `<span class="stat-dot" style="background:${color}"></span>` : '';
+    const displayCount = counts[key] || 0;
+    const displayText = key === 'All' ? `${label} (${displayCount})` : `${displayCount} ${label}`;
+
+    return `
+      <button class="stat${active ? ' active' : ''}"
+              type="button"
+              onclick="setStatusFilter('${key}')"
+              aria-pressed="${active ? 'true' : 'false'}"
+              title="${title}">
+        ${dot}${displayText}
+      </button>
+    `;
+  }).join('');
 }
 
 function toggleTimerActions(id, event) {
@@ -1975,10 +2027,9 @@ function renderTimers() {
   renderDueBar();
   renderAccountSummary();
   renderStats();
-  const search = document.getElementById('search-input').value.toLowerCase();
   let list = timers.filter(t => {
-    if (!timerMatchesAccountAndSearch(t)) return false;
-    if (filterDue !== 'All' && dueWindow(t).key !== filterDue) return false;
+    if (!timerMatchesAccountSearchAndDue(t)) return false;
+    if (!timerMatchesStatus(t)) return false;
     return true;
   });
   list = sortedTimers(list);
