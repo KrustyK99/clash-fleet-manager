@@ -251,10 +251,86 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .account-summary-cell.paused{color:var(--amber)}
 .account-summary-cell.stopped{color:var(--text3)}
 .account-summary-cell.expired{color:var(--red)}
+.account-gap-panel{
+  border:1px solid rgba(255,255,255,0.06);
+  background:rgba(255,255,255,0.018);
+  border-radius:var(--radius);
+  padding:8px;
+  margin-bottom:8px;
+  font-family:'DM Sans',sans-serif;
+}
+.account-gap-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:6px;
+  color:var(--text3);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+}
+.account-gap-title-hint{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);text-transform:none;letter-spacing:0}
+.account-gap-actions{display:flex;gap:6px;flex-wrap:wrap}
+.account-gap-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  border:1px solid var(--border);
+  background:var(--surface2);
+  color:var(--text2);
+  border-radius:999px;
+  padding:4px 8px;
+  font-family:'DM Sans',sans-serif;
+  font-size:11px;
+  line-height:1;
+  cursor:pointer;
+  transition:all 0.15s;
+}
+.account-gap-pill:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-bg)}
+.account-gap-pill.active{border-color:var(--amber);color:var(--amber);background:var(--amber-bg)}
+.account-gap-pill.clear{border-color:rgba(61,214,140,0.3);color:var(--green);background:var(--green-bg);cursor:default}
+.account-gap-pill.clear:hover{border-color:rgba(61,214,140,0.3);color:var(--green);background:var(--green-bg)}
+.account-gap-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  margin-top:7px;
+  padding-top:7px;
+  border-top:1px solid rgba(255,255,255,0.05);
+}
+.account-gap-list-empty{font-size:11px;color:var(--green)}
+.account-gap-account{
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text2);
+  border-radius:999px;
+  padding:3px 7px;
+  font-family:'DM Sans',sans-serif;
+  font-size:11px;
+  line-height:1;
+  cursor:pointer;
+  max-width:100%;
+}
+.account-gap-account:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
 .account-summary-table-row.expanded{background:rgba(108,108,255,0.07);border-color:rgba(108,108,255,0.18)}
 .account-summary-account-wrap{display:flex;align-items:center;gap:5px;min-width:0}
 .account-summary-chevron{display:inline-block;width:10px;color:var(--text3);font-size:10px;line-height:1;flex:0 0 auto}
 .account-summary-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-summary-gap-badges{display:inline-flex;align-items:center;gap:3px;flex:0 0 auto}
+.account-summary-gap-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:18px;
+  height:18px;
+  border-radius:999px;
+  border:1px solid rgba(245,166,35,0.3);
+  background:var(--amber-bg);
+  color:var(--amber);
+  font-size:10px;
+  line-height:1;
+}
 .account-summary-detail{
   margin:0 0 6px 0;
   padding:5px 0 8px 15px;
@@ -280,6 +356,12 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
   color:var(--text2);
 }
 .account-summary-detail-row:hover{background:rgba(255,255,255,0.025)}
+.account-summary-detail-empty{
+  padding:5px;
+  font-family:'DM Sans',sans-serif;
+  font-size:11px;
+  color:var(--text3);
+}
 .account-summary-detail-main{min-width:0;display:flex;align-items:center;gap:5px}
 .account-summary-detail-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .account-summary-detail-type{font-size:10px;color:var(--accent);background:var(--accent-glow);border:1px solid rgba(108,108,255,0.25);border-radius:999px;padding:1px 5px;white-space:nowrap}
@@ -634,6 +716,8 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 
   .account-summary-table-row .account-summary-account{font-size:14px}
   .account-summary-cell{font-size:13px}
+  .account-gap-pill,.account-gap-account{font-size:12px}
+  .account-summary-gap-badge{width:20px;height:20px;font-size:11px}
   .account-summary-detail-row{font-size:13px}
   .account-summary-detail-time{font-size:12px}
 
@@ -953,6 +1037,7 @@ let filterDue = 'All';
 let filterType = 'All';
 let filterStatus = 'All';
 let expandedAccount = null;
+let expandedGapType = null;
 let editingId = null;
 let tickInterval = null;
 let sidebarVisible = true;
@@ -2013,6 +2098,7 @@ function resetFilters() {
   filterType = 'All';
   filterStatus = 'All';
   expandedAccount = null;
+  expandedGapType = null;
 
   const searchEl = document.getElementById('search-input');
   if (searchEl) searchEl.value = '';
@@ -2044,6 +2130,150 @@ function accountSummaryTimerSort(list) {
   });
 }
 
+function isActiveAccountWorkTimer(t) {
+  const status = String(t.status || '').toLowerCase();
+  return Number(t.remaining) > 0 && (status === 'running' || status === 'paused');
+}
+
+function timerIsActiveUpgradeType(t, type) {
+  return getUpgradeType(t).toLowerCase() === String(type || '').toLowerCase() && isActiveAccountWorkTimer(t);
+}
+
+function createAccountSummaryRow() {
+  return {
+    running:0,
+    paused:0,
+    stopped:0,
+    expired:0,
+    timers:[],
+    hasActiveLab:false,
+    hasActivePet:false
+  };
+}
+
+function buildAccountSummaryRows() {
+  const accounts = new Map();
+
+  getKnownAccounts().forEach(account => {
+    if (account) accounts.set(account, createAccountSummaryRow());
+  });
+
+  timers.forEach(t => {
+    const account = getAccount(t) || 'Unassigned';
+    if (!accounts.has(account)) accounts.set(account, createAccountSummaryRow());
+    const row = accounts.get(account);
+    row.timers.push(t);
+    if (t.status === 'running') row.running++;
+    else if (t.status === 'paused') row.paused++;
+    else if (t.status === 'stopped') row.stopped++;
+    else if (t.status === 'expired') row.expired++;
+  });
+
+  accounts.forEach(row => {
+    row.hasActiveLab = row.timers.some(t => timerIsActiveUpgradeType(t, 'Lab'));
+    row.hasActivePet = row.timers.some(t => timerIsActiveUpgradeType(t, 'Pet'));
+  });
+
+  return Array.from(accounts.entries()).sort((a,b)=>a[0].localeCompare(b[0], undefined, { numeric:true, sensitivity:'base' }));
+}
+
+function getAccountGapTypes(c) {
+  const gaps = [];
+  if (!c.hasActiveLab) gaps.push({ type:'Lab', icon:'🧪', label:'No active lab timer' });
+  if (!c.hasActivePet) gaps.push({ type:'Pet', icon:'🐾', label:'No active pet timer' });
+  return gaps;
+}
+
+function accountGapBadgesHtml(c) {
+  const gaps = getAccountGapTypes(c);
+  if (!gaps.length) return '';
+  return `
+    <span class="account-summary-gap-badges" aria-label="Missing active work">
+      ${gaps.map(g => `<span class="account-summary-gap-badge" title="${esc(g.label)}" aria-label="${esc(g.label)}">${g.icon}</span>`).join('')}
+    </span>
+  `;
+}
+
+function getMissingAccounts(rows, type) {
+  const property = type === 'Lab' ? 'hasActiveLab' : 'hasActivePet';
+  return rows.filter(([,c]) => !c[property]).map(([account]) => account);
+}
+
+function toggleGapDetails(event, type) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  expandedGapType = expandedGapType === type ? null : type;
+  renderAccountSummary();
+}
+
+function selectGapAccount(event, account) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  expandedAccount = account;
+  filterGroup = account;
+  renderTimers();
+}
+
+function renderAccountGapPanel(rows) {
+  const gapDefs = [
+    { type:'Lab', icon:'🧪', label:'Lab' },
+    { type:'Pet', icon:'🐾', label:'Pet' }
+  ];
+
+  const gapButtons = gapDefs.map(def => {
+    const missing = getMissingAccounts(rows, def.type);
+    const active = expandedGapType === def.type;
+    const clear = missing.length === 0;
+    const title = clear
+      ? `All accounts have an active ${def.label.toLowerCase()} timer`
+      : `${missing.length} account${missing.length === 1 ? '' : 's'} with no active ${def.label.toLowerCase()} timer`;
+    return `
+      <button class="account-gap-pill${active ? ' active' : ''}${clear ? ' clear' : ''}"
+              type="button"
+              onclick="${clear && !active ? '' : `toggleGapDetails(event, '${def.type}')`}"
+              aria-pressed="${active ? 'true' : 'false'}"
+              title="${esc(title)}">
+        <span aria-hidden="true">${def.icon}</span>
+        <span>${esc(def.label)}</span>
+        <strong>${missing.length}</strong>
+      </button>
+    `;
+  }).join('');
+
+  let expandedList = '';
+  if (expandedGapType) {
+    const def = gapDefs.find(g => g.type === expandedGapType) || gapDefs[0];
+    const missing = getMissingAccounts(rows, def.type);
+    expandedList = `
+      <div class="account-gap-list" aria-label="Accounts with no active ${esc(def.label.toLowerCase())} timer">
+        ${missing.length
+          ? missing.map(account => {
+              const accountArg = esc(JSON.stringify(account));
+              return `<button class="account-gap-account" type="button" onclick="selectGapAccount(event, ${accountArg})" title="Filter to ${esc(account)}">${esc(account)}</button>`;
+            }).join('')
+          : `<span class="account-gap-list-empty">All accounts covered.</span>`}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="account-gap-panel">
+      <div class="account-gap-title">
+        <span>Gaps</span>
+        <span class="account-gap-title-hint">running/paused</span>
+      </div>
+      <div class="account-gap-actions">${gapButtons}</div>
+      ${expandedList}
+    </div>
+  `;
+}
+
 function toggleAccountSummaryDetails(event, account) {
   if (event) {
     event.preventDefault();
@@ -2057,6 +2287,14 @@ function toggleAccountSummaryDetails(event, account) {
 
 function renderAccountSummaryDetail(account, accountTimers) {
   const sorted = accountSummaryTimerSort(accountTimers);
+
+  if (!sorted.length) {
+    return `
+      <div class="account-summary-detail">
+        <div class="account-summary-detail-empty">No timers for this account.</div>
+      </div>
+    `;
+  }
 
   return `
     <div class="account-summary-detail">
@@ -2089,19 +2327,8 @@ function renderAccountSummary() {
   const previousDetail = el.querySelector('.account-summary-detail-list');
   const previousDetailScrollTop = previousDetail ? previousDetail.scrollTop : 0;
 
-  const accounts = new Map();
-  timers.forEach(t => {
-    const account = getAccount(t) || 'Unassigned';
-    if (!accounts.has(account)) accounts.set(account, {running:0, paused:0, stopped:0, expired:0, timers:[]});
-    const row = accounts.get(account);
-    row.timers.push(t);
-    if (t.status === 'running') row.running++;
-    else if (t.status === 'paused') row.paused++;
-    else if (t.status === 'stopped') row.stopped++;
-    else if (t.status === 'expired') row.expired++;
-  });
-
-  const rows = Array.from(accounts.entries()).sort((a,b)=>a[0].localeCompare(b[0], undefined, { numeric:true, sensitivity:'base' }));
+  const rows = buildAccountSummaryRows();
+  const accounts = new Map(rows);
   if (expandedAccount && !accounts.has(expandedAccount)) expandedAccount = null;
 
   if (!rows.length) {
@@ -2110,6 +2337,7 @@ function renderAccountSummary() {
   }
 
   el.innerHTML = `
+    ${renderAccountGapPanel(rows)}
     <div class="account-summary-table" aria-label="Account summary by status">
       <div class="account-summary-table-header">
         <span class="account-summary-account">Acct</span>
@@ -2121,19 +2349,23 @@ function renderAccountSummary() {
       ${rows.map(([account, c]) => {
         const expanded = expandedAccount === account;
         const accountArg = esc(JSON.stringify(account));
+        const gaps = getAccountGapTypes(c);
+        const gapText = gaps.length ? `, ${gaps.map(g => g.label.toLowerCase()).join(', ')}` : '';
+        const titleText = `${expanded ? 'Collapse' : 'Expand'} ${account} and filter timer list${gapText ? ' — ' + gapText : ''}`;
         return `
           <div class="account-summary-table-row${expanded ? ' expanded' : ''}"
                onclick="toggleAccountSummaryDetails(event, ${accountArg})"
                onkeydown="if(event.key==='Enter'||event.key===' '){toggleAccountSummaryDetails(event, ${accountArg})}"
                tabindex="0"
                role="button"
-               title="${expanded ? 'Collapse' : 'Expand'} ${esc(account)} and filter timer list"
+               title="${esc(titleText)}"
                aria-expanded="${expanded ? 'true' : 'false'}"
-               aria-label="${esc(account)}: ${c.running} running, ${c.paused} paused, ${c.stopped} stopped, ${c.expired} expired">
+               aria-label="${esc(account)}: ${c.running} running, ${c.paused} paused, ${c.stopped} stopped, ${c.expired} expired${gapText}">
             <span class="account-summary-account">
               <span class="account-summary-account-wrap">
                 <span class="account-summary-chevron" aria-hidden="true">${expanded ? '▾' : '▸'}</span>
                 <span class="account-summary-name">${esc(account)}</span>
+                ${accountGapBadgesHtml(c)}
               </span>
             </span>
             <span class="account-summary-cell running">${c.running}</span>
