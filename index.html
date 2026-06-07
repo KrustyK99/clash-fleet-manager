@@ -664,6 +664,10 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 .quick-add-time input{text-align:center;padding:5px 4px;font-size:13px}
 .quick-add-time-label{font-size:10px;color:var(--text3);text-align:center;margin-top:2px}
 
+/* Saved account views */
+.account-view-hint{font-size:12px;color:var(--text3);line-height:1.35;margin-top:7px}
+.account-view-hint strong{color:var(--text2);font-weight:500}
+
 /* Elapsed/endtime toggle */
 .timer-secondary{font-size:11px;color:var(--text3);margin-top:2px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:1px 4px;transition:background 0.12s;user-select:none}
 .timer-secondary:hover{background:var(--surface3);color:var(--text2)}
@@ -977,6 +981,11 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
           Start Timer
         </button>
       </div>
+      <div class="sidebar-section account-view-section">
+        <label>Saved view</label>
+        <select id="account-view-select" title="Saved account view" onchange="setAccountView(this.value)"></select>
+        <div id="account-view-hint" class="account-view-hint"></div>
+      </div>
       <div class="sidebar-section">
         <label>Search</label>
         <input type="text" id="search-input" placeholder="Search account, type, upgrade…" oninput="renderTimers()">
@@ -1257,6 +1266,8 @@ let filterGroup = 'All';
 let filterDue = 'All';
 let filterType = 'All';
 let filterStatus = 'All';
+let selectedAccountView = 'all';
+let accountViewControlsSignature = '';
 let expandedAccount = null;
 let expandedGapType = null;
 let editingId = null;
@@ -1287,6 +1298,7 @@ const API_URL = 'api.php';
 const EMERGENCY_BACKUP_KEY = STORAGE_KEY + '_emergency_backup';
 const FOCUS_MODE_KEY = STORAGE_KEY + '_focus_mode';
 const COMPACT_MODE_KEY = STORAGE_KEY + '_compact_mode';
+const ACCOUNT_VIEW_KEY = STORAGE_KEY + '_account_view';
 
 const UPGRADE_TYPES = [
   '',
@@ -1463,6 +1475,27 @@ const ACCOUNT_PRESETS = [
   'Zylink'
 ];
 
+// Saved Views are front-end-only presentation filters.
+// Edit the account lists here when you want to change which Clash accounts each view shows.
+// Use accounts: null for a view that includes every known account.
+const ACCOUNT_VIEWS = [
+  {
+    id: 'all',
+    label: 'All Accounts',
+    accounts: null
+  },
+  {
+    id: 'view-1',
+    label: 'View 1',
+    accounts: ['Heisenberg', 'Jesse Pinkman', 'Dark Lord']
+  },
+  {
+    id: 'view-2',
+    label: 'View 2',
+    accounts: ['Felicity', 'Isabella', 'Lady Scarlett']
+  }
+];
+
 function newId() {
   // crypto.randomUUID() is only available in secure contexts in some browsers.
   // This fallback keeps the app working over plain HTTP on an internal LAN.
@@ -1506,6 +1539,7 @@ function populateStaticSelects() {
   const noteEl = document.getElementById('f-note-template');
   if (noteEl) noteEl.innerHTML = noteOptions;
 
+  renderAccountViewPicker(true);
   populateAccountControls();
 }
 
@@ -1518,9 +1552,117 @@ function getKnownAccounts() {
   return Array.from(accounts).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
+function sortAccountNames(accounts) {
+  return Array.from(new Set((accounts || []).map(a => String(a || '').trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric:true, sensitivity:'base' }));
+}
+
+function getAccountViewById(id) {
+  return ACCOUNT_VIEWS.find(view => view.id === id) || ACCOUNT_VIEWS[0];
+}
+
+function getSelectedAccountView() {
+  return getAccountViewById(selectedAccountView);
+}
+
+function accountViewRestrictsAccounts(view=getSelectedAccountView()) {
+  return Array.isArray(view.accounts);
+}
+
+function getAccountsForView(view=getSelectedAccountView()) {
+  if (!accountViewRestrictsAccounts(view)) return getKnownAccounts();
+  // Keep configured Saved View accounts in the order written in ACCOUNT_VIEWS.
+  return Array.from(new Set((view.accounts || []).map(a => String(a || '').trim()).filter(Boolean)));
+}
+
+function getVisibleAccountsForCurrentView() {
+  return getAccountsForView(getSelectedAccountView());
+}
+
+function accountIsVisibleInCurrentView(account) {
+  const name = String(account || '').trim();
+  if (!accountViewRestrictsAccounts()) return true;
+  if (!name) return false;
+  return getVisibleAccountsForCurrentView().includes(name);
+}
+
+function timerMatchesAccountView(t) {
+  return accountIsVisibleInCurrentView(getAccount(t));
+}
+
+function getViewScopedTimers() {
+  return timers.filter(timerMatchesAccountView);
+}
+
+function getAccountControlAccounts() {
+  return getVisibleAccountsForCurrentView();
+}
+
+function getPreferredAccountForCurrentView(...candidates) {
+  return candidates.map(v => String(v || '').trim()).find(account => account && accountIsVisibleInCurrentView(account)) || '';
+}
+
+function renderAccountViewPicker(force=false) {
+  const select = document.getElementById('account-view-select');
+  const hint = document.getElementById('account-view-hint');
+  const view = getSelectedAccountView();
+
+  if (!ACCOUNT_VIEWS.some(v => v.id === selectedAccountView)) selectedAccountView = 'all';
+
+  const optionSignature = ACCOUNT_VIEWS.map(v => `${v.id}:${v.label}:${Array.isArray(v.accounts) ? v.accounts.join('|') : '*'}`).join('\u001e');
+  const signature = `${optionSignature}\u001e${selectedAccountView}`;
+
+  if (select && (force || select.dataset.signature !== signature) && document.activeElement !== select) {
+    select.innerHTML = ACCOUNT_VIEWS.map(v =>
+      `<option value="${esc(v.id)}"${v.id === selectedAccountView ? ' selected' : ''}>${esc(v.label)}</option>`
+    ).join('');
+    select.value = selectedAccountView;
+    select.dataset.signature = signature;
+  } else if (select && document.activeElement !== select && select.value !== selectedAccountView) {
+    select.value = selectedAccountView;
+  }
+
+  if (hint) {
+    const accounts = getVisibleAccountsForCurrentView();
+    const timerCount = getViewScopedTimers().length;
+    const accountLabel = accounts.length === 1 ? '1 account' : `${accounts.length} accounts`;
+    const timerLabel = timerCount === 1 ? '1 timer' : `${timerCount} timers`;
+    hint.innerHTML = accountViewRestrictsAccounts(view)
+      ? `<strong>${esc(view.label)}</strong>: ${accountLabel} · ${timerLabel}`
+      : `<strong>All Accounts</strong>: ${accountLabel} · ${timerLabel}`;
+  }
+}
+
+function setAccountView(viewId) {
+  const view = getAccountViewById(viewId);
+  const nextId = view.id || 'all';
+  if (selectedAccountView === nextId) return;
+
+  selectedAccountView = nextId;
+  localStorage.setItem(ACCOUNT_VIEW_KEY, selectedAccountView);
+
+  // Account filters and expanded account details are nested inside the saved view.
+  // Reset them so switching views cannot leave the list filtered to a hidden account.
+  filterGroup = 'All';
+  expandedAccount = null;
+  expandedGapType = null;
+  selectedTimerIds.clear();
+  accountControlsSignature = '';
+  accountViewControlsSignature = '';
+
+  populateAccountControls(true);
+  renderTimers();
+}
+
+function applySavedAccountView() {
+  const saved = localStorage.getItem(ACCOUNT_VIEW_KEY);
+  selectedAccountView = ACCOUNT_VIEWS.some(v => v.id === saved) ? saved : 'all';
+}
+
 function populateAccountControls(force=false) {
-  const accounts = getKnownAccounts();
-  const signature = accounts.join('\u001f');
+  const accounts = getAccountControlAccounts();
+  const restrictToView = accountViewRestrictsAccounts();
+  const signature = `${selectedAccountView}\u001e${accounts.join('\u001f')}`;
   const active = document.activeElement;
   const accountSelectIsOpen = active && (active.id === 'q-account' || active.id === 'bulk-account' || active.id === 'snapshot-account' || active.id === 'delete-account-select');
 
@@ -1540,13 +1682,16 @@ function populateAccountControls(force=false) {
       `<option value="${esc(account)}"${account === current ? ' selected' : ''}>${esc(account)}</option>`
     ).join('');
 
-    // Preserve any current custom account value even if it is not in the preset list yet.
-    if (current && !accounts.includes(current)) {
+    // Preserve any current custom account value when showing all accounts, but keep
+    // Saved View controls constrained to the accounts configured for that view.
+    if (current && !accounts.includes(current) && !restrictToView) {
       const opt = document.createElement('option');
       opt.value = current;
       opt.textContent = current;
       opt.selected = true;
       selectEl.appendChild(opt);
+    } else if (current && !accounts.includes(current) && restrictToView) {
+      selectEl.value = '';
     }
   }
 
@@ -1825,6 +1970,7 @@ function getViewState() {
     sortKey,
     sortDir,
     filterGroup,
+    selectedAccountView,
     filterDue,
     filterType,
     filterStatus,
@@ -1836,7 +1982,9 @@ function restoreViewState(state) {
   if (!state) return;
   sortKey = state.sortKey || sortKey;
   sortDir = Number(state.sortDir) || sortDir;
+  selectedAccountView = ACCOUNT_VIEWS.some(v => v.id === state.selectedAccountView) ? state.selectedAccountView : selectedAccountView;
   filterGroup = state.filterGroup || 'All';
+  if (filterGroup !== 'All' && !accountIsVisibleInCurrentView(filterGroup)) filterGroup = 'All';
   filterDue = state.filterDue || 'All';
   filterType = state.filterType || 'All';
   filterStatus = state.filterStatus || 'All';
@@ -1973,7 +2121,7 @@ function deleteTimer(id) {
 
 function startAll() {
   let changed = false;
-  timers.filter(t => t.status === 'stopped' || t.status === 'paused').forEach(t => {
+  getViewScopedTimers().filter(t => t.status === 'stopped' || t.status === 'paused').forEach(t => {
     if (t.remaining <= 0) t.remaining = t.duration;
     t.status = 'running';
     t.expiredAt = null;
@@ -1984,7 +2132,7 @@ function startAll() {
 }
 function pauseAll() {
   let changed = false;
-  timers.filter(t => t.status === 'running').forEach(t => {
+  getViewScopedTimers().filter(t => t.status === 'running').forEach(t => {
     t.status = 'paused';
     t.endTime = null;
     changed = true;
@@ -1993,7 +2141,7 @@ function pauseAll() {
 }
 function resetExpired() {
   let changed = false;
-  timers.filter(t => t.status === 'expired').forEach(t => {
+  getViewScopedTimers().filter(t => t.status === 'expired').forEach(t => {
     t.status = 'stopped';
     t.remaining = t.duration;
     t.endTime = null;
@@ -2259,8 +2407,7 @@ function timerDateTimeLabel(t) {
 
 // ── Render ────────────────────────────────────────────────────────────────
 function getGroups() {
-  const gs = new Set(timers.map(t => getAccount(t)).filter(Boolean));
-  return ['All', ...Array.from(gs).sort()];
+  return ['All', ...getVisibleAccountsForCurrentView()];
 }
 
 
@@ -2276,8 +2423,7 @@ function getVisibleTimerList() {
 }
 
 function getAccountsWithTimers() {
-  return Array.from(new Set(timers.map(t => getAccount(t)).filter(Boolean)))
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric:true, sensitivity:'base' }));
+  return sortAccountNames(getViewScopedTimers().map(t => getAccount(t)).filter(Boolean));
 }
 
 function pruneSelectedTimerIds() {
@@ -2299,8 +2445,8 @@ function updateDeleteModeButton() {
 }
 
 function enterDeleteSelectionMode() {
-  if (!timers.length) {
-    toast('No timers to delete.', 'warning');
+  if (!getViewScopedTimers().length) {
+    toast('No timers in this saved view to delete.', 'warning');
     return;
   }
 
@@ -2366,7 +2512,7 @@ function selectTimersByDeleteAccount() {
     return;
   }
 
-  const matches = timers.filter(t => getAccount(t) === account);
+  const matches = getViewScopedTimers().filter(t => getAccount(t) === account);
   matches.forEach(t => selectedTimerIds.add(String(t.id)));
   renderTimers();
 
@@ -2629,7 +2775,7 @@ function handleTimerCardClick(event, id) {
 function renderGroupBar() {
   const bar = document.getElementById('group-bar');
   const groups = getGroups();
-  if (filterGroup !== 'All' && !groups.includes(filterGroup)) groups.push(filterGroup);
+  if (filterGroup !== 'All' && !groups.includes(filterGroup)) filterGroup = 'All';
   if (!groups.some(g => g !== 'All') && filterGroup === 'All') {
     bar.style.display = 'none';
   } else {
@@ -2648,7 +2794,7 @@ function getSearchFilter() {
 }
 
 function hasActiveFilters() {
-  return filterGroup !== 'All' || filterDue !== 'All' || filterType !== 'All' || filterStatus !== 'All' || !!getSearchFilter();
+  return selectedAccountView !== 'all' || filterGroup !== 'All' || filterDue !== 'All' || filterType !== 'All' || filterStatus !== 'All' || !!getSearchFilter();
 }
 
 function clearSearchFilter() {
@@ -2698,6 +2844,7 @@ function updateSearchFilterIndicators() {
 function timerMatchesAccountAndSearch(t) {
   const search = getSearchFilter().toLowerCase();
 
+  if (!timerMatchesAccountView(t)) return false;
   if (filterGroup !== 'All' && getAccount(t) !== filterGroup) return false;
   if (search && !t.name.toLowerCase().includes(search) && !(t.note||'').toLowerCase().includes(search) && !getAccount(t).toLowerCase().includes(search) && !getUpgradeType(t).toLowerCase().includes(search)) return false;
   return true;
@@ -2737,7 +2884,7 @@ function renderDueBar() {
     ['Today', 'Today'],
     ['Later', 'Later']
   ];
-  if (!timers.length) { bar.style.display = 'none'; return; }
+  if (!getViewScopedTimers().length) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   bar.innerHTML = [`<span class="filter-bar-label">Due</span>`].concat(windows.map(([key,label]) =>
     `<button class="group-pill${key===filterDue?' active':''}" onclick="setDueFilter('${key}')">${label} (${counts[key] || 0})</button>`
@@ -2746,7 +2893,7 @@ function renderDueBar() {
 
 function getTypeFilterKeys() {
   const preferred = UPGRADE_TYPES.filter(Boolean);
-  const dynamic = Array.from(new Set(timers.map(timerTypeKey).filter(Boolean)));
+  const dynamic = Array.from(new Set(getViewScopedTimers().map(timerTypeKey).filter(Boolean)));
 
   const ordered = preferred.filter(type => dynamic.includes(type));
   dynamic
@@ -2767,7 +2914,7 @@ function renderTypeBar() {
   const bar = document.getElementById('type-bar');
   if (!bar) return;
 
-  if (!timers.length) {
+  if (!getViewScopedTimers().length) {
     bar.style.display = 'none';
     return;
   }
@@ -2875,11 +3022,11 @@ function createAccountSummaryRow() {
 function buildAccountSummaryRows() {
   const accounts = new Map();
 
-  getKnownAccounts().forEach(account => {
+  getVisibleAccountsForCurrentView().forEach(account => {
     if (account) accounts.set(account, createAccountSummaryRow());
   });
 
-  timers.forEach(t => {
+  getViewScopedTimers().forEach(t => {
     const account = getAccount(t) || 'Unassigned';
     if (!accounts.has(account)) accounts.set(account, createAccountSummaryRow());
     const row = accounts.get(account);
@@ -3053,7 +3200,8 @@ function renderAccountSummary() {
   if (expandedAccount && !accounts.has(expandedAccount)) expandedAccount = null;
 
   if (!rows.length) {
-    el.innerHTML = '<span style="font-size:12px;color:var(--text3)">No accounts yet.</span>';
+    const emptyText = accountViewRestrictsAccounts() ? 'No accounts in this saved view.' : 'No accounts yet.';
+    el.innerHTML = `<span style="font-size:12px;color:var(--text3)">${emptyText}</span>`;
     return;
   }
 
@@ -3175,6 +3323,7 @@ function toggleTimerActionsFromCard(event, id) {
 }
 
 function renderTimers() {
+  renderAccountViewPicker();
   renderGroupBar();
   renderDueBar();
   renderTypeBar();
@@ -3398,7 +3547,7 @@ function openBulkModal() {
   const quickAccount = document.getElementById('q-account');
   const quickType = document.getElementById('q-upgrade-type');
 
-  accountEl.value = filterGroup !== 'All' ? filterGroup : (quickAccount ? quickAccount.value : '');
+  accountEl.value = getPreferredAccountForCurrentView(filterGroup !== 'All' ? filterGroup : '', quickAccount ? quickAccount.value : '');
   defaultTypeEl.innerHTML = upgradeTypeOptionsHtml(quickType ? quickType.value : '');
   document.getElementById('bulk-start').checked = true;
   document.getElementById('bulk-sound').checked = true;
@@ -3630,7 +3779,7 @@ function openSnapshotModal() {
   populateAccountControls(true);
   const accountEl = document.getElementById('snapshot-account');
   const quickAccount = document.getElementById('q-account');
-  if (accountEl) accountEl.value = filterGroup !== 'All' ? filterGroup : (quickAccount ? quickAccount.value : '');
+  if (accountEl) accountEl.value = getPreferredAccountForCurrentView(filterGroup !== 'All' ? filterGroup : '', quickAccount ? quickAccount.value : '');
 
   document.getElementById('snapshot-start').checked = true;
   document.getElementById('snapshot-sound').checked = true;
@@ -4211,6 +4360,7 @@ function toggleCardMode(id) {
 async function boot() {
   setupNativeSelectRenderGuard();
   applyInitialMobileLayout();
+  applySavedAccountView();
   applySavedFocusMode();
   applySavedCompactMode();
   populateStaticSelects();
