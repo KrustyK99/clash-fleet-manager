@@ -80,6 +80,65 @@ h1,h2,h3{font-weight:500}
   line-height:1;
 }
 .active-search-clear:hover{background:rgba(108,108,255,0.18);color:#fff}
+
+/* Delete selection workflow */
+.delete-selection-bar{
+  display:none;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  padding:10px 16px;
+  border-bottom:1px solid rgba(255,92,92,0.22);
+  background:linear-gradient(135deg,var(--surface) 0%,rgba(255,92,92,0.045) 100%);
+}
+.delete-selection-bar.visible{display:flex}
+.delete-selection-summary{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  color:var(--red);
+  font-weight:600;
+  margin-right:4px;
+}
+.delete-selection-help{font-size:12px;color:var(--text3)}
+.delete-account-select{
+  width:auto;
+  min-width:160px;
+  max-width:220px;
+  padding:5px 9px;
+  font-size:12px;
+}
+.timer-card.delete-selectable{cursor:pointer}
+.timer-card.delete-selected{
+  border-color:var(--red);
+  background:linear-gradient(135deg,var(--surface) 0%,rgba(255,92,92,0.10) 100%);
+}
+.timer-card.delete-selected.running,
+.timer-card.delete-selected.paused,
+.timer-card.delete-selected.expired{
+  border-color:var(--red);
+}
+.timer-select-wrap{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:24px;
+  height:24px;
+  border:1px solid var(--border2);
+  border-radius:999px;
+  background:var(--surface2);
+  cursor:pointer;
+  flex:0 0 auto;
+}
+.timer-select-wrap:hover{border-color:var(--red);background:var(--red-bg)}
+.timer-select-checkbox{
+  width:14px;
+  height:14px;
+  accent-color:var(--red);
+  cursor:pointer;
+}
+.delete-mode-card-action{color:var(--red);border-color:rgba(255,92,92,0.45);background:var(--red-bg)}
 .timer-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
 /* Prevent timer cards from being compressed when many timers are in the scroll list. */
 .timer-list > *{flex-shrink:0}
@@ -454,6 +513,10 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .scroll-top-btn:active{transform:translateY(0) scale(0.96)}
 @media (max-width:700px){
   .scroll-top-btn{right:16px;bottom:76px;width:42px;height:42px}
+  .delete-selection-bar{padding:10px 12px}
+  .delete-selection-bar .btn{flex:1 1 auto;justify-content:center}
+  .delete-account-select{flex:1 1 100%;max-width:none}
+  .delete-selection-summary,.delete-selection-help{flex:1 1 100%}
 }
 
 /* Scrollbar */
@@ -818,6 +881,10 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
       Snapshot Add
     </button>
+    <button class="btn btn-sm" onclick="toggleDeleteSelectionMode()" id="delete-mode-btn" title="Select timers to delete" aria-pressed="false">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      <span id="delete-mode-label">Delete</span>
+    </button>
     <button class="btn btn-primary" onclick="openAddModal()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       New Timer
@@ -931,6 +998,9 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
         <span class="topbar-spacer"></span>
         <span style="font-size:12px;color:var(--text3)" id="timer-count"></span>
       </div>
+
+      <!-- Delete selection toolbar -->
+      <div class="delete-selection-bar" id="delete-selection-bar" aria-live="polite"></div>
 
       <!-- Timer list -->
       <div class="timer-list" id="timer-list"></div>
@@ -1157,6 +1227,8 @@ let nativeSelectActive = false;
 let renderQueuedUntilSelectCloses = false;
 let snapshotLastSnapshot = null;
 let snapshotCandidates = [];
+let deleteSelectionMode = false;
+let selectedTimerIds = new Set();
 
 const STORAGE_KEY = 'timerdesk_v2';
 const API_URL = 'api.php';
@@ -1398,7 +1470,7 @@ function populateAccountControls(force=false) {
   const accounts = getKnownAccounts();
   const signature = accounts.join('\u001f');
   const active = document.activeElement;
-  const accountSelectIsOpen = active && (active.id === 'q-account' || active.id === 'bulk-account' || active.id === 'snapshot-account');
+  const accountSelectIsOpen = active && (active.id === 'q-account' || active.id === 'bulk-account' || active.id === 'snapshot-account' || active.id === 'delete-account-select');
 
   // Mobile browsers can flicker or collapse a native <select> picker if its options
   // are rebuilt while the picker is open. Most timer renders do not change the
@@ -1837,8 +1909,12 @@ function resetTimer(id) {
 }
 
 function deleteTimer(id) {
-  if (!confirm('Delete this timer?')) return;
-  timers = timers.filter(x => x.id !== id);
+  const t = timers.find(x => String(x.id) === String(id));
+  const label = t ? `"${t.name}"` : 'this timer';
+  if (!confirm(`Delete ${label}?`)) return;
+
+  timers = timers.filter(x => String(x.id) !== String(id));
+  selectedTimerIds.delete(String(id));
   save(); renderTimers();
 }
 
@@ -2132,6 +2208,203 @@ function timerDateTimeLabel(t) {
 function getGroups() {
   const gs = new Set(timers.map(t => getAccount(t)).filter(Boolean));
   return ['All', ...Array.from(gs).sort()];
+}
+
+
+// ── Delete selection workflow ───────────────────────────────────────────────
+function getVisibleTimerList() {
+  let list = timers.filter(t => {
+    if (!timerMatchesAccountSearchAndDue(t)) return false;
+    if (!timerMatchesType(t)) return false;
+    if (!timerMatchesStatus(t)) return false;
+    return true;
+  });
+  return sortedTimers(list);
+}
+
+function getAccountsWithTimers() {
+  return Array.from(new Set(timers.map(t => getAccount(t)).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric:true, sensitivity:'base' }));
+}
+
+function pruneSelectedTimerIds() {
+  const liveIds = new Set(timers.map(t => String(t.id)));
+  selectedTimerIds = new Set(Array.from(selectedTimerIds).filter(id => liveIds.has(String(id))));
+}
+
+function updateDeleteModeButton() {
+  const btn = document.getElementById('delete-mode-btn');
+  const label = document.getElementById('delete-mode-label');
+  if (!btn) return;
+
+  btn.classList.toggle('active', deleteSelectionMode);
+  btn.classList.toggle('btn-danger', deleteSelectionMode);
+  btn.setAttribute('aria-pressed', deleteSelectionMode ? 'true' : 'false');
+  btn.title = deleteSelectionMode ? 'Exit delete selection mode' : 'Select timers to delete';
+  btn.setAttribute('aria-label', btn.title);
+  if (label) label.textContent = deleteSelectionMode ? 'Delete On' : 'Delete';
+}
+
+function enterDeleteSelectionMode() {
+  if (!timers.length) {
+    toast('No timers to delete.', 'warning');
+    return;
+  }
+
+  deleteSelectionMode = true;
+  selectedTimerIds.clear();
+  expandedActionsTimerId = null;
+  adjustingTimerId = null;
+
+  if (focusMode) {
+    focusMode = false;
+    localStorage.setItem(FOCUS_MODE_KEY, '0');
+    applyFocusMode();
+  }
+
+  updateDeleteModeButton();
+  renderTimers();
+}
+
+function exitDeleteSelectionMode() {
+  deleteSelectionMode = false;
+  selectedTimerIds.clear();
+  updateDeleteModeButton();
+  renderTimers();
+}
+
+function toggleDeleteSelectionMode() {
+  if (deleteSelectionMode) exitDeleteSelectionMode();
+  else enterDeleteSelectionMode();
+}
+
+function toggleTimerDeleteSelection(id, event) {
+  if (event) event.stopPropagation();
+  if (!deleteSelectionMode) return;
+
+  const key = String(id || '');
+  if (!key) return;
+
+  if (selectedTimerIds.has(key)) selectedTimerIds.delete(key);
+  else selectedTimerIds.add(key);
+
+  renderTimers();
+}
+
+function selectVisibleTimersForDeletion() {
+  if (!deleteSelectionMode) return;
+  const visible = getVisibleTimerList();
+  visible.forEach(t => selectedTimerIds.add(String(t.id)));
+  renderTimers();
+
+  if (visible.length) toast(`Selected ${visible.length} visible timer${visible.length === 1 ? '' : 's'}.`, 'success');
+  else toast('No visible timers to select.', 'warning');
+}
+
+function selectTimersByDeleteAccount() {
+  if (!deleteSelectionMode) return;
+
+  const select = document.getElementById('delete-account-select');
+  const account = select ? select.value : '';
+  if (!account) {
+    toast('Choose an account first.', 'warning');
+    if (select) select.focus();
+    return;
+  }
+
+  const matches = timers.filter(t => getAccount(t) === account);
+  matches.forEach(t => selectedTimerIds.add(String(t.id)));
+  renderTimers();
+
+  toast(`Selected ${matches.length} timer${matches.length === 1 ? '' : 's'} for ${account}.`, matches.length ? 'success' : 'warning');
+}
+
+function clearDeleteSelection() {
+  selectedTimerIds.clear();
+  renderTimers();
+}
+
+function deleteSelectedTimers() {
+  pruneSelectedTimerIds();
+
+  if (!selectedTimerIds.size) {
+    toast('Select at least one timer to delete.', 'warning');
+    return;
+  }
+
+  const ids = new Set(Array.from(selectedTimerIds).map(String));
+  const selected = timers.filter(t => ids.has(String(t.id)));
+  const count = selected.length;
+  const accounts = Array.from(new Set(selected.map(t => getAccount(t)).filter(Boolean)));
+  const accountText = accounts.length === 1 ? ` from ${accounts[0]}` : '';
+
+  if (!confirm(`Delete ${count} selected timer${count === 1 ? '' : 's'}${accountText}?`)) return;
+
+  timers = timers.filter(t => !ids.has(String(t.id)));
+  selectedTimerIds.clear();
+  deleteSelectionMode = false;
+  adjustingTimerId = null;
+  expandedActionsTimerId = null;
+
+  save();
+  renderTimers();
+  toast(`Deleted ${count} timer${count === 1 ? '' : 's'}.`, 'success');
+}
+
+function renderDeleteSelectionBar(visibleList) {
+  pruneSelectedTimerIds();
+  updateDeleteModeButton();
+
+  const bar = document.getElementById('delete-selection-bar');
+  if (!bar) return;
+
+  if (!deleteSelectionMode) {
+    bar.classList.remove('visible');
+    bar.innerHTML = '';
+    return;
+  }
+
+  const accounts = getAccountsWithTimers();
+  const currentSelect = document.getElementById('delete-account-select');
+  const preferredAccount = currentSelect && currentSelect.value
+    ? currentSelect.value
+    : (filterGroup !== 'All' && accounts.includes(filterGroup) ? filterGroup : '');
+
+  const accountOptions = [`<option value="">— Account —</option>`].concat(accounts.map(account => {
+    const selected = account === preferredAccount ? ' selected' : '';
+    const count = timers.filter(t => getAccount(t) === account).length;
+    return `<option value="${esc(account)}"${selected}>${esc(account)} (${count})</option>`;
+  })).join('');
+
+  const selectedCount = selectedTimerIds.size;
+  const visibleCount = Array.isArray(visibleList) ? visibleList.length : 0;
+  const selectedLabel = selectedCount === 1 ? '1 selected' : `${selectedCount} selected`;
+  const deleteDisabled = selectedCount ? '' : ' disabled';
+  const visibleDisabled = visibleCount ? '' : ' disabled';
+  const accountDisabled = accounts.length ? '' : ' disabled';
+
+  bar.classList.add('visible');
+  bar.innerHTML = `
+    <span class="delete-selection-summary">🗑 Delete mode · ${selectedLabel}</span>
+    <span class="delete-selection-help">Tap timer cards or checkboxes, or select an entire account.</span>
+    <select id="delete-account-select" class="delete-account-select" title="Account to select for deletion"${accountDisabled}>${accountOptions}</select>
+    <button class="btn btn-sm" type="button" onclick="selectTimersByDeleteAccount()"${accountDisabled}>Select Account</button>
+    <button class="btn btn-sm" type="button" onclick="selectVisibleTimersForDeletion()"${visibleDisabled}>Select Visible (${visibleCount})</button>
+    <button class="btn btn-sm" type="button" onclick="clearDeleteSelection()"${deleteDisabled}>Clear</button>
+    <button class="btn btn-sm btn-danger" type="button" onclick="deleteSelectedTimers()"${deleteDisabled}>Delete Selected</button>
+    <button class="btn btn-sm" type="button" onclick="exitDeleteSelectionMode()">Cancel</button>
+  `;
+}
+
+function handleTimerCardClick(event, id) {
+  if (deleteSelectionMode) {
+    const interactive = event.target.closest('button,input,select,textarea,a,[role="button"],label,.timer-secondary,.timer-adjust-panel');
+    if (interactive) return;
+    toggleTimerDeleteSelection(id, event);
+    return;
+  }
+
+  toggleTimerActionsFromCard(event, id);
 }
 
 function renderGroupBar() {
@@ -2688,13 +2961,8 @@ function renderTimers() {
   renderTypeBar();
   renderAccountSummary();
   renderStats();
-  let list = timers.filter(t => {
-    if (!timerMatchesAccountSearchAndDue(t)) return false;
-    if (!timerMatchesType(t)) return false;
-    if (!timerMatchesStatus(t)) return false;
-    return true;
-  });
-  list = sortedTimers(list);
+  let list = getVisibleTimerList();
+  renderDeleteSelectionBar(list);
   updateSearchFilterIndicators();
   const timerCountEl = document.getElementById('timer-count');
   if (timerCountEl) {
@@ -2714,6 +2982,10 @@ function renderTimers() {
     const isExpired = t.status==='expired';
     const isStopped = t.status==='stopped';
     const idArg = timerIdArg(t.id);
+    const isDeleteSelected = selectedTimerIds.has(String(t.id));
+    const deleteSelectControl = deleteSelectionMode
+      ? `<label class="timer-select-wrap" onclick="event.stopPropagation()" title="Select this timer for deletion"><input class="timer-select-checkbox" type="checkbox" ${isDeleteSelected ? 'checked' : ''} onchange="toggleTimerDeleteSelection(${idArg}, event)" aria-label="Select ${esc(t.name)} for deletion"></label>`
+      : '';
     const playBtn = (isStopped||isPaused||isExpired) ?
       `<button class="btn btn-sm btn-success" onclick="startTimer('${t.id}')" title="Start">▶</button>` : '';
     const pauseBtn = isRunning ?
@@ -2746,34 +3018,37 @@ function renderTimers() {
         secondaryText = `elapsed ${fmtDuration(t.duration)}`;
       }
     }
-    const secondaryEl = secondaryText
+    const secondaryEl = (!deleteSelectionMode && secondaryText)
       ? `<span class="timer-secondary" onclick="toggleCardMode('${t.id}')" title="Click to switch view">⇄ ${secondaryText}</span>`
       : '';
-    return `<div class="timer-card ${t.status}${actionsExpanded ? ' actions-expanded' : ''}" id="tc-${t.id}" onclick="toggleTimerActionsFromCard(event, ${idArg})">
+    return `<div class="timer-card ${t.status}${actionsExpanded ? ' actions-expanded' : ''}${deleteSelectionMode ? ' delete-selectable' : ''}${isDeleteSelected ? ' delete-selected' : ''}" id="tc-${t.id}" onclick="handleTimerCardClick(event, ${idArg})" aria-selected="${isDeleteSelected ? 'true' : 'false'}">
       <div class="card-left">
         <div class="card-top">
+          ${deleteSelectControl}
           <span class="timer-name" title="${esc(t.name)}">${esc(t.name)}</span>
           ${getAccount(t)?`<span class="timer-group-badge">${esc(getAccount(t))}</span>`:''}
           ${upgradeType?`<span class="timer-type-badge" title="${esc(upgradeType)}">${esc(upgradeTypeLabel)}</span>`:''}
           <span class="timer-due-badge ${due.cls}" title="${esc(due.label)}">${dueLabel}</span>
           ${repeatIcon}${soundIcon}
         </div>
-        <div class="timer-display adjustable" onclick="toggleTimerAdjustPanel(${idArg})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTimerAdjustPanel(${idArg})}" role="button" tabindex="0" title="Tap to adjust remaining time">${fmt(t.remaining)}</div>
+        <div class="timer-display${deleteSelectionMode ? '' : ' adjustable'}"${deleteSelectionMode ? ' title="Tap card to select for deletion"' : ` onclick="toggleTimerAdjustPanel(${idArg})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTimerAdjustPanel(${idArg})}" role="button" tabindex="0" title="Tap to adjust remaining time"`}>${fmt(t.remaining)}</div>
         <div class="timer-meta">of ${fmtDuration(t.duration)} · ${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</div>
         ${secondaryEl}
         ${t.note?`<div class="timer-note" title="${esc(t.note)}">📝 ${esc(t.note)}</div>`:''}
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
       </div>
       <div class="card-right">
-        <button class="btn btn-sm btn-icon card-actions-toggle" onclick="toggleTimerActions(${idArg}, event)" title="${actionsExpanded ? 'Hide actions' : 'Show actions'}" aria-label="${actionsExpanded ? 'Hide timer actions' : 'Show timer actions'}" aria-expanded="${actionsExpanded ? 'true' : 'false'}">⋯</button>
+        ${deleteSelectionMode
+          ? `<button class="btn btn-sm ${isDeleteSelected ? 'delete-mode-card-action' : ''}" onclick="toggleTimerDeleteSelection(${idArg}, event)" title="${isDeleteSelected ? 'Unselect timer' : 'Select timer'}">${isDeleteSelected ? '✓ Selected' : 'Select'}</button>`
+          : `<button class="btn btn-sm btn-icon card-actions-toggle" onclick="toggleTimerActions(${idArg}, event)" title="${actionsExpanded ? 'Hide actions' : 'Show actions'}" aria-label="${actionsExpanded ? 'Hide timer actions' : 'Show timer actions'}" aria-expanded="${actionsExpanded ? 'true' : 'false'}">⋯</button>
         <div class="card-actions">
           ${playBtn}${pauseBtn}${resetBtn}
           <button class="btn btn-sm btn-icon" onclick="toggleTimerAdjustPanel(${idArg})" title="Adjust time">⏱</button>
           <button class="btn btn-sm btn-icon" onclick="openEditModal('${t.id}')" title="Edit full timer">✎</button>
           <button class="btn btn-sm btn-icon btn-danger" onclick="deleteTimer('${t.id}')" title="Delete">✕</button>
-        </div>
+        </div>`}
       </div>
-      ${renderTimerAdjustPanel(t)}
+      ${deleteSelectionMode ? '' : renderTimerAdjustPanel(t)}
     </div>`;
   };
 
@@ -3589,9 +3864,17 @@ function applyFocusMode() {
 }
 
 function toggleFocusMode() {
-  focusMode = !focusMode;
+  const nextFocusMode = !focusMode;
+  if (nextFocusMode && deleteSelectionMode) {
+    deleteSelectionMode = false;
+    selectedTimerIds.clear();
+    updateDeleteModeButton();
+  }
+
+  focusMode = nextFocusMode;
   localStorage.setItem(FOCUS_MODE_KEY, focusMode ? '1' : '0');
   applyFocusMode();
+  renderTimers();
 }
 
 function applySavedFocusMode() {
