@@ -665,8 +665,26 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 .quick-add-time-label{font-size:10px;color:var(--text3);text-align:center;margin-top:2px}
 
 /* Saved account views */
+.account-view-controls{display:flex;gap:6px;align-items:center}
+.account-view-controls select{min-width:0;flex:1}
+.account-view-controls .btn{flex:0 0 auto}
 .account-view-hint{font-size:12px;color:var(--text3);line-height:1.35;margin-top:7px}
 .account-view-hint strong{color:var(--text2);font-weight:500}
+.account-views-help{font-size:12px;color:var(--text3);line-height:1.45;margin-top:-6px;margin-bottom:14px}
+.account-views-list{display:flex;flex-direction:column;gap:10px;max-height:58vh;overflow-y:auto;padding-right:4px}
+.account-view-editor-row{border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.018);border-radius:var(--radius-lg);padding:12px}
+.account-view-editor-head{display:grid;grid-template-columns:minmax(160px,1fr) auto;gap:8px;align-items:start;margin-bottom:10px}
+.account-view-editor-head input[readonly]{color:var(--text2);background:var(--surface);border-color:var(--border)}
+.account-view-editor-meta{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.35}
+.account-view-account-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.account-view-account-check{display:flex;align-items:center;gap:7px;border:1px solid var(--border);background:var(--surface2);border-radius:var(--radius);padding:6px 8px;font-size:12px;color:var(--text2);cursor:pointer;min-width:0}
+.account-view-account-check:hover{border-color:var(--border2);color:var(--text)}
+.account-view-account-check input{width:auto;accent-color:var(--accent);flex:0 0 auto}
+.account-view-account-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-view-empty-note{font-size:12px;color:var(--amber);margin-top:8px}
+.account-view-system-note{font-size:12px;color:var(--text3);border:1px dashed var(--border);border-radius:var(--radius);padding:8px;background:rgba(255,255,255,0.012)}
+@media (max-width: 820px){.account-view-account-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width: 700px){.account-view-controls{flex-direction:column;align-items:stretch}.account-view-account-grid{grid-template-columns:1fr}.account-view-editor-head{grid-template-columns:1fr}.account-views-list{max-height:56vh}.account-view-editor-head .btn{width:100%;justify-content:center}}
 
 /* Elapsed/endtime toggle */
 .timer-secondary{font-size:11px;color:var(--text3);margin-top:2px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:1px 4px;transition:background 0.12s;user-select:none}
@@ -983,7 +1001,10 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
       </div>
       <div class="sidebar-section account-view-section">
         <label>Saved view</label>
-        <select id="account-view-select" title="Saved account view" onchange="setAccountView(this.value)"></select>
+        <div class="account-view-controls">
+          <select id="account-view-select" title="Saved account view" onchange="setAccountView(this.value)"></select>
+          <button class="btn btn-sm" type="button" onclick="openAccountViewsModal()" title="Add, edit, or delete shared saved views">Manage</button>
+        </div>
         <div id="account-view-hint" class="account-view-hint"></div>
       </div>
       <div class="sidebar-section">
@@ -1254,6 +1275,25 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   </div>
 </div>
 
+<!-- Manage Saved Views Modal -->
+<div class="modal-bg" id="account-views-modal" style="display:none" onclick="if(event.target===this)closeAccountViewsModal()">
+  <div class="modal modal-wide account-views-modal">
+    <h2>Manage Saved Views</h2>
+    <div class="account-views-help">Saved Views are shared app configuration stored on the NAS in <strong>account_views.json</strong>. The currently selected view still stays local to each browser/device.</div>
+
+    <div id="account-views-list" class="account-views-list"></div>
+
+    <div style="display:flex;justify-content:flex-start;margin-top:12px">
+      <button class="btn btn-sm" type="button" onclick="addAccountViewEditorRow()">+ Add View</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeAccountViewsModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveManagedAccountViews()">Save Views</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast container -->
 <div class="toast-container" id="toasts"></div>
 
@@ -1267,7 +1307,10 @@ let filterDue = 'All';
 let filterType = 'All';
 let filterStatus = 'All';
 let selectedAccountView = 'all';
+let accountViews = [];
+let accountViewsLastUpdated = null;
 let accountViewControlsSignature = '';
+let accountViewEditorDrafts = [];
 let expandedAccount = null;
 let expandedGapType = null;
 let editingId = null;
@@ -1475,14 +1518,15 @@ const ACCOUNT_PRESETS = [
   'Zylink'
 ];
 
-// Saved Views are front-end-only presentation filters.
-// Edit the account lists here when you want to change which Clash accounts each view shows.
+// Default Saved Views are bootstrap/fallback shared configuration.
+// The live shared source is /data/account_views.json through api.php?action=loadViews/saveViews.
 // Use accounts: null for a view that includes every known account.
-const ACCOUNT_VIEWS = [
+const DEFAULT_ACCOUNT_VIEWS = [
   {
     id: 'all',
     label: 'All Accounts',
-    accounts: null
+    accounts: null,
+    system: true
   },
   {
     id: 'view-1',
@@ -1557,8 +1601,71 @@ function sortAccountNames(accounts) {
     .sort((a, b) => a.localeCompare(b, undefined, { numeric:true, sensitivity:'base' }));
 }
 
+function normalizeAccountViewId(id, fallbackLabel='view') {
+  const clean = String(id || '').trim();
+  if (clean) return clean;
+  return `view-${String(fallbackLabel || 'view').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 28) || 'custom'}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function normalizeAccountView(view, index=0) {
+  const source = view && typeof view === 'object' ? view : {};
+  const system = source.system === true || source.id === 'all';
+  const id = system ? 'all' : normalizeAccountViewId(source.id, source.label || `view-${index + 1}`);
+  const label = system ? 'All Accounts' : String(source.label || '').trim();
+  const accounts = source.accounts === null
+    ? null
+    : sortAccountNames(Array.isArray(source.accounts) ? source.accounts : []);
+
+  return {
+    id,
+    label: label || (system ? 'All Accounts' : `View ${index + 1}`),
+    accounts: system ? null : accounts,
+    ...(system ? { system: true } : {})
+  };
+}
+
+function normalizeAccountViews(rawViews) {
+  const seenIds = new Set();
+  const normalized = [];
+
+  const addView = (raw, index=0) => {
+    const view = normalizeAccountView(raw, index);
+    let id = view.id;
+    if (seenIds.has(id)) {
+      if (id === 'all') return;
+      let suffix = 2;
+      while (seenIds.has(`${id}-${suffix}`)) suffix += 1;
+      id = `${id}-${suffix}`;
+    }
+    seenIds.add(id);
+    normalized.push({ ...view, id });
+  };
+
+  addView({ id:'all', label:'All Accounts', accounts:null, system:true }, 0);
+  (Array.isArray(rawViews) && rawViews.length ? rawViews : DEFAULT_ACCOUNT_VIEWS).forEach((view, index) => addView(view, index));
+
+  return normalized.filter((view, index) => view.id === 'all' || index > 0);
+}
+
+function cloneAccountView(view) {
+  return {
+    id: view.id,
+    label: view.label,
+    accounts: view.accounts === null ? null : [...(view.accounts || [])],
+    ...(view.system ? { system: true } : {})
+  };
+}
+
+function getAccountViews() {
+  if (!Array.isArray(accountViews) || !accountViews.length) {
+    accountViews = normalizeAccountViews(DEFAULT_ACCOUNT_VIEWS);
+  }
+  return accountViews;
+}
+
 function getAccountViewById(id) {
-  return ACCOUNT_VIEWS.find(view => view.id === id) || ACCOUNT_VIEWS[0];
+  const views = getAccountViews();
+  return views.find(view => view.id === id) || views[0];
 }
 
 function getSelectedAccountView() {
@@ -1571,7 +1678,6 @@ function accountViewRestrictsAccounts(view=getSelectedAccountView()) {
 
 function getAccountsForView(view=getSelectedAccountView()) {
   if (!accountViewRestrictsAccounts(view)) return getKnownAccounts();
-  // Keep configured Saved View accounts in the order written in ACCOUNT_VIEWS.
   return Array.from(new Set((view.accounts || []).map(a => String(a || '').trim()).filter(Boolean)));
 }
 
@@ -1605,15 +1711,16 @@ function getPreferredAccountForCurrentView(...candidates) {
 function renderAccountViewPicker(force=false) {
   const select = document.getElementById('account-view-select');
   const hint = document.getElementById('account-view-hint');
+  const views = getAccountViews();
+
+  if (!views.some(v => v.id === selectedAccountView)) selectedAccountView = 'all';
   const view = getSelectedAccountView();
 
-  if (!ACCOUNT_VIEWS.some(v => v.id === selectedAccountView)) selectedAccountView = 'all';
-
-  const optionSignature = ACCOUNT_VIEWS.map(v => `${v.id}:${v.label}:${Array.isArray(v.accounts) ? v.accounts.join('|') : '*'}`).join('\u001e');
+  const optionSignature = views.map(v => `${v.id}:${v.label}:${Array.isArray(v.accounts) ? v.accounts.join('|') : '*'}`).join('\u001e');
   const signature = `${optionSignature}\u001e${selectedAccountView}`;
 
   if (select && (force || select.dataset.signature !== signature) && document.activeElement !== select) {
-    select.innerHTML = ACCOUNT_VIEWS.map(v =>
+    select.innerHTML = views.map(v =>
       `<option value="${esc(v.id)}"${v.id === selectedAccountView ? ' selected' : ''}>${esc(v.label)}</option>`
     ).join('');
     select.value = selectedAccountView;
@@ -1629,7 +1736,7 @@ function renderAccountViewPicker(force=false) {
     const timerLabel = timerCount === 1 ? '1 timer' : `${timerCount} timers`;
     hint.innerHTML = accountViewRestrictsAccounts(view)
       ? `<strong>${esc(view.label)}</strong>: ${accountLabel} · ${timerLabel}`
-      : `<strong>All Accounts</strong>: ${accountLabel} · ${timerLabel}`;
+      : `<strong>${esc(view.label || 'All Accounts')}</strong>: ${accountLabel} · ${timerLabel}`;
   }
 }
 
@@ -1656,7 +1763,25 @@ function setAccountView(viewId) {
 
 function applySavedAccountView() {
   const saved = localStorage.getItem(ACCOUNT_VIEW_KEY);
-  selectedAccountView = ACCOUNT_VIEWS.some(v => v.id === saved) ? saved : 'all';
+  selectedAccountView = getAccountViews().some(v => v.id === saved) ? saved : 'all';
+}
+
+function applyAccountViewChangesAfterSave() {
+  const views = getAccountViews();
+  if (!views.some(v => v.id === selectedAccountView)) {
+    selectedAccountView = 'all';
+    localStorage.setItem(ACCOUNT_VIEW_KEY, selectedAccountView);
+  }
+
+  if (filterGroup !== 'All' && !accountIsVisibleInCurrentView(filterGroup)) filterGroup = 'All';
+  if (expandedAccount && !accountIsVisibleInCurrentView(expandedAccount)) expandedAccount = null;
+  expandedGapType = null;
+  selectedTimerIds.clear();
+  accountControlsSignature = '';
+  accountViewControlsSignature = '';
+
+  populateAccountControls(true);
+  renderTimers();
 }
 
 function populateAccountControls(force=false) {
@@ -1814,6 +1939,149 @@ function applyNoteTemplate() {
   document.getElementById('f-note-template').value = '';
   note.focus();
 }
+
+// ── Saved View management ─────────────────────────────────────────────────
+function openAccountViewsModal() {
+  accountViewEditorDrafts = getAccountViews().map(cloneAccountView);
+  renderAccountViewsEditor();
+  const modal = document.getElementById('account-views-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeAccountViewsModal() {
+  const modal = document.getElementById('account-views-modal');
+  if (modal) modal.style.display = 'none';
+  accountViewEditorDrafts = [];
+}
+
+function getAccountViewEditorRows(validate=false) {
+  const rows = Array.from(document.querySelectorAll('.account-view-editor-row'));
+  const drafts = [];
+  const labels = new Set();
+
+  for (const row of rows) {
+    const id = row.dataset.viewId || '';
+    const system = row.dataset.system === 'true' || id === 'all';
+    const nameInput = row.querySelector('.account-view-name-input');
+    const label = system ? 'All Accounts' : String(nameInput ? nameInput.value : '').trim();
+
+    if (validate && !label) {
+      if (nameInput) nameInput.focus();
+      toast('View name is required', 'warning');
+      return null;
+    }
+
+    const labelKey = label.toLowerCase();
+    if (validate && labelKey && labels.has(labelKey)) {
+      if (nameInput) nameInput.focus();
+      toast('Saved View names must be unique', 'warning');
+      return null;
+    }
+    if (labelKey) labels.add(labelKey);
+
+    const accounts = system
+      ? null
+      : sortAccountNames(Array.from(row.querySelectorAll('.account-view-account-input:checked')).map(cb => cb.value));
+
+    drafts.push({
+      id: system ? 'all' : normalizeAccountViewId(id, label),
+      label: label || (system ? 'All Accounts' : ''),
+      accounts,
+      ...(system ? { system: true } : {})
+    });
+  }
+
+  return normalizeAccountViews(drafts);
+}
+
+function renderAccountViewsEditor() {
+  const list = document.getElementById('account-views-list');
+  if (!list) return;
+
+  const knownAccounts = getKnownAccounts();
+  const views = normalizeAccountViews(accountViewEditorDrafts.length ? accountViewEditorDrafts : getAccountViews());
+  accountViewEditorDrafts = views.map(cloneAccountView);
+
+  list.innerHTML = views.map((view, index) => {
+    const system = view.system === true || view.id === 'all';
+    const selectedAccounts = new Set(Array.isArray(view.accounts) ? view.accounts : []);
+    const accountGrid = system
+      ? '<div class="account-view-system-note">All Accounts is protected and always includes every known account.</div>'
+      : (knownAccounts.length
+          ? `<div class="account-view-account-grid">${knownAccounts.map(account => {
+              const checked = selectedAccounts.has(account) ? ' checked' : '';
+              return `
+                <label class="account-view-account-check" title="${esc(account)}">
+                  <input type="checkbox" class="account-view-account-input" value="${esc(account)}"${checked}>
+                  <span class="account-view-account-name">${esc(account)}</span>
+                </label>
+              `;
+            }).join('')}</div>${selectedAccounts.size ? '' : '<div class="account-view-empty-note">No accounts selected.</div>'}`
+          : '<div class="account-view-empty-note">No known accounts available yet.</div>');
+
+    return `
+      <div class="account-view-editor-row" data-view-id="${esc(view.id)}" data-system="${system ? 'true' : 'false'}">
+        <div class="account-view-editor-head">
+          <div>
+            <label>View name</label>
+            <input type="text" class="account-view-name-input" value="${esc(view.label)}" ${system ? 'readonly aria-readonly="true"' : ''}>
+            <div class="account-view-editor-meta">${system ? 'Protected system view' : `${Array.isArray(view.accounts) ? view.accounts.length : 0} selected account${Array.isArray(view.accounts) && view.accounts.length === 1 ? '' : 's'}`}</div>
+          </div>
+          ${system
+            ? '<button class="btn btn-sm" type="button" onclick="toast(\'All Accounts cannot be deleted\', \'warning\')" title="All Accounts cannot be deleted">Protected</button>'
+            : `<button class="btn btn-sm btn-danger" type="button" onclick="deleteAccountViewEditorRow('${esc(view.id)}')">Delete</button>`}
+        </div>
+        ${accountGrid}
+      </div>
+    `;
+  }).join('');
+}
+
+function addAccountViewEditorRow() {
+  const current = getAccountViewEditorRows(false);
+  accountViewEditorDrafts = current ? current.map(cloneAccountView) : getAccountViews().map(cloneAccountView);
+
+  const existingIds = new Set(accountViewEditorDrafts.map(v => v.id));
+  let id = `view-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  while (existingIds.has(id)) id = `view-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+
+  accountViewEditorDrafts.push({ id, label: 'New View', accounts: [] });
+  renderAccountViewsEditor();
+
+  const inputs = document.querySelectorAll('.account-view-name-input');
+  const last = inputs[inputs.length - 1];
+  if (last) {
+    last.focus();
+    last.select();
+  }
+}
+
+function deleteAccountViewEditorRow(id) {
+  if (id === 'all') {
+    toast('All Accounts cannot be deleted', 'warning');
+    return;
+  }
+
+  const current = getAccountViewEditorRows(false) || accountViewEditorDrafts;
+  const view = current.find(v => v.id === id);
+  const label = view ? view.label : 'this view';
+  if (!confirm(`Delete Saved View "${label}"?`)) return;
+
+  accountViewEditorDrafts = current.filter(v => v.id !== id).map(cloneAccountView);
+  renderAccountViewsEditor();
+}
+
+async function saveManagedAccountViews() {
+  const drafts = getAccountViewEditorRows(true);
+  if (!drafts) return;
+
+  const saved = await saveAccountViews(drafts);
+  if (!saved) return;
+
+  closeAccountViewsModal();
+  applyAccountViewChangesAfterSave();
+}
+
 // ── Persistence ──────────────────────────────────────────────────────────
 function setSyncStatus(text, state='') {
   const el = document.getElementById('sync-status');
@@ -1880,6 +2148,64 @@ function normalizeTimersAfterLoad() {
 
   return needsSave;
 }
+
+async function loadAccountViews() {
+  try {
+    const res = await fetch(`${API_URL}?action=loadViews`, { cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Load views failed with HTTP ${res.status}`);
+
+    accountViews = normalizeAccountViews(Array.isArray(data) ? data : data.views);
+    accountViewsLastUpdated = data.lastUpdated || null;
+    return true;
+  } catch (e) {
+    console.error(e);
+    accountViews = normalizeAccountViews(DEFAULT_ACCOUNT_VIEWS);
+    accountViewsLastUpdated = null;
+    toast('Could not load shared Saved Views. Using defaults in this browser.', 'warning');
+    return false;
+  }
+}
+
+async function saveAccountViews(nextViews) {
+  const normalized = normalizeAccountViews(nextViews);
+
+  try {
+    const res = await fetch(`${API_URL}?action=saveViews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify({
+        schemaVersion: 1,
+        lastKnownLastUpdated: accountViewsLastUpdated,
+        views: normalized
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data.error || `Save views failed with HTTP ${res.status}`);
+      err.code = data.code || '';
+      throw err;
+    }
+
+    accountViews = normalized;
+    accountViewsLastUpdated = data.lastUpdated || accountViewsLastUpdated;
+    toast('Saved views updated', 'success');
+    return true;
+  } catch (e) {
+    console.error(e);
+    if (e.code === 'STALE_VIEWS') {
+      toast('Saved Views changed on another device. Reloaded the latest shared views.', 'warning');
+      await loadAccountViews();
+      renderAccountViewsEditor();
+    } else {
+      toast('Could not save Saved Views.', 'warning');
+    }
+    return false;
+  }
+}
+
 
 async function save() {
   if (saveInFlight) {
@@ -1982,7 +2308,7 @@ function restoreViewState(state) {
   if (!state) return;
   sortKey = state.sortKey || sortKey;
   sortDir = Number(state.sortDir) || sortDir;
-  selectedAccountView = ACCOUNT_VIEWS.some(v => v.id === state.selectedAccountView) ? state.selectedAccountView : selectedAccountView;
+  selectedAccountView = getAccountViews().some(v => v.id === state.selectedAccountView) ? state.selectedAccountView : selectedAccountView;
   filterGroup = state.filterGroup || 'All';
   if (filterGroup !== 'All' && !accountIsVisibleInCurrentView(filterGroup)) filterGroup = 'All';
   filterDue = state.filterDue || 'All';
@@ -4197,16 +4523,19 @@ document.addEventListener('keydown', e => {
   const regularModalOpen = document.getElementById('modal').style.display !== 'none';
   const bulkModalOpen = document.getElementById('bulk-modal').style.display !== 'none';
   const snapshotModalOpen = document.getElementById('snapshot-modal').style.display !== 'none';
-  const anyModalOpen = regularModalOpen || bulkModalOpen || snapshotModalOpen;
+  const accountViewsModalOpen = document.getElementById('account-views-modal').style.display !== 'none';
+  const anyModalOpen = regularModalOpen || bulkModalOpen || snapshotModalOpen || accountViewsModalOpen;
 
   if (e.key === 'Escape') {
-    if (snapshotModalOpen) closeSnapshotModal();
+    if (accountViewsModalOpen) closeAccountViewsModal();
+    else if (snapshotModalOpen) closeSnapshotModal();
     else if (bulkModalOpen) closeBulkModal();
     else if (regularModalOpen) closeModal();
   }
 
   if (e.key === 'Enter' && regularModalOpen) saveTimer();
   if (e.key === 'Enter' && bulkModalOpen && (e.ctrlKey || e.metaKey)) saveBulkTimers();
+  if (e.key === 'Enter' && accountViewsModalOpen && (e.ctrlKey || e.metaKey)) saveManagedAccountViews();
   if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !anyModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') openAddModal();
   if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !anyModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleFocusMode();
   if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !anyModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleCompactMode();
@@ -4360,6 +4689,7 @@ function toggleCardMode(id) {
 async function boot() {
   setupNativeSelectRenderGuard();
   applyInitialMobileLayout();
+  await loadAccountViews();
   applySavedAccountView();
   applySavedFocusMode();
   applySavedCompactMode();
