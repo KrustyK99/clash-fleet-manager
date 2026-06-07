@@ -139,6 +139,51 @@ h1,h2,h3{font-weight:500}
   cursor:pointer;
 }
 .delete-mode-card-action{color:var(--red);border-color:rgba(255,92,92,0.45);background:var(--red-bg)}
+
+/* Timer data copy workflow */
+.copy-data-bar{
+  display:none;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  padding:10px 16px;
+  border-bottom:1px solid rgba(61,214,140,0.22);
+  background:linear-gradient(135deg,var(--surface) 0%,rgba(61,214,140,0.045) 100%);
+}
+.copy-data-bar.visible{display:flex}
+.copy-data-summary{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  color:var(--green);
+  font-weight:600;
+  margin-right:4px;
+}
+.copy-data-help{font-size:12px;color:var(--text3)}
+.copy-data-source-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  max-width:min(420px,55vw);
+  border:1px solid rgba(61,214,140,0.35);
+  background:var(--green-bg);
+  color:var(--green);
+  border-radius:999px;
+  padding:4px 9px;
+  font-size:12px;
+  line-height:1;
+  white-space:nowrap;
+}
+.copy-data-source-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.timer-card.copy-source{
+  border-color:var(--green);
+  background:linear-gradient(135deg,var(--surface) 0%,rgba(61,214,140,0.08) 100%);
+}
+.timer-card.copy-targetable{cursor:pointer}
+.timer-card.copy-targetable:hover{border-color:var(--green)}
+.copy-mode-card-action{color:var(--green);border-color:rgba(61,214,140,0.45);background:var(--green-bg)}
+.copy-mode-card-action:hover{border-color:var(--green);color:var(--green);background:var(--green-bg)}
 .timer-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
 /* Prevent timer cards from being compressed when many timers are in the scroll list. */
 .timer-list > *{flex-shrink:0}
@@ -517,6 +562,9 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
   .delete-selection-bar .btn{flex:1 1 auto;justify-content:center}
   .delete-account-select{flex:1 1 100%;max-width:none}
   .delete-selection-summary,.delete-selection-help{flex:1 1 100%}
+  .copy-data-bar{padding:10px 12px}
+  .copy-data-bar .btn{flex:1 1 auto;justify-content:center}
+  .copy-data-summary,.copy-data-help,.copy-data-source-pill{flex:1 1 100%;max-width:none}
 }
 
 /* Scrollbar */
@@ -999,6 +1047,9 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
         <span style="font-size:12px;color:var(--text3)" id="timer-count"></span>
       </div>
 
+      <!-- Timer data copy toolbar -->
+      <div class="copy-data-bar" id="copy-data-bar" aria-live="polite"></div>
+
       <!-- Delete selection toolbar -->
       <div class="delete-selection-bar" id="delete-selection-bar" aria-live="polite"></div>
 
@@ -1229,6 +1280,7 @@ let snapshotLastSnapshot = null;
 let snapshotCandidates = [];
 let deleteSelectionMode = false;
 let selectedTimerIds = new Set();
+let timerCopySourceId = null;
 
 const STORAGE_KEY = 'timerdesk_v2';
 const API_URL = 'api.php';
@@ -1915,6 +1967,7 @@ function deleteTimer(id) {
 
   timers = timers.filter(x => String(x.id) !== String(id));
   selectedTimerIds.delete(String(id));
+  if (String(timerCopySourceId) === String(id)) timerCopySourceId = null;
   save(); renderTimers();
 }
 
@@ -2253,6 +2306,7 @@ function enterDeleteSelectionMode() {
 
   deleteSelectionMode = true;
   selectedTimerIds.clear();
+  timerCopySourceId = null;
   expandedActionsTimerId = null;
   adjustingTimerId = null;
 
@@ -2343,12 +2397,166 @@ function deleteSelectedTimers() {
   timers = timers.filter(t => !ids.has(String(t.id)));
   selectedTimerIds.clear();
   deleteSelectionMode = false;
+  timerCopySourceId = null;
   adjustingTimerId = null;
   expandedActionsTimerId = null;
 
   save();
   renderTimers();
   toast(`Deleted ${count} timer${count === 1 ? '' : 's'}.`, 'success');
+}
+
+
+function getTimerById(id) {
+  return timers.find(t => String(t.id) === String(id));
+}
+
+function pruneTimerCopySource() {
+  if (!timerCopySourceId) return;
+  if (!getTimerById(timerCopySourceId)) timerCopySourceId = null;
+}
+
+function currentRemainingForCopy(t, now=Date.now()) {
+  if (!t) return 0;
+  if (t.status === 'running' && t.endTime) {
+    return Math.max(0, Math.ceil((Number(t.endTime) - now) / 1000));
+  }
+  return Math.max(0, Math.floor(Number(t.remaining) || 0));
+}
+
+function beginTimerDataCopy(id, event) {
+  if (event) event.stopPropagation();
+  const source = getTimerById(id);
+  if (!source) {
+    toast('Copy source timer was not found.', 'warning');
+    return;
+  }
+
+  timerCopySourceId = String(source.id);
+  expandedActionsTimerId = null;
+  adjustingTimerId = null;
+  renderTimers();
+  toast(`Copy source selected: ${source.name}`, 'success');
+}
+
+function cancelTimerDataCopy(event) {
+  if (event) event.stopPropagation();
+  timerCopySourceId = null;
+  renderTimers();
+}
+
+function applyCopiedTimerDataToTarget(targetId, event) {
+  if (event) event.stopPropagation();
+  pruneTimerCopySource();
+
+  const source = getTimerById(timerCopySourceId);
+  const target = getTimerById(targetId);
+  if (!source) {
+    timerCopySourceId = null;
+    renderTimers();
+    toast('Copy source timer was not found.', 'warning');
+    return;
+  }
+  if (!target) {
+    toast('Target timer was not found.', 'warning');
+    return;
+  }
+  if (String(source.id) === String(target.id)) {
+    toast('Choose a different timer as the copy target.', 'warning');
+    return;
+  }
+
+  const sourceName = source.name || 'source timer';
+  const targetName = target.name || 'target timer';
+  const keepNote = target.note ? ' The target note/comment will be kept.' : '';
+  if (!confirm(`Copy timer data from "${sourceName}" into "${targetName}"?${keepNote}`)) return;
+
+  const now = Date.now();
+  const targetNote = target.note || '';
+  const targetAccount = getAccount(target);
+  const targetGroup = target.group !== undefined ? target.group : targetAccount;
+  const targetRepeat = !!target.repeat;
+  const targetSound = target.sound !== false;
+  const targetCreated = target.created || now;
+  const sourceDuration = Math.max(1, Math.floor(Number(source.duration) || 0));
+  const sourceRemaining = Math.min(sourceDuration, currentRemainingForCopy(source, now));
+
+  target.name = source.name;
+  target.duration = sourceDuration;
+  target.remaining = sourceRemaining;
+  target.upgradeType = getUpgradeType(source);
+  target.note = targetNote;
+  target.repeat = targetRepeat;
+  target.sound = targetSound;
+  target.created = targetCreated;
+
+  // Preserve the curated timer's account unless it was blank.
+  if (targetAccount) {
+    target.account = targetAccount;
+    target.group = targetGroup || targetAccount;
+  } else {
+    const sourceAccount = getAccount(source);
+    target.account = sourceAccount;
+    target.group = sourceAccount;
+  }
+
+  if (source.status === 'expired' || sourceRemaining <= 0) {
+    target.status = 'expired';
+    target.remaining = 0;
+    target.endTime = null;
+    target.expiredAt = source.expiredAt || source.finishedAt || now;
+  } else if (source.status === 'running') {
+    target.status = 'running';
+    target.expiredAt = null;
+    target.endTime = source.endTime && Number(source.endTime) > now
+      ? Number(source.endTime)
+      : now + sourceRemaining * 1000;
+  } else if (source.status === 'paused') {
+    target.status = 'paused';
+    target.endTime = null;
+    target.expiredAt = null;
+  } else {
+    target.status = 'stopped';
+    target.endTime = null;
+    target.expiredAt = null;
+  }
+
+  timerCopySourceId = null;
+  save();
+  renderTimers();
+  toast(`Copied timer data into "${target.name}" and kept its note.`, 'success');
+}
+
+function renderCopyDataBar(visibleList) {
+  pruneTimerCopySource();
+
+  const bar = document.getElementById('copy-data-bar');
+  if (!bar) return;
+
+  const source = getTimerById(timerCopySourceId);
+  if (!source || deleteSelectionMode) {
+    bar.classList.remove('visible');
+    bar.innerHTML = '';
+    return;
+  }
+
+  const visibleTargets = Array.isArray(visibleList)
+    ? visibleList.filter(t => String(t.id) !== String(source.id)).length
+    : 0;
+  const targetLabel = visibleTargets === 1 ? '1 visible target' : `${visibleTargets} visible targets`;
+  const account = getAccount(source);
+  const type = getUpgradeType(source);
+
+  bar.classList.add('visible');
+  bar.innerHTML = `
+    <span class="copy-data-summary">⧉ Copy data mode</span>
+    <span class="copy-data-source-pill" title="${esc(source.name)}">
+      Source: <span class="copy-data-source-name">${esc(source.name)}</span>${account ? ` · ${esc(account)}` : ''}${type ? ` · ${esc(type)}` : ''}
+    </span>
+    <span class="copy-data-help">Tap a target timer or use Paste on a card. Name, type, timing, and status are copied; the target note/comment is kept.</span>
+    <button class="btn btn-sm" type="button" onclick="cancelTimerDataCopy()">Cancel</button>
+    <span style="font-size:12px;color:var(--text3)">${targetLabel}</span>
+  `;
 }
 
 function renderDeleteSelectionBar(visibleList) {
@@ -2401,6 +2609,17 @@ function handleTimerCardClick(event, id) {
     const interactive = event.target.closest('button,input,select,textarea,a,[role="button"],label,.timer-secondary,.timer-adjust-panel');
     if (interactive) return;
     toggleTimerDeleteSelection(id, event);
+    return;
+  }
+
+  if (timerCopySourceId) {
+    const interactive = event.target.closest('button,input,select,textarea,a,[role="button"],label,.timer-secondary,.timer-adjust-panel');
+    if (interactive) return;
+    if (String(timerCopySourceId) === String(id)) {
+      toast('Tap a different timer to paste the copied timer data.', 'warning');
+      return;
+    }
+    applyCopiedTimerDataToTarget(id, event);
     return;
   }
 
@@ -2962,6 +3181,7 @@ function renderTimers() {
   renderAccountSummary();
   renderStats();
   let list = getVisibleTimerList();
+  renderCopyDataBar(list);
   renderDeleteSelectionBar(list);
   updateSearchFilterIndicators();
   const timerCountEl = document.getElementById('timer-count');
@@ -2983,6 +3203,8 @@ function renderTimers() {
     const isStopped = t.status==='stopped';
     const idArg = timerIdArg(t.id);
     const isDeleteSelected = selectedTimerIds.has(String(t.id));
+    const isCopySource = timerCopySourceId && String(timerCopySourceId) === String(t.id);
+    const isCopyTargetable = timerCopySourceId && !isCopySource && !deleteSelectionMode;
     const deleteSelectControl = deleteSelectionMode
       ? `<label class="timer-select-wrap" onclick="event.stopPropagation()" title="Select this timer for deletion"><input class="timer-select-checkbox" type="checkbox" ${isDeleteSelected ? 'checked' : ''} onchange="toggleTimerDeleteSelection(${idArg}, event)" aria-label="Select ${esc(t.name)} for deletion"></label>`
       : '';
@@ -2999,6 +3221,13 @@ function renderTimers() {
     const upgradeType = getUpgradeType(t);
     const upgradeTypeLabel = compactMode ? compactUpgradeTypeLabel(upgradeType) : upgradeType;
     const actionsExpanded = expandedActionsTimerId === t.id;
+    const copyDataBtn = deleteSelectionMode
+      ? ''
+      : (isCopySource
+        ? `<button class="btn btn-sm copy-mode-card-action" onclick="cancelTimerDataCopy(event)" title="Cancel copy source">✓ Source</button>`
+        : (timerCopySourceId
+          ? `<button class="btn btn-sm copy-mode-card-action" onclick="applyCopiedTimerDataToTarget(${idArg}, event)" title="Paste copied timer data here and keep this timer's note/comment">Paste</button>`
+          : `<button class="btn btn-sm btn-icon" onclick="beginTimerDataCopy(${idArg}, event)" title="Use this timer as the copy-data source">⧉</button>`));
     // Secondary info: elapsed or end time
     const showEndTime = (cardModes[t.id] === 'endtime');
     let secondaryText = '';
@@ -3021,7 +3250,7 @@ function renderTimers() {
     const secondaryEl = (!deleteSelectionMode && secondaryText)
       ? `<span class="timer-secondary" onclick="toggleCardMode('${t.id}')" title="Click to switch view">⇄ ${secondaryText}</span>`
       : '';
-    return `<div class="timer-card ${t.status}${actionsExpanded ? ' actions-expanded' : ''}${deleteSelectionMode ? ' delete-selectable' : ''}${isDeleteSelected ? ' delete-selected' : ''}" id="tc-${t.id}" onclick="handleTimerCardClick(event, ${idArg})" aria-selected="${isDeleteSelected ? 'true' : 'false'}">
+    return `<div class="timer-card ${t.status}${actionsExpanded ? ' actions-expanded' : ''}${deleteSelectionMode ? ' delete-selectable' : ''}${isDeleteSelected ? ' delete-selected' : ''}${isCopySource ? ' copy-source' : ''}${isCopyTargetable ? ' copy-targetable' : ''}" id="tc-${t.id}" onclick="handleTimerCardClick(event, ${idArg})" aria-selected="${isDeleteSelected ? 'true' : 'false'}">
       <div class="card-left">
         <div class="card-top">
           ${deleteSelectControl}
@@ -3044,6 +3273,7 @@ function renderTimers() {
         <div class="card-actions">
           ${playBtn}${pauseBtn}${resetBtn}
           <button class="btn btn-sm btn-icon" onclick="toggleTimerAdjustPanel(${idArg})" title="Adjust time">⏱</button>
+          ${copyDataBtn}
           <button class="btn btn-sm btn-icon" onclick="openEditModal('${t.id}')" title="Edit full timer">✎</button>
           <button class="btn btn-sm btn-icon btn-danger" onclick="deleteTimer('${t.id}')" title="Delete">✕</button>
         </div>`}
