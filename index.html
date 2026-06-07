@@ -189,6 +189,40 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .bulk-paste-status.error{color:var(--red)}
 @media (max-width: 700px){.bulk-paste-actions .btn{flex:1 1 auto;justify-content:center}}
 
+/* Snapshot account JSON import */
+.snapshot-help{font-size:12px;color:var(--text3);line-height:1.4;margin-top:-6px;margin-bottom:14px}
+.snapshot-options{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.snapshot-option{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
+.snapshot-option input{width:auto;accent-color:var(--accent)}
+.snapshot-json-text{min-height:150px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.45}
+.snapshot-load-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.snapshot-status{font-size:12px;color:var(--text3);min-height:16px}
+.snapshot-status.ok{color:var(--green)}
+.snapshot-status.warning{color:var(--amber)}
+.snapshot-status.error{color:var(--red)}
+.snapshot-summary{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.snapshot-pill{font-size:11px;color:var(--text2);border:1px solid var(--border);border-radius:999px;padding:4px 8px;background:var(--surface2)}
+.snapshot-candidate-header,.snapshot-candidate-row{display:grid;grid-template-columns:54px 130px minmax(210px,1.35fr) 86px 92px minmax(220px,1fr);gap:6px;align-items:center}
+.snapshot-candidate-header{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:6px;padding-right:4px}
+.snapshot-candidate-rows{display:flex;flex-direction:column;gap:6px;max-height:42vh;overflow-y:auto;padding-right:4px}
+.snapshot-candidate-row{border:1px solid rgba(255,255,255,0.04);border-radius:var(--radius);padding:6px;background:rgba(255,255,255,0.018)}
+.snapshot-candidate-row input,.snapshot-candidate-row select{font-size:12px;padding:6px 7px}
+.snapshot-use{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.snapshot-use input{width:auto;accent-color:var(--accent)}
+.snapshot-time,.snapshot-source{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.snapshot-empty{font-size:12px;color:var(--text3);padding:12px;border:1px dashed var(--border);border-radius:var(--radius)}
+@media (max-width: 920px){
+  .snapshot-candidate-header{display:none}
+  .snapshot-candidate-row{grid-template-columns:1fr 1fr}
+  .snapshot-candidate-row .snapshot-name{grid-column:1/-1}
+  .snapshot-source{grid-column:1/-1;white-space:normal;overflow-wrap:anywhere}
+}
+@media (max-width: 700px){
+  .snapshot-load-actions .btn{flex:1 1 auto;justify-content:center}
+  .snapshot-candidate-row{grid-template-columns:1fr}
+  .snapshot-candidate-row .snapshot-name{grid-column:auto}
+}
+
 /* Group filter */
 .group-pill{font-size:12px;padding:4px 10px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
 .group-pill:hover{border-color:var(--border2);color:var(--text)}
@@ -780,6 +814,10 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       Multi Add
     </button>
+    <button class="btn btn-sm" onclick="openSnapshotModal()" title="Paste an in-game Clash account JSON snapshot and add selected timer candidates">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
+      Snapshot Add
+    </button>
     <button class="btn btn-primary" onclick="openAddModal()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       New Timer
@@ -1024,6 +1062,68 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   </div>
 </div>
 
+<!-- Snapshot Add Modal -->
+<div class="modal-bg" id="snapshot-modal" style="display:none" onclick="if(event.target===this)closeSnapshotModal()">
+  <div class="modal modal-wide">
+    <h2>Add Timers from Account Snapshot</h2>
+    <div class="snapshot-help">Paste the in-game Clash of Clans account JSON snapshot, parse it, review the candidates, then add only the selected timers. This appends timers; it does not replace or sync existing timers.</div>
+
+    <div class="form-row">
+      <label>Account *</label>
+      <select id="snapshot-account" title="Account"></select>
+    </div>
+    <div class="form-row snapshot-options">
+      <label class="snapshot-option" for="snapshot-start">
+        <input type="checkbox" id="snapshot-start" checked>
+        Start timers immediately
+      </label>
+      <label class="snapshot-option" for="snapshot-sound">
+        <input type="checkbox" id="snapshot-sound" checked>
+        Play alert sound when expired
+      </label>
+      <label class="snapshot-option" for="snapshot-include-helper">
+        <input type="checkbox" id="snapshot-include-helper" checked>
+        Include helper cooldowns
+      </label>
+    </div>
+
+    <div class="bulk-paste-panel">
+      <div class="bulk-paste-title">Paste account JSON snapshot</div>
+      <div class="bulk-paste-help">The in-game export copies JSON to the clipboard. Paste it here, or load a JSON file for desktop testing.</div>
+      <textarea id="snapshot-json-text" class="snapshot-json-text" placeholder="Paste account export JSON here…" onkeydown="if((event.ctrlKey||event.metaKey)&amp;&amp;event.key==='Enter')parseSnapshotJsonText()"></textarea>
+      <div class="snapshot-load-actions">
+        <button class="btn btn-sm" type="button" onclick="parseSnapshotJsonText()">Parse Snapshot</button>
+        <button class="btn btn-sm" type="button" onclick="clearSnapshotParser()">Clear</button>
+        <label class="btn btn-sm" style="cursor:pointer">
+          Load JSON File
+          <input id="snapshot-file-input" type="file" accept=".json,application/json" onchange="loadSnapshotJsonFile(event)" style="display:none">
+        </label>
+        <span id="snapshot-status" class="snapshot-status"></span>
+      </div>
+    </div>
+
+    <div class="snapshot-summary" id="snapshot-summary"></div>
+    <div class="snapshot-candidate-header" aria-hidden="true">
+      <span>Use</span>
+      <span>Type</span>
+      <span>Upgrade / timer name</span>
+      <span>Seconds</span>
+      <span>Time</span>
+      <span>Source</span>
+    </div>
+    <div id="snapshot-candidate-rows" class="snapshot-candidate-rows">
+      <div class="snapshot-empty">Paste and parse a snapshot to see timer candidates.</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeSnapshotModal()">Cancel</button>
+      <button class="btn btn-sm" onclick="selectSnapshotCandidates(true)">Select All</button>
+      <button class="btn btn-sm" onclick="selectSnapshotCandidates(false)">Select None</button>
+      <button class="btn btn-primary" onclick="saveSnapshotTimers()">Add Selected Timers</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast container -->
 <div class="toast-container" id="toasts"></div>
 
@@ -1055,6 +1155,8 @@ let accountControlsSignature = '';
 let accountControlsRefreshQueued = false;
 let nativeSelectActive = false;
 let renderQueuedUntilSelectCloses = false;
+let snapshotLastSnapshot = null;
+let snapshotCandidates = [];
 
 const STORAGE_KEY = 'timerdesk_v2';
 const API_URL = 'api.php';
@@ -1065,6 +1167,7 @@ const COMPACT_MODE_KEY = STORAGE_KEY + '_compact_mode';
 const UPGRADE_TYPES = [
   '',
   'Builder',
+  'Builder Base',
   'Lab',
   'Hero',
   'Pet',
@@ -1082,6 +1185,131 @@ const NOTE_TEMPLATES = [
   'Coordinate with family member',
   'No action needed yet'
 ];
+
+// Best-effort map for account snapshot parsing. Add IDs here as you identify them by inspection.
+// The snapshot JSON usually stores numeric data IDs, not player-readable names.
+const COC_DATA_ID_MAP = {
+  '1000097': { name: 'Crafted Defense', type: 'Builder', village: 'Home' },
+  '1000008': { name: 'Cannon', type: 'Builder', village: 'Home' },
+  '1000009': { name: 'Archer Tower', type: 'Builder', village: 'Home' },
+  '1000013': { name: 'Mortar', type: 'Builder', village: 'Home' },
+  '1000012': { name: 'Air Defense', type: 'Builder', village: 'Home' },
+  '1000011': { name: 'Wizard Tower', type: 'Builder', village: 'Home' },
+  '1000028': { name: 'Air Sweeper', type: 'Builder', village: 'Home' },
+  '1000019': { name: 'Hidden Tesla', type: 'Builder', village: 'Home' },
+  '1000032': { name: 'Bomb Tower', type: 'Builder', village: 'Home' },
+  '1000021': { name: 'X-Bow', type: 'Builder', village: 'Home' },
+  '1000027': { name: 'Inferno Tower', type: 'Builder', village: 'Home' },
+  '1000031': { name: 'Eagle Artillery', type: 'Builder', village: 'Home' },
+  '1000067': { name: 'Scattershot', type: 'Builder', village: 'Home' },
+  '1000015': { name: 'Builder\'s Hut', type: 'Builder', village: 'Home' },
+  '1000072': { name: 'Spell Tower', type: 'Builder', village: 'Home' },
+  '1000077': { name: 'Monolith', type: 'Builder', village: 'Home' },
+  '1000089': { name: 'Firespitter', type: 'Builder', village: 'Home' },
+  '1000010': { name: 'Wall', type: 'Builder', village: 'Home' },
+  '1000084': { name: 'Multi-Archer Tower', type: 'Builder', village: 'Home' },
+  '1000085': { name: 'Ricochet Cannon', type: 'Builder', village: 'Home' },
+  '1000079': { name: 'Multi-Gear Tower', type: 'Builder', village: 'Home' },
+  '12000000': { name: 'Bomb', type: 'Builder', village: 'Home' },
+  '12000001': { name: 'Spring Trap', type: 'Builder', village: 'Home' },
+  '12000002': { name: 'Giant Bomb', type: 'Builder', village: 'Home' },
+  '12000005': { name: 'Air Bomb', type: 'Builder', village: 'Home' },
+  '12000006': { name: 'Seeking Air Mine', type: 'Builder', village: 'Home' },
+  '12000008': { name: 'Skeleton Trap', type: 'Builder', village: 'Home' },
+  '12000016': { name: 'Tornado Trap', type: 'Builder', village: 'Home' },
+  '12000020': { name: 'Giga Bomb', type: 'Builder', village: 'Home' },
+  '1000004': { name: 'Gold Mine', type: 'Builder', village: 'Home' },
+  '1000002': { name: 'Elixir Collector', type: 'Builder', village: 'Home' },
+  '1000005': { name: 'Gold Storage', type: 'Builder', village: 'Home' },
+  '1000003': { name: 'Elixir Storage', type: 'Builder', village: 'Home' },
+  '1000023': { name: 'Dark Elixir Drill', type: 'Builder', village: 'Home' },
+  '1000024': { name: 'Dark Elixir Storage', type: 'Builder', village: 'Home' },
+  '1000014': { name: 'Clan Castle', type: 'Builder', village: 'Home' },
+  '1000000': { name: 'Army Camp', type: 'Builder', village: 'Home' },
+  '1000006': { name: 'Barracks', type: 'Builder', village: 'Home' },
+  '1000026': { name: 'Dark Barracks', type: 'Builder', village: 'Home' },
+  '1000007': { name: 'Laboratory', type: 'Builder', village: 'Home' },
+  '1000020': { name: 'Spell Factory', type: 'Builder', village: 'Home' },
+  '1000071': { name: 'Hero Hall', type: 'Builder', village: 'Home' },
+  '1000029': { name: 'Dark Spell Factory', type: 'Builder', village: 'Home' },
+  '1000070': { name: 'Blacksmith', type: 'Builder', village: 'Home' },
+  '1000059': { name: 'Workshop', type: 'Builder', village: 'Home' },
+  '1000068': { name: 'Pet House', type: 'Builder', village: 'Home' },
+  '1000001': { name: 'Town Hall', type: 'Builder', village: 'Home' },
+  '28000000': { name: 'Barbarian King', type: 'Hero', village: 'Home' },
+  '28000001': { name: 'Archer Queen', type: 'Hero', village: 'Home' },
+  '28000006': { name: 'Minion Prince', type: 'Hero', village: 'Home' },
+  '28000002': { name: 'Grand Warden', type: 'Hero', village: 'Home' },
+  '28000004': { name: 'Royal Champion', type: 'Hero', village: 'Home' },
+  '4000051': { name: 'Wall Wrecker', type: 'Lab', village: 'Home' },
+  '4000052': { name: 'Battle Blimp', type: 'Lab', village: 'Home' },
+  '4000062': { name: 'Stone Slammer', type: 'Lab', village: 'Home' },
+  '4000075': { name: 'Siege Barracks', type: 'Lab', village: 'Home' },
+  '4000087': { name: 'Log Launcher', type: 'Lab', village: 'Home' },
+  '4000091': { name: 'Flame Flinger', type: 'Lab', village: 'Home' },
+  '4000092': { name: 'Battle Drill', type: 'Lab', village: 'Home' },
+  '4000135': { name: 'Troop Launcher', type: 'Lab', village: 'Home' },
+  '4000188': { name: 'Sky Wagon', type: 'Lab', village: 'Home' },
+  '73000000': { name: 'L.A.S.S.I', type: 'Pet', village: 'Home' },
+  '73000001': { name: 'Electro Owl', type: 'Pet', village: 'Home' },
+  '73000002': { name: 'Mighty Yak', type: 'Pet', village: 'Home' },
+  '73000003': { name: 'Unicorn', type: 'Pet', village: 'Home' },
+  '73000004': { name: 'Phoenix', type: 'Pet', village: 'Home' },
+  '73000007': { name: 'Poison Lizard', type: 'Pet', village: 'Home' },
+  '73000008': { name: 'Diggy', type: 'Pet', village: 'Home' },
+  '73000009': { name: 'Frosty', type: 'Pet', village: 'Home' },
+  '73000010': { name: 'Spirit Fox', type: 'Pet', village: 'Home' },
+  '73000011': { name: 'Angry Jelly', type: 'Pet', village: 'Home' },
+  '73000016': { name: 'Sneezy', type: 'Pet', village: 'Home' },
+  '73000017': { name: 'Greedy Raven', type: 'Pet', village: 'Home' },
+  '4000000': { name: 'Barbarian', type: 'Lab', village: 'Home' },
+  '4000001': { name: 'Archer', type: 'Lab', village: 'Home' },
+  '4000002': { name: 'Goblin', type: 'Lab', village: 'Home' },
+  '4000003': { name: 'Giant', type: 'Lab', village: 'Home' },
+  '4000004': { name: 'Wall Breaker', type: 'Lab', village: 'Home' },
+  '4000005': { name: 'Balloon', type: 'Lab', village: 'Home' },
+  '4000006': { name: 'Wizard', type: 'Lab', village: 'Home' },
+  '4000007': { name: 'Healer', type: 'Lab', village: 'Home' },
+  '4000008': { name: 'Dragon', type: 'Lab', village: 'Home' },
+  '4000009': { name: 'P.E.K.K.A', type: 'Lab', village: 'Home' },
+  '4000010': { name: 'Minion', type: 'Lab', village: 'Home' },
+  '4000011': { name: 'Hog Rider', type: 'Lab', village: 'Home' },
+  '4000012': { name: 'Valkyrie', type: 'Lab', village: 'Home' },
+  '4000013': { name: 'Golem', type: 'Lab', village: 'Home' },
+  '4000015': { name: 'Witch', type: 'Lab', village: 'Home' },
+  '4000017': { name: 'Lava Hound', type: 'Lab', village: 'Home' },
+  '4000022': { name: 'Bowler', type: 'Lab', village: 'Home' },
+  '4000023': { name: 'Baby Dragon', type: 'Lab', village: 'Home' },
+  '4000024': { name: 'Miner', type: 'Lab', village: 'Home' },
+  '4000053': { name: 'Yeti', type: 'Lab', village: 'Home' },
+  '4000058': { name: 'Ice Golem', type: 'Lab', village: 'Home' },
+  '4000059': { name: 'Electro Dragon', type: 'Lab', village: 'Home' },
+  '4000065': { name: 'Dragon Rider', type: 'Lab', village: 'Home' },
+  '4000082': { name: 'Headhunter', type: 'Lab', village: 'Home' },
+  '4000095': { name: 'Electro Titan', type: 'Lab', village: 'Home' },
+  '4000097': { name: 'Apprentice Warden', type: 'Lab', village: 'Home' },
+  '4000110': { name: 'Root Rider', type: 'Lab', village: 'Home' },
+  '4000123': { name: 'Druid', type: 'Lab', village: 'Home' },
+  '4000132': { name: 'Thrower', type: 'Lab', village: 'Home' },
+  '4000150': { name: 'Furnace', type: 'Lab', village: 'Home' },
+  '26000000': { name: 'Lightning Spell', type: 'Lab', village: 'Home' },
+  '26000001': { name: 'Healing Spell', type: 'Lab', village: 'Home' },
+  '26000002': { name: 'Rage Spell', type: 'Lab', village: 'Home' },
+  '26000003': { name: 'Jump Spell', type: 'Lab', village: 'Home' },
+  '26000005': { name: 'Freeze Spell', type: 'Lab', village: 'Home' },
+  '26000009': { name: 'Poison Spell', type: 'Lab', village: 'Home' },
+  '26000010': { name: 'Earthquake Spell', type: 'Lab', village: 'Home' },
+  '26000011': { name: 'Haste Spell', type: 'Lab', village: 'Home' },
+  '26000016': { name: 'Clone Spell', type: 'Lab', village: 'Home' },
+  '26000017': { name: 'Skeleton Spell', type: 'Lab', village: 'Home' },
+  '26000028': { name: 'Bat Spell', type: 'Lab', village: 'Home' },
+  '26000035': { name: 'Invisibility Spell', type: 'Lab', village: 'Home' },
+  '26000053': { name: 'Recall Spell', type: 'Lab', village: 'Home' },
+  '26000070': { name: 'Overgrowth Spell', type: 'Lab', village: 'Home' },
+  '26000098': { name: 'Revive Spell', type: 'Lab', village: 'Home' },
+  '26000109': { name: 'Ice Block Spell', type: 'Lab', village: 'Home' },
+  '93000001': { name: 'Helper Cooldown', type: 'Capital / Other', village: 'Home' }
+};
 
 function upgradeTypeOptionsHtml(selected='') {
   return UPGRADE_TYPES.map(v => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${v || '— Select type —'}</option>`).join('');
@@ -1170,7 +1398,7 @@ function populateAccountControls(force=false) {
   const accounts = getKnownAccounts();
   const signature = accounts.join('\u001f');
   const active = document.activeElement;
-  const accountSelectIsOpen = active && (active.id === 'q-account' || active.id === 'bulk-account');
+  const accountSelectIsOpen = active && (active.id === 'q-account' || active.id === 'bulk-account' || active.id === 'snapshot-account');
 
   // Mobile browsers can flicker or collapse a native <select> picker if its options
   // are rebuilt while the picker is open. Most timer renders do not change the
@@ -1201,6 +1429,7 @@ function populateAccountControls(force=false) {
   // Real selects are more reliable than datalist pulldowns over local/internal web hosting.
   fillAccountSelect(document.getElementById('q-account'), '— Select account —');
   fillAccountSelect(document.getElementById('bulk-account'), '— Select account —');
+  fillAccountSelect(document.getElementById('snapshot-account'), '— Select account —');
 
   // The single-timer modal still uses free text plus autocomplete so you can create custom account names.
   const dl = document.getElementById('account-suggestions');
@@ -2891,6 +3120,351 @@ function saveBulkTimers() {
   toast(`${newTimers.length} timer${newTimers.length === 1 ? '' : 's'} added for ${account}`, 'success');
 }
 
+// ── Snapshot Add Modal ─────────────────────────────────────────────────────
+function openSnapshotModal() {
+  populateAccountControls(true);
+  const accountEl = document.getElementById('snapshot-account');
+  const quickAccount = document.getElementById('q-account');
+  if (accountEl) accountEl.value = filterGroup !== 'All' ? filterGroup : (quickAccount ? quickAccount.value : '');
+
+  document.getElementById('snapshot-start').checked = true;
+  document.getElementById('snapshot-sound').checked = true;
+  document.getElementById('snapshot-include-helper').checked = true;
+  clearSnapshotParser(false);
+  document.getElementById('snapshot-modal').style.display = 'flex';
+
+  setTimeout(() => {
+    const pasteText = document.getElementById('snapshot-json-text');
+    if (pasteText) pasteText.focus();
+  }, 50);
+}
+
+function closeSnapshotModal() {
+  document.getElementById('snapshot-modal').style.display = 'none';
+}
+
+function setSnapshotStatus(message='', state='') {
+  const el = document.getElementById('snapshot-status');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `snapshot-status ${state}`.trim();
+}
+
+function clearSnapshotParser(showStatus=true) {
+  const textEl = document.getElementById('snapshot-json-text');
+  if (textEl) textEl.value = '';
+  snapshotLastSnapshot = null;
+  snapshotCandidates = [];
+  renderSnapshotCandidates();
+  setSnapshotStatus(showStatus ? 'Snapshot cleared.' : '', showStatus ? 'ok' : '');
+}
+
+function loadSnapshotJsonFile(evt) {
+  const file = evt.target.files && evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('snapshot-json-text').value = String(e.target.result || '');
+    parseSnapshotJsonText();
+  };
+  reader.onerror = () => setSnapshotStatus('Could not read JSON file.', 'error');
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+function snapshotSecondsToText(seconds) {
+  seconds = Math.max(0, Math.floor(Number(seconds) || 0));
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const parts = [];
+  if (d) parts.push(`${d}d`);
+  if (h || d) parts.push(`${h}h`);
+  if (m || h || d) parts.push(`${m}m`);
+  parts.push(`${s}s`);
+  return parts.join(' ');
+}
+
+function snapshotGetBucket(path) {
+  const match = String(path || '').match(/^([^\[.]+)/);
+  return match ? match[1] : 'root';
+}
+
+function snapshotBucketLabel(bucket) {
+  const labels = {
+    helpers: 'Helper',
+    buildings: 'Building',
+    traps: 'Trap',
+    units: 'Lab',
+    siege_machines: 'Siege Machine',
+    heroes: 'Hero',
+    spells: 'Spell',
+    pets: 'Pet',
+    equipment: 'Equipment',
+    buildings2: 'Builder Base Building',
+    traps2: 'Builder Base Trap',
+    heroes2: 'Builder Base Hero',
+    units2: 'Builder Base Lab'
+  };
+  return labels[bucket] || bucket || 'Item';
+}
+
+function snapshotInferUpgradeType(bucket, timerKey, dataId) {
+  if (['buildings2','traps2','heroes2','units2'].includes(bucket)) return 'Builder Base';
+  const known = COC_DATA_ID_MAP[String(dataId)];
+  if (known && known.type) return known.type;
+  if (timerKey === 'helper_cooldown') return 'Capital / Other';
+  if (bucket === 'heroes') return 'Hero';
+  if (bucket === 'units' || bucket === 'spells' || bucket === 'siege_machines') return 'Lab';
+  if (bucket === 'pets') return 'Pet';
+  if (bucket === 'equipment') return 'Equipment';
+  if (bucket === 'buildings' || bucket === 'traps') return 'Builder';
+  return 'Capital / Other';
+}
+
+function snapshotExtractInlineName(node) {
+  const nameFields = ['name', 'Name', 'displayName', 'display_name', 'debugName', 'debug_name', 'uiName', 'ui_name'];
+  for (const field of nameFields) {
+    const value = node && node[field];
+    if (typeof value === 'string' && value.trim() && !/^\d+$/.test(value.trim())) {
+      return value.trim();
+    }
+  }
+  return '';
+}
+
+function snapshotMakeCandidateName(entry) {
+  const dataId = entry.dataId == null ? '' : String(entry.dataId);
+  const known = COC_DATA_ID_MAP[dataId];
+  const inlineName = snapshotExtractInlineName(entry.raw);
+  const base = known ? known.name : (inlineName || `${snapshotBucketLabel(entry.bucket)}${dataId ? ' ' + dataId : ''}`);
+
+  if (entry.timerKey === 'helper_cooldown') return `${base} cooldown`;
+  if (Number.isFinite(entry.level)) return `${base} L${entry.level} -> L${entry.level + 1}`;
+  return base;
+}
+
+function parseAccountSnapshot(snapshot) {
+  const includeHelper = document.getElementById('snapshot-include-helper').checked;
+  const found = [];
+
+  function visit(node, path) {
+    if (Array.isArray(node)) {
+      node.forEach((child, index) => visit(child, `${path}[${index}]`));
+      return;
+    }
+
+    if (!node || typeof node !== 'object') return;
+
+    const bucket = snapshotGetBucket(path);
+    const collectKeys = ['timer'];
+    if (includeHelper) collectKeys.push('helper_cooldown');
+
+    for (const key of collectKeys) {
+      const rawSeconds = node[key];
+      if (typeof rawSeconds === 'number' && Number.isFinite(rawSeconds) && rawSeconds > 0) {
+        const entry = {
+          include: true,
+          timerKey: key,
+          seconds: Math.floor(rawSeconds),
+          path,
+          bucket,
+          dataId: node.data ?? node.id ?? node.data_id ?? null,
+          level: typeof node.lvl === 'number' ? node.lvl : null,
+          count: typeof node.cnt === 'number' ? node.cnt : null,
+          raw: node
+        };
+        entry.upgradeType = snapshotInferUpgradeType(entry.bucket, entry.timerKey, entry.dataId);
+        entry.name = snapshotMakeCandidateName(entry);
+        found.push(entry);
+      }
+    }
+
+    Object.keys(node).forEach(key => visit(node[key], path ? `${path}.${key}` : key));
+  }
+
+  visit(snapshot, '');
+  return found;
+}
+
+function parseSnapshotJsonText() {
+  const source = document.getElementById('snapshot-json-text');
+  const raw = source.value.trim();
+  if (!raw) {
+    setSnapshotStatus('Paste account JSON first.', 'warning');
+    source.focus();
+    return;
+  }
+
+  try {
+    snapshotLastSnapshot = JSON.parse(raw);
+    snapshotCandidates = parseAccountSnapshot(snapshotLastSnapshot);
+    renderSnapshotCandidates();
+    setSnapshotStatus(`Parsed ${snapshotCandidates.length} timer candidate${snapshotCandidates.length === 1 ? '' : 's'}.`, snapshotCandidates.length ? 'ok' : 'warning');
+    if (snapshotCandidates.length) toast(`Parsed ${snapshotCandidates.length} snapshot candidate${snapshotCandidates.length === 1 ? '' : 's'}`, 'success');
+  } catch (err) {
+    snapshotLastSnapshot = null;
+    snapshotCandidates = [];
+    renderSnapshotCandidates();
+    setSnapshotStatus(`Invalid JSON: ${err.message}`, 'error');
+    toast('Snapshot JSON is invalid.', 'warning');
+  }
+}
+
+function snapshotTypeOptionsHtml(selected='') {
+  const types = UPGRADE_TYPES.filter(Boolean);
+  if (selected && !types.includes(selected)) types.push(selected);
+  return types.map(type => `<option value="${esc(type)}"${type === selected ? ' selected' : ''}>${esc(type)}</option>`).join('');
+}
+
+function renderSnapshotCandidates() {
+  const rows = document.getElementById('snapshot-candidate-rows');
+  const summary = document.getElementById('snapshot-summary');
+  if (!rows || !summary) return;
+
+  if (!snapshotCandidates.length) {
+    rows.innerHTML = '<div class="snapshot-empty">Paste and parse a snapshot to see timer candidates.</div>';
+    summary.innerHTML = '';
+    return;
+  }
+
+  rows.innerHTML = snapshotCandidates.map((c, index) => `
+    <div class="snapshot-candidate-row">
+      <label class="snapshot-use"><input type="checkbox" class="snapshot-include" data-index="${index}" ${c.include ? 'checked' : ''}> Use</label>
+      <select class="snapshot-type" data-index="${index}" title="Upgrade type">${snapshotTypeOptionsHtml(c.upgradeType)}</select>
+      <input type="text" class="snapshot-name" data-index="${index}" value="${esc(c.name)}" placeholder="Upgrade name…">
+      <input type="number" class="snapshot-seconds" data-index="${index}" min="1" value="${Number(c.seconds) || 1}" title="Seconds">
+      <span class="snapshot-time">${esc(snapshotSecondsToText(c.seconds))}</span>
+      <span class="snapshot-source" title="${esc(c.path)}.${esc(c.timerKey)}">${esc(snapshotBucketLabel(c.bucket))}${c.dataId == null ? '' : ' · data ' + esc(c.dataId)}${Number.isFinite(c.level) ? ' · L' + esc(c.level) : ''}</span>
+    </div>
+  `).join('');
+
+  rows.querySelectorAll('input,select').forEach(el => {
+    el.addEventListener('input', syncSnapshotCandidateFromControl);
+    el.addEventListener('change', syncSnapshotCandidateFromControl);
+  });
+
+  const byType = {};
+  snapshotCandidates.forEach(c => byType[c.upgradeType || 'Capital / Other'] = (byType[c.upgradeType || 'Capital / Other'] || 0) + 1);
+  const tag = snapshotLastSnapshot && snapshotLastSnapshot.tag ? snapshotLastSnapshot.tag : 'No account tag';
+  summary.innerHTML = [
+    `<span class="snapshot-pill">${esc(tag)}</span>`,
+    `<span class="snapshot-pill">${snapshotCandidates.length} candidate${snapshotCandidates.length === 1 ? '' : 's'}</span>`,
+    ...Object.entries(byType).map(([type, count]) => `<span class="snapshot-pill">${esc(type)}: ${count}</span>`)
+  ].join('');
+}
+
+function syncSnapshotCandidateFromControl(evt) {
+  const el = evt.target;
+  const index = Number(el.dataset.index);
+  if (!Number.isInteger(index) || !snapshotCandidates[index]) return;
+  const c = snapshotCandidates[index];
+
+  if (el.classList.contains('snapshot-include')) {
+    c.include = el.checked;
+  } else if (el.classList.contains('snapshot-name')) {
+    c.name = el.value.trim();
+  } else if (el.classList.contains('snapshot-type')) {
+    c.upgradeType = el.value;
+  } else if (el.classList.contains('snapshot-seconds')) {
+    c.seconds = Math.max(1, Math.floor(Number(el.value) || 0));
+    const row = el.closest('.snapshot-candidate-row');
+    const timeEl = row ? row.querySelector('.snapshot-time') : null;
+    if (timeEl) timeEl.textContent = snapshotSecondsToText(c.seconds);
+  }
+}
+
+function selectedSnapshotCandidatesFromControls() {
+  document.querySelectorAll('.snapshot-include').forEach(el => {
+    const index = Number(el.dataset.index);
+    if (snapshotCandidates[index]) snapshotCandidates[index].include = el.checked;
+  });
+  document.querySelectorAll('.snapshot-name').forEach(el => {
+    const index = Number(el.dataset.index);
+    if (snapshotCandidates[index]) snapshotCandidates[index].name = el.value.trim();
+  });
+  document.querySelectorAll('.snapshot-type').forEach(el => {
+    const index = Number(el.dataset.index);
+    if (snapshotCandidates[index]) snapshotCandidates[index].upgradeType = el.value;
+  });
+  document.querySelectorAll('.snapshot-seconds').forEach(el => {
+    const index = Number(el.dataset.index);
+    if (snapshotCandidates[index]) snapshotCandidates[index].seconds = Math.max(1, Math.floor(Number(el.value) || 0));
+  });
+
+  return snapshotCandidates.filter(c => c.include && c.name && c.seconds > 0);
+}
+
+function snapshotCandidateToTimer(c, now, account, shouldStart, sound) {
+  const tag = snapshotLastSnapshot && snapshotLastSnapshot.tag ? snapshotLastSnapshot.tag : '';
+  const sourcePath = `${c.path}.${c.timerKey}`;
+  const dataPart = c.dataId == null ? 'no data id' : `data ${c.dataId}`;
+  const levelPart = Number.isFinite(c.level) ? `L${c.level}` : 'no level';
+  return {
+    id: newId(),
+    name: c.name,
+    duration: c.seconds,
+    remaining: c.seconds,
+    account,
+    group: account,
+    upgradeType: c.upgradeType || 'Capital / Other',
+    note: `Snapshot${tag ? ' ' + tag : ''} | ${sourcePath} | ${dataPart} | ${levelPart}`,
+    repeat: false,
+    sound,
+    status: shouldStart ? 'running' : 'stopped',
+    endTime: shouldStart ? now + c.seconds * 1000 : null,
+    expiredAt: null,
+    created: now
+  };
+}
+
+function selectSnapshotCandidates(checked) {
+  snapshotCandidates.forEach(c => c.include = checked);
+  renderSnapshotCandidates();
+}
+
+function saveSnapshotTimers() {
+  const account = document.getElementById('snapshot-account').value.trim();
+  if (!account) {
+    toast('Choose an account first.', 'warning');
+    document.getElementById('snapshot-account').focus();
+    return;
+  }
+
+  if (!snapshotCandidates.length) {
+    toast('Parse a snapshot first.', 'warning');
+    document.getElementById('snapshot-json-text').focus();
+    return;
+  }
+
+  const selected = selectedSnapshotCandidatesFromControls();
+  if (!selected.length) {
+    toast('Select at least one snapshot candidate.', 'warning');
+    return;
+  }
+
+  const now = Date.now();
+  const shouldStart = document.getElementById('snapshot-start').checked;
+  const sound = document.getElementById('snapshot-sound').checked;
+  const newTimers = selected.map(c => snapshotCandidateToTimer(c, now, account, shouldStart, sound));
+
+  timers.push(...newTimers);
+  filterGroup = account;
+  save();
+  closeSnapshotModal();
+  renderTimers();
+  toast(`${newTimers.length} snapshot timer${newTimers.length === 1 ? '' : 's'} added for ${account}`, 'success');
+}
+
+// Re-parse if helper cooldown inclusion changes after a snapshot is already loaded.
+document.getElementById('snapshot-include-helper').addEventListener('change', () => {
+  if (!snapshotLastSnapshot) return;
+  snapshotCandidates = parseAccountSnapshot(snapshotLastSnapshot);
+  renderSnapshotCandidates();
+  setSnapshotStatus(`Parsed ${snapshotCandidates.length} timer candidate${snapshotCandidates.length === 1 ? '' : 's'}.`, snapshotCandidates.length ? 'ok' : 'warning');
+});
+
 // ── Import / Export ───────────────────────────────────────────────────────
 function exportTimers() {
   const data = JSON.stringify({
@@ -2968,17 +3542,20 @@ function toast(msg, type='') {
 document.addEventListener('keydown', e => {
   const regularModalOpen = document.getElementById('modal').style.display !== 'none';
   const bulkModalOpen = document.getElementById('bulk-modal').style.display !== 'none';
+  const snapshotModalOpen = document.getElementById('snapshot-modal').style.display !== 'none';
+  const anyModalOpen = regularModalOpen || bulkModalOpen || snapshotModalOpen;
 
   if (e.key === 'Escape') {
-    if (bulkModalOpen) closeBulkModal();
-    else closeModal();
+    if (snapshotModalOpen) closeSnapshotModal();
+    else if (bulkModalOpen) closeBulkModal();
+    else if (regularModalOpen) closeModal();
   }
 
   if (e.key === 'Enter' && regularModalOpen) saveTimer();
   if (e.key === 'Enter' && bulkModalOpen && (e.ctrlKey || e.metaKey)) saveBulkTimers();
-  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !bulkModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') openAddModal();
-  if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !regularModalOpen && !bulkModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleFocusMode();
-  if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !regularModalOpen && !bulkModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleCompactMode();
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !anyModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') openAddModal();
+  if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !anyModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleFocusMode();
+  if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !anyModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleCompactMode();
 });
 
 // ── Focus view ─────────────────────────────────────────────────────────────
