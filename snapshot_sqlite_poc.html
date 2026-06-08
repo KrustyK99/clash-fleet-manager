@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snapshot SQLite POC</title>
+<style>
+:root{
+  --bg:#101014;
+  --surface:#181820;
+  --surface2:#222230;
+  --surface3:#2b2b3a;
+  --border:#37374a;
+  --text:#ececf5;
+  --muted:#a2a2b8;
+  --dim:#6e6e84;
+  --accent:#7777ff;
+  --green:#3dd68c;
+  --amber:#f5a623;
+  --red:#ff6363;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.4}
+.app{max-width:1180px;margin:0 auto;padding:18px}
+.header{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap}
+h1{font-size:22px;margin:0 0 4px 0;font-weight:700}
+.subtitle{color:var(--muted);font-size:14px;max-width:760px}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:6px 10px;color:var(--muted);background:var(--surface);font-size:12px;white-space:nowrap}
+.grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(340px,0.8fr);gap:14px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.panel h2{font-size:15px;margin:0 0 12px 0;font-weight:650;color:var(--text)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-bottom:5px}
+input,textarea,select{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 10px;font:inherit;font-size:14px;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{min-height:310px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:12px;line-height:1.45}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button{border:1px solid var(--border);background:transparent;color:var(--text);padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+button:hover{background:var(--surface3)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.good{border-color:rgba(61,214,140,.45);color:var(--green);background:rgba(61,214,140,.08)}
+button.warn{border-color:rgba(245,166,35,.45);color:var(--amber);background:rgba(245,166,35,.08)}
+button.danger{border-color:rgba(255,99,99,.45);color:var(--red);background:rgba(255,99,99,.08)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.status{border:1px solid var(--border);background:var(--surface2);border-radius:8px;padding:10px;margin:10px 0;font-size:13px;color:var(--muted);white-space:pre-wrap}
+.status.ok{border-color:rgba(61,214,140,.4);color:var(--green);background:rgba(61,214,140,.07)}
+.status.warn{border-color:rgba(245,166,35,.4);color:var(--amber);background:rgba(245,166,35,.07)}
+.status.error{border-color:rgba(255,99,99,.45);color:var(--red);background:rgba(255,99,99,.07)}
+.dropzone{border:1px dashed var(--border);border-radius:8px;background:rgba(255,255,255,.02);padding:10px;color:var(--muted);font-size:13px;margin-bottom:10px;text-align:center}
+.dropzone.drag{border-color:var(--accent);background:rgba(119,119,255,.09);color:var(--text)}
+.summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.metric{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px}
+.metric-label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.metric-value{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:14px;overflow-wrap:anywhere}
+.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:8px;background:var(--surface2)}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:650px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:rgba(255,255,255,.02);position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+.code{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;color:var(--muted);font-size:12px}
+.small{font-size:12px;color:var(--dim)}
+.raw-response{max-height:240px;overflow:auto;background:#0b0b0e;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:11px;color:var(--muted);white-space:pre-wrap}
+.list-item-actions{display:flex;gap:6px;flex-wrap:wrap}
+@media (max-width:900px){.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}.summary-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.app{padding:10px}.summary-grid{grid-template-columns:1fr}.actions button{flex:1 1 auto;justify-content:center}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>Snapshot SQLite POC</h1>
+      <div class="subtitle">Isolated test page for saving raw Clash account snapshot JSON into SQLite through a small API. This does not touch the existing timer JSON workflow.</div>
+    </div>
+    <div class="pill" id="healthPill">SQLite: checking...</div>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>1) Paste or drop snapshot JSON</h2>
+
+      <div class="row">
+        <div>
+          <label for="apiUrl">API URL</label>
+          <input id="apiUrl" value="snapshot_sqlite_api_poc.php" spellcheck="false">
+        </div>
+        <div>
+          <label for="accountName">Account Name</label>
+          <input id="accountName" value="Heisenberg" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="source">Source</label>
+          <select id="source">
+            <option value="manual-paste">Manual Paste</option>
+            <option value="file-drop">File Drop</option>
+            <option value="mobile-clipboard">Mobile Clipboard</option>
+            <option value="test-fixture">Test Fixture</option>
+          </select>
+        </div>
+        <div>
+          <label for="notes">Notes</label>
+          <input id="notes" placeholder="Optional note for this snapshot" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="dropzone" id="dropzone">Drop a Clash snapshot JSON file here, or paste JSON below.</div>
+      <label for="snapshotJson">Snapshot JSON</label>
+      <textarea id="snapshotJson" placeholder='Paste the in-game exported account JSON here...'></textarea>
+
+      <div class="actions">
+        <button id="validateBtn">Validate Locally</button>
+        <button class="primary" id="saveBtn">Save Snapshot to SQLite</button>
+        <button id="clearBtn">Clear</button>
+      </div>
+
+      <div class="status" id="status">Ready.</div>
+
+      <h2>Local preview</h2>
+      <div class="summary-grid">
+        <div class="metric"><div class="metric-label">Player Tag</div><div class="metric-value" id="previewTag">—</div></div>
+        <div class="metric"><div class="metric-label">Snapshot Timestamp</div><div class="metric-value" id="previewTimestamp">—</div></div>
+        <div class="metric"><div class="metric-label">Timer Candidates</div><div class="metric-value" id="previewCandidates">—</div></div>
+        <div class="metric"><div class="metric-label">Raw Size</div><div class="metric-value" id="previewSize">—</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Category</th><th>Data</th><th>Level</th><th>Timer</th><th>Path</th></tr></thead>
+          <tbody id="candidatePreview"><tr><td colspan="5" class="small">No preview yet.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <h2>2) SQLite snapshots</h2>
+      <div class="actions">
+        <button class="good" id="healthBtn">Check API Health</button>
+        <button id="listBtn">Refresh List</button>
+      </div>
+      <div class="status" id="listStatus">Snapshot list not loaded yet.</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Account</th><th>Imported</th><th>Candidates</th><th>Actions</th></tr></thead>
+          <tbody id="snapshotList"><tr><td colspan="5" class="small">No snapshots loaded.</td></tr></tbody>
+        </table>
+      </div>
+
+      <h2 style="margin-top:16px">API response</h2>
+      <pre class="raw-response" id="apiResponse">No response yet.</pre>
+    </aside>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+const knownCategories = new Set([
+  'buildings','traps','units','spells','heroes','hero_equipment','pets','helpers','guardians',
+  'builder_base_buildings','builder_base_traps','builder_base_units'
+]);
+
+function setStatus(id, message, kind = '') {
+  const el = $(id);
+  el.textContent = message;
+  el.className = 'status' + (kind ? ' ' + kind : '');
+}
+
+function setRawResponse(data) {
+  $('apiResponse').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+}
+
+function apiUrl(action, params = {}) {
+  const base = $('apiUrl').value.trim() || 'snapshot_sqlite_api_poc.php';
+  const url = new URL(base, window.location.href);
+  url.searchParams.set('action', action);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
+}
+
+async function callApi(action, options = {}) {
+  const response = await fetch(apiUrl(action, options.params || {}), {
+    method: options.method || 'GET',
+    headers: options.body ? {'Content-Type':'application/json'} : undefined,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    data = {error:'API did not return JSON', status:response.status, raw:text};
+  }
+
+  setRawResponse(data);
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `API error ${response.status}`);
+  }
+
+  return data;
+}
+
+function formatDuration(seconds) {
+  seconds = Number(seconds) || 0;
+  const days = Math.floor(seconds / 86400);
+  seconds %= 86400;
+  const hours = Math.floor(seconds / 3600);
+  seconds %= 3600;
+  const minutes = Math.floor(seconds / 60);
+  if (days) return `${days}d ${hours}h ${minutes}m`;
+  if (hours) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function formatTimestamp(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  const date = new Date(n * 1000);
+  return `${n} (${date.toLocaleString()})`;
+}
+
+function bytes(text) {
+  return new Blob([text || '']).size;
+}
+
+function extractCandidates(node, path = '$', category = 'root', out = []) {
+  if (!node || typeof node !== 'object') return out;
+
+  if (!Array.isArray(node) && Object.prototype.hasOwnProperty.call(node, 'timer')) {
+    const timerSeconds = Number(node.timer);
+    if (Number.isFinite(timerSeconds) && timerSeconds > 0) {
+      out.push({
+        category,
+        path,
+        dataId: node.data ?? null,
+        level: node.lvl ?? null,
+        timerSeconds
+      });
+    }
+  }
+
+  for (const [key, value] of Object.entries(node)) {
+    if (!value || typeof value !== 'object') continue;
+    const nextCategory = knownCategories.has(key) ? key : category;
+    const nextPath = Array.isArray(node) ? `${path}[${key}]` : `${path}.${key}`;
+    extractCandidates(value, nextPath, nextCategory, out);
+  }
+
+  return out;
+}
+
+function renderCandidatePreview(candidates) {
+  const tbody = $('candidatePreview');
+  tbody.innerHTML = '';
+
+  if (!candidates.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="small">No timer candidates found.</td></tr>';
+    return;
+  }
+
+  for (const candidate of candidates.slice(0, 50)) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(candidate.category || 'root')}</td>
+      <td class="code">${escapeHtml(candidate.dataId ?? '')}</td>
+      <td class="code">${escapeHtml(candidate.level ?? '')}</td>
+      <td class="code">${formatDuration(candidate.timerSeconds)}</td>
+      <td class="code">${escapeHtml(candidate.path || candidate.jsonPath || '')}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  if (candidates.length > 50) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="5" class="small">Showing first 50 of ${candidates.length} candidates.</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#039;');
+}
+
+function validateLocal(showStatus = true) {
+  const text = $('snapshotJson').value.trim();
+  if (!text) {
+    $('previewTag').textContent = '—';
+    $('previewTimestamp').textContent = '—';
+    $('previewCandidates').textContent = '—';
+    $('previewSize').textContent = '—';
+    renderCandidatePreview([]);
+    if (showStatus) setStatus('status', 'Paste snapshot JSON first.', 'warn');
+    return null;
+  }
+
+  try {
+    const snapshot = JSON.parse(text);
+    const candidates = extractCandidates(snapshot);
+    $('previewTag').textContent = snapshot.tag || '—';
+    $('previewTimestamp').textContent = formatTimestamp(snapshot.timestamp);
+    $('previewCandidates').textContent = String(candidates.length);
+    $('previewSize').textContent = `${bytes(text).toLocaleString()} bytes`;
+    renderCandidatePreview(candidates);
+    if (showStatus) setStatus('status', `Valid JSON. Found ${candidates.length} timer candidate(s).`, 'ok');
+    return {snapshot, candidates};
+  } catch (err) {
+    $('previewTag').textContent = '—';
+    $('previewTimestamp').textContent = '—';
+    $('previewCandidates').textContent = '—';
+    $('previewSize').textContent = `${bytes(text).toLocaleString()} bytes`;
+    renderCandidatePreview([]);
+    if (showStatus) setStatus('status', `Invalid JSON: ${err.message}`, 'error');
+    return null;
+  }
+}
+
+async function checkHealth() {
+  try {
+    const data = await callApi('health');
+    $('healthPill').textContent = `SQLite: OK · ${data.snapshotCount} snapshot(s)`;
+    setStatus('listStatus', `API health OK. DB: ${data.databaseFile}`, 'ok');
+  } catch (err) {
+    $('healthPill').textContent = 'SQLite: error';
+    setStatus('listStatus', err.message, 'error');
+  }
+}
+
+async function saveSnapshot() {
+  const local = validateLocal(false);
+  if (!local) {
+    setStatus('status', 'Cannot save until the snapshot JSON is valid.', 'error');
+    return;
+  }
+
+  const accountName = $('accountName').value.trim();
+  if (!accountName) {
+    setStatus('status', 'Account Name is required.', 'error');
+    return;
+  }
+
+  $('saveBtn').disabled = true;
+  try {
+    const data = await callApi('saveSnapshot', {
+      method: 'POST',
+      body: {
+        accountName,
+        source: $('source').value,
+        notes: $('notes').value.trim(),
+        snapshotJson: $('snapshotJson').value.trim()
+      }
+    });
+
+    setStatus('status', `Saved snapshot #${data.snapshotId} to SQLite. Server found ${data.summary.timerCandidateCount} timer candidate(s).`, 'ok');
+    if (Array.isArray(data.candidates)) {
+      renderCandidatePreview(data.candidates);
+    }
+    await listSnapshots();
+    await checkHealth();
+  } catch (err) {
+    setStatus('status', err.message, 'error');
+  } finally {
+    $('saveBtn').disabled = false;
+  }
+}
+
+async function listSnapshots() {
+  try {
+    const data = await callApi('listSnapshots', {params:{limit:50}});
+    renderSnapshotList(data.snapshots || []);
+    setStatus('listStatus', `Loaded ${(data.snapshots || []).length} snapshot row(s).`, 'ok');
+  } catch (err) {
+    setStatus('listStatus', err.message, 'error');
+  }
+}
+
+function renderSnapshotList(snapshots) {
+  const tbody = $('snapshotList');
+  tbody.innerHTML = '';
+
+  if (!snapshots.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="small">No snapshots stored yet.</td></tr>';
+    return;
+  }
+
+  for (const snap of snapshots) {
+    const count = snap.summary?.timerCandidateCount ?? '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="code">${snap.id}</td>
+      <td>${escapeHtml(snap.accountName)}<div class="small">${escapeHtml(snap.playerTag || '')}</div></td>
+      <td class="code">${escapeHtml(snap.importedAt || '')}</td>
+      <td class="code">${count}</td>
+      <td><div class="list-item-actions">
+        <button data-load-id="${snap.id}">Load</button>
+        <button class="danger" data-delete-id="${snap.id}">Delete</button>
+      </div></td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+async function loadSnapshot(id) {
+  try {
+    const data = await callApi('getSnapshot', {params:{id}});
+    $('accountName').value = data.snapshot.accountName || $('accountName').value;
+    $('notes').value = data.snapshot.notes || '';
+    $('snapshotJson').value = data.rawJson || '';
+    validateLocal(false);
+    setStatus('status', `Loaded raw JSON from snapshot #${id}.`, 'ok');
+  } catch (err) {
+    setStatus('listStatus', err.message, 'error');
+  }
+}
+
+async function deleteSnapshot(id) {
+  if (!confirm(`Delete snapshot #${id}?`)) return;
+
+  try {
+    const data = await callApi('deleteSnapshot', {method:'POST', body:{id:Number(id)}});
+    setStatus('listStatus', `Deleted snapshot #${data.deletedId}.`, 'ok');
+    await listSnapshots();
+    await checkHealth();
+  } catch (err) {
+    setStatus('listStatus', err.message, 'error');
+  }
+}
+
+$('validateBtn').addEventListener('click', () => validateLocal(true));
+$('saveBtn').addEventListener('click', saveSnapshot);
+$('clearBtn').addEventListener('click', () => {
+  $('snapshotJson').value = '';
+  validateLocal(false);
+  setStatus('status', 'Cleared.', '');
+});
+$('healthBtn').addEventListener('click', checkHealth);
+$('listBtn').addEventListener('click', listSnapshots);
+$('snapshotJson').addEventListener('input', () => validateLocal(false));
+$('snapshotList').addEventListener('click', event => {
+  const loadId = event.target.getAttribute('data-load-id');
+  const deleteId = event.target.getAttribute('data-delete-id');
+  if (loadId) loadSnapshot(loadId);
+  if (deleteId) deleteSnapshot(deleteId);
+});
+
+const dropzone = $('dropzone');
+dropzone.addEventListener('dragover', event => {
+  event.preventDefault();
+  dropzone.classList.add('drag');
+});
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', async event => {
+  event.preventDefault();
+  dropzone.classList.remove('drag');
+  const file = event.dataTransfer.files && event.dataTransfer.files[0];
+  if (!file) return;
+  $('source').value = 'file-drop';
+  $('snapshotJson').value = await file.text();
+  validateLocal(true);
+});
+
+checkHealth().then(listSnapshots);
+</script>
+</body>
+</html>
