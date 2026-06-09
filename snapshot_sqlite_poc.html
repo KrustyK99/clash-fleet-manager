@@ -128,8 +128,8 @@ tr:last-child td{border-bottom:0}
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Category</th><th>Data</th><th>Level</th><th>Timer</th><th>Path</th></tr></thead>
-          <tbody id="candidatePreview"><tr><td colspan="5" class="small">No preview yet.</td></tr></tbody>
+          <thead><tr><th>Area</th><th>Category</th><th>Data</th><th>Level</th><th>Timer</th><th>Path</th></tr></thead>
+          <tbody id="candidatePreview"><tr><td colspan="6" class="small">No preview yet.</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -157,10 +157,40 @@ tr:last-child td{border-bottom:0}
 <script>
 const $ = id => document.getElementById(id);
 
-const knownCategories = new Set([
-  'buildings','traps','units','spells','heroes','hero_equipment','pets','helpers','guardians',
-  'builder_base_buildings','builder_base_traps','builder_base_units'
-]);
+const snapshotSectionMap = {
+  buildings: { gameAreaCode:'home', category:'buildings' },
+  traps: { gameAreaCode:'home', category:'traps' },
+  units: { gameAreaCode:'home', category:'units' },
+  siege_machines: { gameAreaCode:'home', category:'siege_machines' },
+  heroes: { gameAreaCode:'home', category:'heroes' },
+  spells: { gameAreaCode:'home', category:'spells' },
+  pets: { gameAreaCode:'home', category:'pets' },
+  equipment: { gameAreaCode:'home', category:'equipment' },
+  hero_equipment: { gameAreaCode:'home', category:'equipment' },
+  helpers: { gameAreaCode:'home', category:'helpers' },
+  guardians: { gameAreaCode:'home', category:'guardians' },
+
+  // The in-game export currently uses *2 section names for Builder Base.
+  buildings2: { gameAreaCode:'builder_base', category:'buildings' },
+  traps2: { gameAreaCode:'builder_base', category:'traps' },
+  units2: { gameAreaCode:'builder_base', category:'units' },
+  heroes2: { gameAreaCode:'builder_base', category:'heroes' },
+  builder_base_buildings: { gameAreaCode:'builder_base', category:'buildings' },
+  builder_base_traps: { gameAreaCode:'builder_base', category:'traps' },
+  builder_base_units: { gameAreaCode:'builder_base', category:'units' },
+  builder_base_heroes: { gameAreaCode:'builder_base', category:'heroes' },
+
+  capital_buildings: { gameAreaCode:'clan_capital', category:'buildings' },
+  capital_traps: { gameAreaCode:'clan_capital', category:'traps' },
+  capital_units: { gameAreaCode:'clan_capital', category:'units' },
+  clan_capital_buildings: { gameAreaCode:'clan_capital', category:'buildings' },
+  clan_capital_traps: { gameAreaCode:'clan_capital', category:'traps' },
+  clan_capital_units: { gameAreaCode:'clan_capital', category:'units' }
+};
+
+function snapshotSectionInfo(key, currentCategory, currentGameAreaCode) {
+  return snapshotSectionMap[key] || { category: currentCategory, gameAreaCode: currentGameAreaCode };
+}
 
 function setStatus(id, message, kind = '') {
   const el = $(id);
@@ -202,7 +232,10 @@ async function callApi(action, options = {}) {
   setRawResponse(data);
 
   if (!response.ok) {
-    throw new Error(data.error || data.message || `API error ${response.status}`);
+    const error = new Error(data.userMessage || data.error || data.message || `API error ${response.status}`);
+    error.data = data;
+    error.status = response.status;
+    throw error;
   }
 
   return data;
@@ -232,13 +265,14 @@ function bytes(text) {
   return new Blob([text || '']).size;
 }
 
-function extractCandidates(node, path = '$', category = 'root', out = []) {
+function extractCandidates(node, path = '$', category = 'root', gameAreaCode = 'unknown', out = []) {
   if (!node || typeof node !== 'object') return out;
 
   if (!Array.isArray(node) && Object.prototype.hasOwnProperty.call(node, 'timer')) {
     const timerSeconds = Number(node.timer);
     if (Number.isFinite(timerSeconds) && timerSeconds > 0) {
       out.push({
+        gameAreaCode,
         category,
         path,
         dataId: node.data ?? null,
@@ -250,9 +284,9 @@ function extractCandidates(node, path = '$', category = 'root', out = []) {
 
   for (const [key, value] of Object.entries(node)) {
     if (!value || typeof value !== 'object') continue;
-    const nextCategory = knownCategories.has(key) ? key : category;
+    const sectionInfo = snapshotSectionInfo(key, category, gameAreaCode);
     const nextPath = Array.isArray(node) ? `${path}[${key}]` : `${path}.${key}`;
-    extractCandidates(value, nextPath, nextCategory, out);
+    extractCandidates(value, nextPath, sectionInfo.category, sectionInfo.gameAreaCode, out);
   }
 
   return out;
@@ -263,13 +297,14 @@ function renderCandidatePreview(candidates) {
   tbody.innerHTML = '';
 
   if (!candidates.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="small">No timer candidates found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="small">No timer candidates found.</td></tr>';
     return;
   }
 
   for (const candidate of candidates.slice(0, 50)) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td>${escapeHtml(candidate.gameAreaCode || 'unknown')}</td>
       <td>${escapeHtml(candidate.category || 'root')}</td>
       <td class="code">${escapeHtml(candidate.dataId ?? '')}</td>
       <td class="code">${escapeHtml(candidate.level ?? '')}</td>
@@ -281,7 +316,7 @@ function renderCandidatePreview(candidates) {
 
   if (candidates.length > 50) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td colspan="5" class="small">Showing first 50 of ${candidates.length} candidates.</td>`;
+    tr.innerHTML = `<td colspan="6" class="small">Showing first 50 of ${candidates.length} candidates.</td>`;
     tbody.appendChild(tr);
   }
 }
@@ -296,8 +331,8 @@ function escapeHtml(value) {
 }
 
 function validateLocal(showStatus = true) {
-  const text = $('snapshotJson').value.trim();
-  if (!text) {
+  const text = $('snapshotJson').value;
+  if (!text.trim()) {
     $('previewTag').textContent = '—';
     $('previewTimestamp').textContent = '—';
     $('previewCandidates').textContent = '—';
@@ -332,7 +367,8 @@ async function checkHealth() {
   try {
     const data = await callApi('health');
     $('healthPill').textContent = `SQLite: OK · ${data.snapshotCount} snapshot(s)`;
-    setStatus('listStatus', `API health OK. DB: ${data.databaseFile}`, 'ok');
+    const schemaInfo = data.schemaFile ? `\nSchema: ${data.schemaFile} · version ${data.databaseVersion ?? data.schemaVersion ?? '—'}` : '';
+    setStatus('listStatus', `API health OK. DB: ${data.databaseFile}${schemaInfo}`, 'ok');
   } catch (err) {
     $('healthPill').textContent = 'SQLite: error';
     setStatus('listStatus', err.message, 'error');
@@ -360,7 +396,7 @@ async function saveSnapshot() {
         accountName,
         source: $('source').value,
         notes: $('notes').value.trim(),
-        snapshotJson: $('snapshotJson').value.trim()
+        snapshotJson: $('snapshotJson').value
       }
     });
 
