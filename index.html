@@ -298,6 +298,9 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .snapshot-options{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
 .snapshot-option{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
 .snapshot-option input{width:auto;accent-color:var(--accent)}
+.snapshot-sub-option{color:var(--text3)}
+.snapshot-sub-option.active{color:var(--text)}
+.snapshot-sub-option input:disabled{opacity:0.55}
 .snapshot-json-text{min-height:150px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.45}
 .snapshot-load-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
 .snapshot-status{font-size:12px;color:var(--text3);min-height:16px}
@@ -1217,7 +1220,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 <div class="modal-bg" id="snapshot-modal" style="display:none" onclick="if(event.target===this)closeSnapshotModal()">
   <div class="modal modal-wide">
     <h2>Add Timers from Account Snapshot</h2>
-    <div class="snapshot-help">Paste the in-game Clash of Clans account JSON snapshot, parse it, review the candidates, then add only the selected timers. This appends timers; it does not replace or sync existing timers.</div>
+    <div class="snapshot-help">Paste the in-game Clash of Clans account JSON snapshot, parse it, review the candidates, then add only the selected timers. By default this appends timers. The optional replace mode only affects the selected account.</div>
 
     <div class="form-row">
       <label>Account *</label>
@@ -1235,6 +1238,14 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
       <label class="snapshot-option" for="snapshot-include-helper">
         <input type="checkbox" id="snapshot-include-helper" checked>
         Include helper cooldowns
+      </label>
+      <label class="snapshot-option" for="snapshot-replace-existing">
+        <input type="checkbox" id="snapshot-replace-existing" onchange="syncSnapshotReplaceOptions()">
+        Replace existing timers for this account
+      </label>
+      <label class="snapshot-option snapshot-sub-option" for="snapshot-preserve-manual-notes" id="snapshot-preserve-manual-notes-wrap">
+        <input type="checkbox" id="snapshot-preserve-manual-notes" checked disabled>
+        Preserve manually noted timers
       </label>
     </div>
 
@@ -4110,6 +4121,9 @@ function openSnapshotModal() {
   document.getElementById('snapshot-start').checked = true;
   document.getElementById('snapshot-sound').checked = true;
   document.getElementById('snapshot-include-helper').checked = true;
+  document.getElementById('snapshot-replace-existing').checked = false;
+  document.getElementById('snapshot-preserve-manual-notes').checked = true;
+  syncSnapshotReplaceOptions();
   clearSnapshotParser(false);
   document.getElementById('snapshot-modal').style.display = 'flex';
 
@@ -4399,6 +4413,31 @@ function snapshotCandidateToTimer(c, now, account, shouldStart, sound) {
   };
 }
 
+function isGeneratedSnapshotNote(note) {
+  const text = String(note || '').trim();
+  if (!text) return false;
+
+  // Current generated snapshot notes look like:
+  // Snapshot #TAG | buildings[0].timer | data 1000000 | L12
+  // Snapshot #TAG | helpers[0].helper_cooldown | data 93000001 | L1
+  return /^Snapshot(?:\s+[^|]+)?\s+\|\s+[^|]+\.(?:timer|helper_cooldown)\s+\|\s+(?:data\s+\d+|no data id)\s+\|\s+(?:L\d+|no level)$/i.test(text);
+}
+
+function timerHasManualNote(timer) {
+  const note = String(timer && timer.note ? timer.note : '').trim();
+  return note !== '' && !isGeneratedSnapshotNote(note);
+}
+
+function syncSnapshotReplaceOptions() {
+  const replaceEl = document.getElementById('snapshot-replace-existing');
+  const preserveEl = document.getElementById('snapshot-preserve-manual-notes');
+  const preserveWrap = document.getElementById('snapshot-preserve-manual-notes-wrap');
+  if (!replaceEl || !preserveEl) return;
+
+  preserveEl.disabled = !replaceEl.checked;
+  if (preserveWrap) preserveWrap.classList.toggle('active', replaceEl.checked);
+}
+
 function selectSnapshotCandidates(checked) {
   snapshotCandidates.forEach(c => c.include = checked);
   renderSnapshotCandidates();
@@ -4427,14 +4466,45 @@ function saveSnapshotTimers() {
   const now = Date.now();
   const shouldStart = document.getElementById('snapshot-start').checked;
   const sound = document.getElementById('snapshot-sound').checked;
+  const replaceExisting = document.getElementById('snapshot-replace-existing').checked;
+  const preserveManualNotes = document.getElementById('snapshot-preserve-manual-notes').checked;
   const newTimers = selected.map(c => snapshotCandidateToTimer(c, now, account, shouldStart, sound));
+  let removedCount = 0;
+  let preservedCount = 0;
+
+  if (replaceExisting) {
+    const nextTimers = [];
+
+    timers.forEach(timer => {
+      if (getAccount(timer) !== account) {
+        nextTimers.push(timer);
+        return;
+      }
+
+      if (preserveManualNotes && timerHasManualNote(timer)) {
+        nextTimers.push(timer);
+        preservedCount += 1;
+        return;
+      }
+
+      removedCount += 1;
+    });
+
+    timers = nextTimers;
+  }
 
   timers.push(...newTimers);
   filterGroup = account;
   save();
   closeSnapshotModal();
   renderTimers();
-  toast(`${newTimers.length} snapshot timer${newTimers.length === 1 ? '' : 's'} added for ${account}`, 'success');
+
+  if (replaceExisting) {
+    const preservedText = preservedCount ? `; ${preservedCount} manually noted timer${preservedCount === 1 ? '' : 's'} preserved` : '';
+    toast(`${newTimers.length} snapshot timer${newTimers.length === 1 ? '' : 's'} added for ${account}; ${removedCount} existing timer${removedCount === 1 ? '' : 's'} replaced${preservedText}`, 'success');
+  } else {
+    toast(`${newTimers.length} snapshot timer${newTimers.length === 1 ? '' : 's'} added for ${account}`, 'success');
+  }
 }
 
 // Re-parse if helper cooldown inclusion changes after a snapshot is already loaded.
