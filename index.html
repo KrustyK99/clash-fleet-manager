@@ -235,6 +235,26 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .timer-due-badge.ready{background:var(--red-bg);color:var(--red);border-color:rgba(255,92,92,0.35)}
 .timer-due-badge.soon{background:var(--amber-bg);color:var(--amber);border-color:rgba(245,166,35,0.35)}
 .timer-due-badge.today{background:var(--green-bg);color:var(--green);border-color:rgba(61,214,140,0.35)}
+.timer-pin-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:30px;
+  height:30px;
+  border:1px solid transparent;
+  border-radius:999px;
+  background:transparent;
+  color:var(--text3);
+  font-size:19px;
+  line-height:1;
+  cursor:pointer;
+  transition:all 0.15s;
+  flex:0 0 auto;
+}
+.timer-pin-btn:hover{border-color:rgba(245,166,35,0.4);background:var(--amber-bg);color:var(--amber)}
+.timer-pin-btn.pinned{border-color:rgba(245,166,35,0.45);background:var(--amber-bg);color:var(--amber)}
+.timer-card.pinned{box-shadow:inset 3px 0 0 rgba(245,166,35,0.85)}
+.pinned-filter.active{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
 .timer-display{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;line-height:1;color:var(--text)}
 .timer-card.running .timer-display{color:var(--accent)}
 .timer-card.expired .timer-display{color:var(--red)}
@@ -637,6 +657,7 @@ body.compact-mode .timer-name{font-size:13px}
 body.compact-mode .timer-group-badge,
 body.compact-mode .timer-type-badge,
 body.compact-mode .timer-due-badge{font-size:9px;padding:1px 6px}
+body.compact-mode .timer-pin-btn{width:24px;height:24px;font-size:15px}
 body.compact-mode .timer-display{font-size:22px;line-height:1.05}
 body.compact-mode .timer-display.adjustable{padding:0 4px 0 0;margin-left:0}
 body.compact-mode .timer-display.adjustable::after{font-size:10px}
@@ -915,6 +936,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   body.compact-mode .timer-group-badge,
   body.compact-mode .timer-type-badge,
   body.compact-mode .timer-due-badge{font-size:9px;padding:1px 5px}
+  body.compact-mode .timer-pin-btn{width:24px;height:24px;font-size:15px}
 
   .modal{width:95vw;padding:18px}
   .form-grid{grid-template-columns:1fr 1fr}
@@ -1317,6 +1339,7 @@ let filterGroup = 'All';
 let filterDue = 'All';
 let filterType = 'All';
 let filterStatus = 'All';
+let filterPinned = false;
 let selectedAccountView = 'all';
 let accountViews = [];
 let accountViewsLastUpdated = null;
@@ -2120,6 +2143,7 @@ function normalizeTimersAfterLoad() {
     if (t.group === undefined) t.group = '';
     if (t.upgradeType === undefined) t.upgradeType = '';
     if (t.note === undefined) t.note = '';
+    t.pinned = t.pinned === true;
     if (t.expiredAt === undefined) t.expiredAt = null;
     if (t.finishedAt !== undefined && !t.expiredAt) t.expiredAt = t.finishedAt;
     if (t.status === 'expired' && !t.expiredAt && t.endTime) {
@@ -2311,6 +2335,7 @@ function getViewState() {
     filterDue,
     filterType,
     filterStatus,
+    filterPinned,
     search: searchEl ? searchEl.value : ''
   };
 }
@@ -2325,6 +2350,7 @@ function restoreViewState(state) {
   filterDue = state.filterDue || 'All';
   filterType = state.filterType || 'All';
   filterStatus = state.filterStatus || 'All';
+  filterPinned = state.filterPinned === true;
 
   const searchEl = document.getElementById('search-input');
   if (searchEl) searchEl.value = state.search || '';
@@ -2509,6 +2535,34 @@ function timerIdArg(id) {
   return esc(JSON.stringify(String(id || '')));
 }
 
+function isTimerPinned(t) {
+  return !!(t && t.pinned === true);
+}
+
+function timerMatchesPinned(t) {
+  return !filterPinned || isTimerPinned(t);
+}
+
+function togglePinnedFilter() {
+  filterPinned = !filterPinned;
+  renderTimers();
+}
+
+function toggleTimerPinned(id, event) {
+  if (event) event.stopPropagation();
+
+  const t = getTimerById(id);
+  if (!t) {
+    toast('Timer was not found.', 'warning');
+    return;
+  }
+
+  t.pinned = !isTimerPinned(t);
+  save();
+  renderTimers();
+  toast(`${t.pinned ? 'Pinned' : 'Unpinned'} "${t.name}"`, 'success');
+}
+
 function toggleTimerAdjustPanel(id) {
   adjustingTimerId = adjustingTimerId === id ? null : id;
   inlineAdjustEditing = false;
@@ -2661,7 +2715,10 @@ function updateSortControls() {
   });
 
   const label = document.getElementById('sort-label');
-  if (label) label.textContent = (labels[sortKey] || sortKey) + (sortDir === 1 ? ' ↑' : ' ↓');
+  if (label) {
+    const pinnedSuffix = timers.some(isTimerPinned) && !filterPinned ? ' · pinned first' : '';
+    label.textContent = (labels[sortKey] || sortKey) + (sortDir === 1 ? ' ↑' : ' ↓') + pinnedSuffix;
+  }
 }
 
 function setSort(key) {
@@ -2674,6 +2731,9 @@ function setSort(key) {
 function sortedTimers(list) {
   const statusOrder = {running:0,paused:1,stopped:2,expired:3};
   return [...list].sort((a,b) => {
+    const pinnedDiff = Number(isTimerPinned(b)) - Number(isTimerPinned(a));
+    if (pinnedDiff) return pinnedDiff;
+
     let av, bv;
     switch(sortKey) {
       case 'name': av=a.name.toLowerCase(); bv=b.name.toLowerCase(); break;
@@ -2754,6 +2814,7 @@ function getVisibleTimerList() {
     if (!timerMatchesAccountSearchAndDue(t)) return false;
     if (!timerMatchesType(t)) return false;
     if (!timerMatchesStatus(t)) return false;
+    if (!timerMatchesPinned(t)) return false;
     return true;
   });
   return sortedTimers(list);
@@ -3131,7 +3192,7 @@ function getSearchFilter() {
 }
 
 function hasActiveFilters() {
-  return selectedAccountView !== 'all' || filterGroup !== 'All' || filterDue !== 'All' || filterType !== 'All' || filterStatus !== 'All' || !!getSearchFilter();
+  return selectedAccountView !== 'all' || filterGroup !== 'All' || filterDue !== 'All' || filterType !== 'All' || filterStatus !== 'All' || filterPinned || !!getSearchFilter();
 }
 
 function clearSearchFilter() {
@@ -3210,7 +3271,7 @@ function renderDueBar() {
 
   // Due pill counts should reflect the currently selected account/search context,
   // but should not be reduced by the currently selected due pill.
-  const countBase = timers.filter(t => timerMatchesAccountAndSearch(t) && timerMatchesType(t) && timerMatchesStatus(t));
+  const countBase = timers.filter(t => timerMatchesAccountAndSearch(t) && timerMatchesType(t) && timerMatchesStatus(t) && timerMatchesPinned(t));
   const counts = {All: countBase.length, Ready:0, Soon:0, Today:0, Later:0};
   countBase.forEach(t => counts[dueWindow(t).key]++);
 
@@ -3261,7 +3322,7 @@ function renderTypeBar() {
 
   // Type pill counts reflect account/search/due/status context,
   // but not the currently selected type pill.
-  const countBase = timers.filter(t => timerMatchesAccountSearchAndDue(t) && timerMatchesStatus(t));
+  const countBase = timers.filter(t => timerMatchesAccountSearchAndDue(t) && timerMatchesStatus(t) && timerMatchesPinned(t));
   const counts = { All: countBase.length };
   countBase.forEach(t => {
     const key = timerTypeKey(t);
@@ -3302,6 +3363,7 @@ function resetFilters() {
   filterDue = 'All';
   filterType = 'All';
   filterStatus = 'All';
+  filterPinned = false;
   expandedAccount = null;
   expandedGapType = null;
 
@@ -3596,7 +3658,9 @@ function renderStats() {
   // Status pill counts reflect the current account/search/due/type context,
   // but not the currently selected status pill. That keeps the pills useful
   // for switching status filters without making the other counts disappear.
-  const countBase = timers.filter(t => timerMatchesAccountSearchAndDue(t) && timerMatchesType(t));
+  const countBase = timers.filter(t => timerMatchesAccountSearchAndDue(t) && timerMatchesType(t) && timerMatchesPinned(t));
+  const pinCountBase = timers.filter(t => timerMatchesAccountSearchAndDue(t) && timerMatchesType(t) && timerMatchesStatus(t));
+  const pinnedCount = pinCountBase.filter(isTimerPinned).length;
   const counts = {
     All: countBase.length,
     running: countBase.filter(t => t.status === 'running').length,
@@ -3617,8 +3681,18 @@ function renderStats() {
     <button class="filter-reset-pill"
             type="button"
             onclick="resetFilters()"
-            title="Reset account, due, type, status, and search filters">
+            title="Reset account, due, type, status, pinned, and search filters">
       ↺ Reset filters
+    </button>
+  `;
+
+  const pinnedButton = `
+    <button class="stat pinned-filter${filterPinned ? ' active' : ''}"
+            type="button"
+            onclick="togglePinnedFilter()"
+            aria-pressed="${filterPinned ? 'true' : 'false'}"
+            title="${filterPinned ? 'Clear pinned filter' : 'Show pinned timers only'}">
+      📌 Pinned (${pinnedCount})
     </button>
   `;
 
@@ -3642,7 +3716,7 @@ function renderStats() {
     `;
   }).join('');
 
-  bar.innerHTML = `<span class="filter-bar-label">Status</span>${resetButton}${statusButtons}`;
+  bar.innerHTML = `<span class="filter-bar-label">Status</span>${resetButton}${pinnedButton}${statusButtons}`;
 }
 
 function toggleTimerActions(id, event) {
@@ -3691,6 +3765,10 @@ function renderTimers() {
     const isDeleteSelected = selectedTimerIds.has(String(t.id));
     const isCopySource = timerCopySourceId && String(timerCopySourceId) === String(t.id);
     const isCopyTargetable = timerCopySourceId && !isCopySource && !deleteSelectionMode;
+    const isPinned = isTimerPinned(t);
+    const pinButton = deleteSelectionMode
+      ? ''
+      : `<button class="timer-pin-btn${isPinned ? ' pinned' : ''}" type="button" onclick="toggleTimerPinned(${idArg}, event)" title="${isPinned ? 'Unpin timer' : 'Pin timer'}" aria-label="${isPinned ? 'Unpin' : 'Pin'} ${esc(t.name)}" aria-pressed="${isPinned ? 'true' : 'false'}">${isPinned ? '★' : '☆'}</button>`;
     const deleteSelectControl = deleteSelectionMode
       ? `<label class="timer-select-wrap" onclick="event.stopPropagation()" title="Select this timer for deletion"><input class="timer-select-checkbox" type="checkbox" ${isDeleteSelected ? 'checked' : ''} onchange="toggleTimerDeleteSelection(${idArg}, event)" aria-label="Select ${esc(t.name)} for deletion"></label>`
       : '';
@@ -3736,10 +3814,11 @@ function renderTimers() {
     const secondaryEl = (!deleteSelectionMode && secondaryText)
       ? `<span class="timer-secondary" onclick="toggleCardMode('${t.id}')" title="Click to switch view">⇄ ${secondaryText}</span>`
       : '';
-    return `<div class="timer-card ${t.status}${actionsExpanded ? ' actions-expanded' : ''}${deleteSelectionMode ? ' delete-selectable' : ''}${isDeleteSelected ? ' delete-selected' : ''}${isCopySource ? ' copy-source' : ''}${isCopyTargetable ? ' copy-targetable' : ''}" id="tc-${t.id}" onclick="handleTimerCardClick(event, ${idArg})" aria-selected="${isDeleteSelected ? 'true' : 'false'}">
+    return `<div class="timer-card ${t.status}${isPinned ? ' pinned' : ''}${actionsExpanded ? ' actions-expanded' : ''}${deleteSelectionMode ? ' delete-selectable' : ''}${isDeleteSelected ? ' delete-selected' : ''}${isCopySource ? ' copy-source' : ''}${isCopyTargetable ? ' copy-targetable' : ''}" id="tc-${t.id}" onclick="handleTimerCardClick(event, ${idArg})" aria-selected="${isDeleteSelected ? 'true' : 'false'}">
       <div class="card-left">
         <div class="card-top">
           ${deleteSelectControl}
+          ${pinButton}
           <span class="timer-name" title="${esc(t.name)}">${esc(t.name)}</span>
           ${getAccount(t)?`<span class="timer-group-badge">${esc(getAccount(t))}</span>`:''}
           ${upgradeType?`<span class="timer-type-badge" title="${esc(upgradeType)}">${esc(upgradeTypeLabel)}</span>`:''}
@@ -3758,6 +3837,7 @@ function renderTimers() {
           : `<button class="btn btn-sm btn-icon card-actions-toggle" onclick="toggleTimerActions(${idArg}, event)" title="${actionsExpanded ? 'Hide actions' : 'Show actions'}" aria-label="${actionsExpanded ? 'Hide timer actions' : 'Show timer actions'}" aria-expanded="${actionsExpanded ? 'true' : 'false'}">⋯</button>
         <div class="card-actions">
           ${playBtn}${pauseBtn}${resetBtn}
+          <button class="btn btn-sm btn-icon" onclick="toggleTimerPinned(${idArg}, event)" title="${isPinned ? 'Unpin timer' : 'Pin timer'}">${isPinned ? '★' : '☆'}</button>
           <button class="btn btn-sm btn-icon" onclick="toggleTimerAdjustPanel(${idArg})" title="Adjust time">⏱</button>
           ${copyDataBtn}
           <button class="btn btn-sm btn-icon" onclick="openEditModal('${t.id}')" title="Edit full timer">✎</button>
@@ -3869,6 +3949,7 @@ function saveTimer() {
       status: 'stopped',
       endTime: null,
       expiredAt: null,
+      pinned: false,
       created: Date.now()
     });
   }
@@ -4092,6 +4173,7 @@ function saveBulkTimers() {
       status: shouldStart ? 'running' : 'stopped',
       endTime: shouldStart ? now + duration * 1000 : null,
       expiredAt: null,
+      pinned: false,
       created: now
     });
   }
@@ -4409,6 +4491,7 @@ function snapshotCandidateToTimer(c, now, account, shouldStart, sound) {
     status: shouldStart ? 'running' : 'stopped',
     endTime: shouldStart ? now + c.seconds * 1000 : null,
     expiredAt: null,
+    pinned: false,
     created: now
   };
 }
@@ -4738,7 +4821,7 @@ function quickAdd() {
   const duration = d*86400 + h*3600 + m*60 + s;
   if (duration <= 0) { toast('Set a duration > 0', 'warning'); return; }
   const id = newId();
-  timers.push({ id, name, duration, remaining: duration, account, group: account, upgradeType, note:'', repeat:false, sound:true, status:'stopped', endTime:null, expiredAt:null, created:Date.now() });
+  timers.push({ id, name, duration, remaining: duration, account, group: account, upgradeType, note:'', repeat:false, sound:true, status:'stopped', endTime:null, expiredAt:null, pinned:false, created:Date.now() });
   startTimer(id);
   document.getElementById('q-name').value = '';
   document.getElementById('q-days').value = '0';
