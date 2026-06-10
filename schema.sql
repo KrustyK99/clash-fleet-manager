@@ -45,7 +45,9 @@ PRAGMA busy_timeout = 5000;
    - snapshot imports
    - event completion/status tracking
 
-   player_tag is the stable Clash identifier when available.
+   player_tag is the stable Clash identifier when available. It may be
+   NULL for manually created placeholder accounts where the real tag is
+   not known yet.
    account_name is the friendly name used in the app.
    short_name and abbreviated_name support compact/mobile display.
    is_active lets the app exclude retired/inactive accounts from
@@ -55,7 +57,7 @@ PRAGMA busy_timeout = 5000;
 CREATE TABLE IF NOT EXISTS accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    player_tag TEXT NOT NULL UNIQUE,
+    player_tag TEXT UNIQUE,
     account_name TEXT NOT NULL,
     short_name TEXT,
     abbreviated_name TEXT,
@@ -472,27 +474,46 @@ END;
    - BEFORE INSERT: make sure an account row exists for the snapshot tag.
    - AFTER INSERT: back-fill snapshots.account_id to the matching account.
 
-   If a placeholder account already exists with the same account_name but
-   a fake/temporary player_tag, the BEFORE trigger replaces that tag with
-   the real snapshot tag. This supports manual account setup before the
-   real Clash tag is known.
+   If a placeholder account already exists with the same account_name and
+   a NULL/blank player_tag, the BEFORE trigger fills in the real snapshot
+   tag. The trigger does NOT replace an existing non-empty tag.
+
+   If the incoming account_name points at one stored account but the
+   incoming player_tag points at another, or if the same account_name is
+   already tied to a different non-empty tag, abort the snapshot insert.
+   This protects against choosing the wrong friendly account name during
+   import.
    ============================================================ */
 
 CREATE TRIGGER IF NOT EXISTS trg_snapshots_ensure_account
 BEFORE INSERT ON snapshots
 WHEN NEW.player_tag IS NOT NULL AND trim(NEW.player_tag) <> ''
 BEGIN
+    SELECT RAISE(ABORT, 'Snapshot account_name already belongs to a different player_tag')
+    WHERE EXISTS (
+        SELECT 1
+        FROM accounts existing
+        WHERE existing.account_name COLLATE NOCASE = NEW.account_name
+          AND existing.player_tag IS NOT NULL
+          AND trim(existing.player_tag) <> ''
+          AND existing.player_tag <> NEW.player_tag
+    );
+
+    SELECT RAISE(ABORT, 'Snapshot player_tag already belongs to a different account_name')
+    WHERE EXISTS (
+        SELECT 1
+        FROM accounts existing
+        WHERE existing.player_tag = NEW.player_tag
+          AND existing.account_name COLLATE NOCASE <> NEW.account_name
+    );
+
     UPDATE accounts
     SET
         player_tag = NEW.player_tag,
         in_game_name = COALESCE(NULLIF(in_game_name, ''), NEW.account_name),
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     WHERE account_name COLLATE NOCASE = NEW.account_name
-      AND NOT EXISTS (
-          SELECT 1
-          FROM accounts existing
-          WHERE existing.player_tag = NEW.player_tag
-      );
+      AND (player_tag IS NULL OR trim(player_tag) = '');
 
     INSERT INTO accounts (
         player_tag,
