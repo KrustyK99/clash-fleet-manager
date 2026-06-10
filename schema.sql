@@ -343,6 +343,122 @@ ON snapshot_timer_candidates(snapshot_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_area_category_data
 ON snapshot_timer_candidates(game_area_code, category, data_id);
 
+/* ============================================================
+   Trigger: timer candidate -> game object placeholder
+   ============================================================
+
+   When a snapshot timer candidate includes a data_id, ensure that
+   the corresponding game_objects row exists.
+
+   This preserves the design choice that timer candidates can exist
+   without a game object when data_id is NULL.
+
+   If the object already exists, do not overwrite its name, status,
+   confidence, source, or notes. Only maintain first_seen/last_seen
+   snapshot tracking.
+   ============================================================ */
+
+CREATE TRIGGER IF NOT EXISTS trg_snapshot_timer_candidates_upsert_game_object
+AFTER INSERT ON snapshot_timer_candidates
+WHEN NEW.data_id IS NOT NULL
+BEGIN
+    INSERT INTO game_objects (
+        game_area_code,
+        category,
+        data_id,
+        object_name,
+        object_type,
+        mapping_status,
+        mapping_source,
+        mapping_confidence,
+        first_seen_snapshot_id,
+        last_seen_snapshot_id,
+        notes,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        NEW.game_area_code,
+        NEW.category,
+        NEW.data_id,
+        'Unknown ' || NEW.category || ' ' || NEW.data_id,
+        NEW.category,
+        'unknown',
+        'snapshot_timer_candidate',
+        'unverified',
+        NEW.snapshot_id,
+        NEW.snapshot_id,
+        'Auto-created from snapshot timer candidate.',
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    )
+    ON CONFLICT(game_area_code, category, data_id)
+    DO UPDATE SET
+        first_seen_snapshot_id = COALESCE(
+            game_objects.first_seen_snapshot_id,
+            excluded.first_seen_snapshot_id
+        ),
+        last_seen_snapshot_id = excluded.last_seen_snapshot_id,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now');
+END;
+
+
+/* ============================================================
+   Trigger: corrected timer candidate -> game object placeholder
+   ============================================================
+
+   If a snapshot timer candidate is edited after insert and its
+   object identity changes, ensure that the corrected object also
+   exists in game_objects.
+
+   This is mainly useful during parser refinement, manual correction,
+   or future admin tooling.
+   ============================================================ */
+
+CREATE TRIGGER IF NOT EXISTS trg_snapshot_timer_candidates_update_game_object
+AFTER UPDATE OF game_area_code, category, data_id, snapshot_id
+ON snapshot_timer_candidates
+WHEN NEW.data_id IS NOT NULL
+BEGIN
+    INSERT INTO game_objects (
+        game_area_code,
+        category,
+        data_id,
+        object_name,
+        object_type,
+        mapping_status,
+        mapping_source,
+        mapping_confidence,
+        first_seen_snapshot_id,
+        last_seen_snapshot_id,
+        notes,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        NEW.game_area_code,
+        NEW.category,
+        NEW.data_id,
+        'Unknown ' || NEW.category || ' ' || NEW.data_id,
+        NEW.category,
+        'unknown',
+        'snapshot_timer_candidate',
+        'unverified',
+        NEW.snapshot_id,
+        NEW.snapshot_id,
+        'Auto-created from updated snapshot timer candidate.',
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    )
+    ON CONFLICT(game_area_code, category, data_id)
+    DO UPDATE SET
+        first_seen_snapshot_id = COALESCE(
+            game_objects.first_seen_snapshot_id,
+            excluded.first_seen_snapshot_id
+        ),
+        last_seen_snapshot_id = excluded.last_seen_snapshot_id,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now');
+END;
 
 /* ============================================================
    Triggers: snapshot import -> account spine link
