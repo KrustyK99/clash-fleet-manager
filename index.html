@@ -227,6 +227,8 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 
 .card-left{min-width:0}
 .card-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.card-title-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;min-width:0;flex-wrap:nowrap}
+.card-title-row .timer-name{flex:1 1 auto}
 .card-top{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
 .timer-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .timer-group-badge{font-size:10px;padding:2px 7px;border-radius:100px;background:var(--surface3);color:var(--text2);border:1px solid var(--border);white-space:nowrap}
@@ -652,6 +654,7 @@ body.compact-mode .timer-card{
   gap:6px;
   align-items:center;
 }
+body.compact-mode .card-title-row{gap:5px;margin-bottom:1px}
 body.compact-mode .card-top{gap:5px;margin-bottom:1px}
 body.compact-mode .timer-name{font-size:13px}
 body.compact-mode .timer-group-badge,
@@ -879,7 +882,9 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .card-right{align-items:stretch}
   .card-actions{justify-content:flex-start}
   .card-actions .btn{flex:0 0 auto}
-  .timer-name{flex:1 1 100%;white-space:normal}
+  .card-title-row{gap:8px;margin-bottom:6px}
+  .card-title-row .timer-name{flex:1 1 auto;white-space:normal}
+  .timer-name{white-space:normal}
   .timer-display{font-size:34px;overflow-wrap:anywhere}
   .timer-note{white-space:normal}
 
@@ -922,6 +927,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   body.compact-mode .timer-list{padding:6px;gap:4px}
   body.compact-mode .timer-card{grid-template-columns:minmax(0,1fr) auto;padding:6px 8px;gap:4px 6px;align-items:center}
   body.compact-mode .card-left{grid-column:1;grid-row:1;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:6px;align-items:center}
+  body.compact-mode .card-title-row{grid-column:1 / -1;margin-bottom:1px;gap:4px}
   body.compact-mode .card-top{grid-column:1 / -1;margin-bottom:1px;gap:4px}
   body.compact-mode .timer-name{font-size:13px;flex:1 1 auto;white-space:nowrap}
   body.compact-mode .timer-display{font-size:22px;grid-column:1;line-height:1}
@@ -3816,10 +3822,13 @@ function renderTimers() {
       : '';
     return `<div class="timer-card ${t.status}${isPinned ? ' pinned' : ''}${actionsExpanded ? ' actions-expanded' : ''}${deleteSelectionMode ? ' delete-selectable' : ''}${isDeleteSelected ? ' delete-selected' : ''}${isCopySource ? ' copy-source' : ''}${isCopyTargetable ? ' copy-targetable' : ''}" id="tc-${t.id}" onclick="handleTimerCardClick(event, ${idArg})" aria-selected="${isDeleteSelected ? 'true' : 'false'}">
       <div class="card-left">
-        <div class="card-top">
+        <div class="card-title-row">
           ${deleteSelectControl}
           ${pinButton}
           <span class="timer-name" title="${esc(t.name)}">${esc(t.name)}</span>
+          ${pinButton}
+        </div>
+        <div class="card-top">
           ${getAccount(t)?`<span class="timer-group-badge">${esc(getAccount(t))}</span>`:''}
           ${upgradeType?`<span class="timer-type-badge" title="${esc(upgradeType)}">${esc(upgradeTypeLabel)}</span>`:''}
           <span class="timer-due-badge ${due.cls}" title="${esc(due.label)}">${dueLabel}</span>
