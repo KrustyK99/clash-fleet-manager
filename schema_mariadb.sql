@@ -16,13 +16,30 @@
    - SQLite RAISE(ABORT, ...) became SIGNAL SQLSTATE '45000'.
    - SQLite AFTER INSERT snapshot back-fill was replaced with a MariaDB
      BEFORE INSERT trigger that can assign NEW.account_id directly.
+   - All secondary indexes are declared INLINE in CREATE TABLE as
+     KEY / UNIQUE KEY clauses, rather than as standalone CREATE INDEX
+     statements. This keeps the whole script idempotent through
+     CREATE TABLE IF NOT EXISTS and avoids the version-dependent
+     CREATE INDEX ... IF NOT EXISTS syntax (only valid in newer MariaDB).
 
    Recommended database defaults:
        CHARACTER SET utf8mb4
        COLLATE utf8mb4_unicode_ci
 
    The utf8mb4_unicode_ci collation keeps account/event name uniqueness
-   case-insensitive, matching the original SQLite COLLATE NOCASE indexes.
+   case-insensitive. Note: this is BROADER than SQLite's COLLATE NOCASE
+   (which only folds ASCII A-Z). utf8mb4_unicode_ci also folds accents and
+   full Unicode case. For account/event names this is acceptable and
+   arguably better, but it is a behavior change, not an exact match. The
+   uniqueness guarantee lives in the column/table collation, not in the
+   index definition.
+
+   JSON validation note:
+   - raw_json intentionally does NOT enforce JSON_VALID. Its purpose is to
+     preserve the original raw payload as the source of truth, even when a
+     capture is imperfect, truncated, or otherwise not strictly valid JSON.
+   - parsed_summary_json and raw_item_json DO enforce JSON_VALID, since
+     those are derived/structured values the app generates.
    ============================================================ */
 
 SET NAMES utf8mb4;
@@ -56,7 +73,13 @@ CREATE TABLE IF NOT EXISTS accounts (
     updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
     PRIMARY KEY (id),
-    UNIQUE KEY uk_accounts_player_tag (player_tag)
+    UNIQUE KEY uk_accounts_player_tag (player_tag),
+
+    /* Case-insensitive uniqueness comes from the table collation. */
+    UNIQUE KEY idx_accounts_account_name_unique (account_name),
+    KEY idx_accounts_short_name (short_name),
+    KEY idx_accounts_abbreviated_name (abbreviated_name),
+    KEY idx_accounts_active (is_active, account_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 /* ============================================================
@@ -78,7 +101,8 @@ CREATE TABLE IF NOT EXISTS game_areas (
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
-    PRIMARY KEY (area_code)
+    PRIMARY KEY (area_code),
+    KEY idx_game_areas_sort_order (sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO game_areas (
@@ -110,7 +134,9 @@ CREATE TABLE IF NOT EXISTS snapshots (
     source VARCHAR(64) NOT NULL DEFAULT 'manual',
     notes VARCHAR(2000) NOT NULL DEFAULT '',
 
-    raw_json LONGTEXT NOT NULL CHECK (JSON_VALID(raw_json)),
+    /* raw_json is intentionally NOT JSON_VALID-checked: it preserves the
+       original payload as source of truth, even if imperfect. */
+    raw_json LONGTEXT NOT NULL,
     raw_sha256 CHAR(64) NOT NULL,
     raw_size_bytes BIGINT UNSIGNED NOT NULL CHECK (raw_size_bytes >= 0),
 
@@ -118,6 +144,9 @@ CREATE TABLE IF NOT EXISTS snapshots (
 
     PRIMARY KEY (id),
     UNIQUE KEY uk_snapshots_raw_sha256 (raw_sha256),
+    KEY idx_snapshots_account_imported (account_name, imported_at DESC),
+    KEY idx_snapshots_player_tag (player_tag),
+    KEY idx_snapshots_account_id_imported (account_id, imported_at DESC),
     CONSTRAINT fk_snapshots_account
         FOREIGN KEY (account_id) REFERENCES accounts(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -155,7 +184,18 @@ CREATE TABLE IF NOT EXISTS game_objects (
     updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
     PRIMARY KEY (id),
+
+    /* The UNIQUE key uk_game_objects_identity already covers
+       (game_area_code, category, data_id), so no duplicate non-unique
+       index is created for that same column list. */
     UNIQUE KEY uk_game_objects_identity (game_area_code, category, data_id),
+    KEY idx_game_objects_name (object_name),
+    KEY idx_game_objects_short_name (short_name),
+    KEY idx_game_objects_abbreviated_name (abbreviated_name),
+    KEY idx_game_objects_area_category_name (game_area_code, category, object_name),
+    KEY idx_game_objects_mapping_status (mapping_status),
+    KEY idx_game_objects_mapping_confidence (mapping_confidence),
+
     CONSTRAINT fk_game_objects_game_area
         FOREIGN KEY (game_area_code) REFERENCES game_areas(area_code),
     CONSTRAINT fk_game_objects_first_seen_snapshot
@@ -187,69 +227,13 @@ CREATE TABLE IF NOT EXISTS snapshot_timer_candidates (
     raw_item_json LONGTEXT NOT NULL CHECK (JSON_VALID(raw_item_json)),
 
     PRIMARY KEY (id),
+    KEY idx_candidates_snapshot (snapshot_id),
+    KEY idx_candidates_area_category_data (game_area_code, category, data_id),
     CONSTRAINT fk_snapshot_timer_candidates_snapshot
         FOREIGN KEY (snapshot_id) REFERENCES snapshots(id) ON DELETE CASCADE,
     CONSTRAINT fk_snapshot_timer_candidates_game_area
         FOREIGN KEY (game_area_code) REFERENCES game_areas(area_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-/* ============================================================
-   Snapshot / object indexes
-   ============================================================ */
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_account_name_unique
-ON accounts(account_name);
-
-CREATE INDEX IF NOT EXISTS idx_accounts_short_name
-ON accounts(short_name);
-
-CREATE INDEX IF NOT EXISTS idx_accounts_abbreviated_name
-ON accounts(abbreviated_name);
-
-CREATE INDEX IF NOT EXISTS idx_accounts_active
-ON accounts(is_active, account_name);
-
-CREATE INDEX IF NOT EXISTS idx_game_areas_sort_order
-ON game_areas(sort_order);
-
-CREATE INDEX IF NOT EXISTS idx_game_objects_name
-ON game_objects(object_name);
-
-CREATE INDEX IF NOT EXISTS idx_game_objects_short_name
-ON game_objects(short_name);
-
-CREATE INDEX IF NOT EXISTS idx_game_objects_abbreviated_name
-ON game_objects(abbreviated_name);
-
-/* The UNIQUE key uk_game_objects_identity already covers
-   (game_area_code, category, data_id), so no duplicate non-unique
-   index is created for that same column list. */
-
-CREATE INDEX IF NOT EXISTS idx_game_objects_area_category_name
-ON game_objects(game_area_code, category, object_name);
-
-CREATE INDEX IF NOT EXISTS idx_game_objects_mapping_status
-ON game_objects(mapping_status);
-
-CREATE INDEX IF NOT EXISTS idx_game_objects_mapping_confidence
-ON game_objects(mapping_confidence);
-
-CREATE INDEX IF NOT EXISTS idx_snapshots_account_imported
-ON snapshots(account_name, imported_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_snapshots_player_tag
-ON snapshots(player_tag);
-
-CREATE INDEX IF NOT EXISTS idx_snapshots_account_id_imported
-ON snapshots(account_id, imported_at DESC);
-
-/* uk_snapshots_raw_sha256 already covers raw_sha256. */
-
-CREATE INDEX IF NOT EXISTS idx_candidates_snapshot
-ON snapshot_timer_candidates(snapshot_id);
-
-CREATE INDEX IF NOT EXISTS idx_candidates_area_category_data
-ON snapshot_timer_candidates(game_area_code, category, data_id);
 
 /* ============================================================
    Trigger: timer candidate -> game object placeholder
@@ -460,7 +444,9 @@ CREATE TABLE IF NOT EXISTS event_types (
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
-    PRIMARY KEY (event_type_code)
+    PRIMARY KEY (event_type_code),
+    KEY idx_event_types_sort_order (sort_order),
+    KEY idx_event_types_active (is_active, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO event_types (
@@ -504,6 +490,15 @@ CREATE TABLE IF NOT EXISTS events (
     updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
     PRIMARY KEY (id),
+
+    /* Case-insensitive (event_type_code, event_name) uniqueness comes
+       from the table collation on event_name. */
+    UNIQUE KEY idx_events_type_name_unique (event_type_code, event_name),
+    KEY idx_events_event_type (event_type_code),
+    KEY idx_events_game_area (game_area_code),
+    KEY idx_events_active (is_active, starts_at, ends_at),
+    KEY idx_events_auto_create_statuses (auto_create_statuses),
+
     CONSTRAINT fk_events_event_type
         FOREIGN KEY (event_type_code) REFERENCES event_types(event_type_code),
     CONSTRAINT fk_events_game_area
@@ -536,6 +531,11 @@ CREATE TABLE IF NOT EXISTS account_event_statuses (
 
     PRIMARY KEY (id),
     UNIQUE KEY uk_account_event_statuses_account_event (account_id, event_id),
+    KEY idx_account_event_statuses_account (account_id),
+    KEY idx_account_event_statuses_event (event_id),
+    KEY idx_account_event_statuses_status (status),
+    KEY idx_account_event_statuses_account_status (account_id, status),
+    KEY idx_account_event_statuses_event_status (event_id, status),
 
     CHECK (
         progress_value IS NULL
@@ -548,46 +548,6 @@ CREATE TABLE IF NOT EXISTS account_event_statuses (
     CONSTRAINT fk_account_event_statuses_event
         FOREIGN KEY (event_id) REFERENCES events(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-/* ============================================================
-   Event indexes
-   ============================================================ */
-
-CREATE INDEX IF NOT EXISTS idx_event_types_sort_order
-ON event_types(sort_order);
-
-CREATE INDEX IF NOT EXISTS idx_event_types_active
-ON event_types(is_active, sort_order);
-
-CREATE INDEX IF NOT EXISTS idx_events_event_type
-ON events(event_type_code);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_events_type_name_unique
-ON events(event_type_code, event_name);
-
-CREATE INDEX IF NOT EXISTS idx_events_game_area
-ON events(game_area_code);
-
-CREATE INDEX IF NOT EXISTS idx_events_active
-ON events(is_active, starts_at, ends_at);
-
-CREATE INDEX IF NOT EXISTS idx_events_auto_create_statuses
-ON events(auto_create_statuses);
-
-CREATE INDEX IF NOT EXISTS idx_account_event_statuses_account
-ON account_event_statuses(account_id);
-
-CREATE INDEX IF NOT EXISTS idx_account_event_statuses_event
-ON account_event_statuses(event_id);
-
-CREATE INDEX IF NOT EXISTS idx_account_event_statuses_status
-ON account_event_statuses(status);
-
-CREATE INDEX IF NOT EXISTS idx_account_event_statuses_account_status
-ON account_event_statuses(account_id, status);
-
-CREATE INDEX IF NOT EXISTS idx_account_event_statuses_event_status
-ON account_event_statuses(event_id, status);
 
 /* ============================================================
    Trigger: new event -> status rows for active accounts
