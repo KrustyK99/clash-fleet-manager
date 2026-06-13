@@ -28,6 +28,11 @@ $defaultAccountViews = [
     ]
 ];
 
+$defaultSnapshotFreshnessSettings = [
+    'freshHours' => 24,
+    'agingHours' => 72
+];
+
 if (!is_dir($dataDir)) {
     mkdir($dataDir, 0755, true);
 }
@@ -38,17 +43,19 @@ if (!is_dir($backupDir)) {
 
 if (!file_exists($dataFile)) {
     file_put_contents($dataFile, json_encode([
-        'schemaVersion' => 1,
+        'schemaVersion' => 2,
         'lastUpdated' => null,
-        'timers' => []
+        'timers' => [],
+        'accountSnapshotMeta' => []
     ], JSON_PRETTY_PRINT));
 }
 
 if (!file_exists($viewsFile)) {
     file_put_contents($viewsFile, json_encode([
-        'schemaVersion' => 1,
+        'schemaVersion' => 2,
         'lastUpdated' => null,
-        'views' => $defaultAccountViews
+        'views' => $defaultAccountViews,
+        'snapshotFreshnessSettings' => $defaultSnapshotFreshnessSettings
     ], JSON_PRETTY_PRINT));
 }
 
@@ -184,12 +191,111 @@ function normalizeAccountViews(array $views): array {
     return $normalized;
 }
 
+
+function normalizeSnapshotFreshnessSettings($settings): array {
+    $defaults = $GLOBALS['defaultSnapshotFreshnessSettings'];
+
+    if (!is_array($settings)) {
+        return $defaults;
+    }
+
+    $freshHours = isset($settings['freshHours']) && is_numeric($settings['freshHours'])
+        ? (int) round((float) $settings['freshHours'])
+        : $defaults['freshHours'];
+
+    $agingHours = isset($settings['agingHours']) && is_numeric($settings['agingHours'])
+        ? (int) round((float) $settings['agingHours'])
+        : $defaults['agingHours'];
+
+    $freshHours = max(1, min(720, $freshHours));
+    $agingHours = max(2, min(720, $agingHours));
+
+    if ($agingHours <= $freshHours) {
+        $agingHours = min(720, $freshHours + 1);
+    }
+
+    return [
+        'freshHours' => $freshHours,
+        'agingHours' => $agingHours
+    ];
+}
+
+function normalizeIsoDate($value): ?string {
+    if (!is_scalar($value)) {
+        return null;
+    }
+
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return null;
+    }
+
+    try {
+        $dt = new DateTimeImmutable($raw);
+    } catch (Exception $e) {
+        return null;
+    }
+
+    return $dt->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+}
+
+function normalizeNonNegativeInt($value): int {
+    if (!is_numeric($value)) {
+        return 0;
+    }
+
+    return max(0, (int) round((float) $value));
+}
+
+function normalizeAccountSnapshotMeta($meta): array {
+    if (!is_array($meta)) {
+        return [];
+    }
+
+    $normalized = [];
+
+    foreach ($meta as $account => $rawMeta) {
+        $name = normalizeAccountName($account);
+        if ($name === null || !is_array($rawMeta)) {
+            continue;
+        }
+
+        $loadedAt = $rawMeta['lastLoadedAt']
+            ?? $rawMeta['loadedAt']
+            ?? $rawMeta['lastSnapshotLoadedAt']
+            ?? $rawMeta['updatedAt']
+            ?? null;
+
+        $lastLoadedAt = normalizeIsoDate($loadedAt);
+        if ($lastLoadedAt === null) {
+            continue;
+        }
+
+        $tag = isset($rawMeta['tag']) && is_scalar($rawMeta['tag'])
+            ? trim((string) $rawMeta['tag'])
+            : '';
+
+        $normalized[$name] = [
+            'lastLoadedAt' => $lastLoadedAt,
+            'tag' => $tag,
+            'candidateCount' => normalizeNonNegativeInt($rawMeta['candidateCount'] ?? 0),
+            'selectedCount' => normalizeNonNegativeInt($rawMeta['selectedCount'] ?? 0)
+        ];
+    }
+
+    return $normalized;
+}
+
 if ($action === 'load') {
     $raw = file_get_contents($GLOBALS['dataFile']);
     $data = json_decode($raw, true);
 
     if (!is_array($data)) {
         respond(['error' => 'Invalid data file'], 500);
+    }
+
+    if (!isset($data['accountSnapshotMeta']) || !is_array($data['accountSnapshotMeta'])) {
+        $data['accountSnapshotMeta'] = [];
     }
 
     respond($data);
@@ -207,10 +313,15 @@ if ($action === 'loadViews') {
         ? normalizeAccountViews($data['views'])
         : normalizeAccountViews($GLOBALS['defaultAccountViews']);
 
+    $snapshotFreshnessSettings = normalizeSnapshotFreshnessSettings(
+        $data['snapshotFreshnessSettings'] ?? ($data['settings']['snapshotFreshnessSettings'] ?? null)
+    );
+
     respond([
-        'schemaVersion' => 1,
+        'schemaVersion' => 2,
         'lastUpdated' => $data['lastUpdated'] ?? null,
-        'views' => $views
+        'views' => $views,
+        'snapshotFreshnessSettings' => $snapshotFreshnessSettings
     ]);
 }
 
@@ -243,6 +354,7 @@ if ($action === 'saveViews') {
     rewind($fp);
     $currentRaw = stream_get_contents($fp);
     $currentLastUpdated = null;
+    $currentData = [];
 
     if (is_string($currentRaw) && trim($currentRaw) !== '') {
         $currentData = json_decode($currentRaw, true);
@@ -269,10 +381,18 @@ if ($action === 'saveViews') {
         ], 409);
     }
 
+    // Preserve snapshot freshness settings when older clients save only views.
+    $snapshotFreshnessSettings = array_key_exists('snapshotFreshnessSettings', $incoming)
+        ? normalizeSnapshotFreshnessSettings($incoming['snapshotFreshnessSettings'])
+        : normalizeSnapshotFreshnessSettings(
+            $currentData['snapshotFreshnessSettings'] ?? ($currentData['settings']['snapshotFreshnessSettings'] ?? null)
+        );
+
     $payload = [
-        'schemaVersion' => 1,
+        'schemaVersion' => 2,
         'lastUpdated' => nowIsoUtc(),
-        'views' => $incomingViews
+        'views' => $incomingViews,
+        'snapshotFreshnessSettings' => $snapshotFreshnessSettings
     ];
 
     $backupFile = null;
@@ -327,6 +447,7 @@ if ($action === 'save') {
     rewind($fp);
     $currentRaw = stream_get_contents($fp);
     $currentLastUpdated = null;
+    $currentData = [];
 
     if (is_string($currentRaw) && trim($currentRaw) !== '') {
         $currentData = json_decode($currentRaw, true);
@@ -353,10 +474,16 @@ if ($action === 'save') {
         ], 409);
     }
 
+    // Preserve account snapshot metadata when older clients save only timers.
+    $accountSnapshotMeta = array_key_exists('accountSnapshotMeta', $incoming)
+        ? normalizeAccountSnapshotMeta($incoming['accountSnapshotMeta'])
+        : normalizeAccountSnapshotMeta($currentData['accountSnapshotMeta'] ?? ($currentData['snapshotMeta'] ?? null));
+
     $payload = [
-        'schemaVersion' => 1,
+        'schemaVersion' => 2,
         'lastUpdated' => nowIsoUtc(),
-        'timers' => $incoming['timers']
+        'timers' => $incoming['timers'],
+        'accountSnapshotMeta' => $accountSnapshotMeta
     ];
 
     $backupFile = null;
