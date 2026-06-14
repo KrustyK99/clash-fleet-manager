@@ -623,6 +623,29 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 }
 .filter-reset-pill:hover{border-color:var(--accent);background:var(--accent-glow);color:var(--accent)}
 .filter-reset-pill:active{transform:scale(0.97)}
+.view-status-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  border:1px solid rgba(108,108,255,0.45);
+  background:var(--accent-glow);
+  color:var(--accent);
+  border-radius:999px;
+  padding:4px 10px;
+  font-family:'DM Sans',sans-serif;
+  font-size:12px;
+  line-height:1;
+  cursor:pointer;
+  transition:all 0.15s;
+  white-space:nowrap;
+  max-width:100%;
+}
+.view-status-pill:hover{border-color:var(--accent);background:rgba(108,108,255,0.22);color:#fff}
+.view-status-pill:active{transform:scale(0.97)}
+.view-status-name{min-width:0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.view-status-count{color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px}
+.view-status-clear{font-size:13px;color:var(--accent);opacity:0.9;line-height:1}
+@media (max-width:700px){.view-status-name{max-width:38vw}.view-status-count{display:none}}
 
 /* Sidebar collapse */
 .main{transition:grid-template-columns 0.22s ease}
@@ -3992,11 +4015,33 @@ function renderStats() {
     ['expired', 'expired', 'var(--red)']
   ];
 
+  const view = getSelectedAccountView();
+  const viewIsActive = view && view.id !== 'all' && accountViewRestrictsAccounts(view);
+  const viewStatusPill = viewIsActive ? (() => {
+    const accounts = getVisibleAccountsForCurrentView();
+    const accountText = accounts.length === 1 ? '1 account' : `${accounts.length} accounts`;
+    const label = view.label || 'Saved View';
+    const title = `Saved View active: ${label} (${accountText}). Tap to return to All Accounts.`;
+    return `
+      <button class="view-status-pill"
+              type="button"
+              onclick="setAccountView('all')"
+              aria-label="${esc(title)}"
+              title="${esc(title)}">
+        <span aria-hidden="true">👁</span>
+        <span>View:</span>
+        <span class="view-status-name">${esc(label)}</span>
+        <span class="view-status-count">${esc(accountText)}</span>
+        <span class="view-status-clear" aria-hidden="true">×</span>
+      </button>
+    `;
+  })() : '';
+
   const resetButton = `
     <button class="filter-reset-pill"
             type="button"
             onclick="resetFilters()"
-            title="Reset account, due, type, status, pinned, and search filters">
+            title="Reset account, due, type, status, pinned, and search filters. Saved View stays active; use the View pill to return to All Accounts.">
       ↺ Reset filters
     </button>
   `;
@@ -4031,7 +4076,7 @@ function renderStats() {
     `;
   }).join('');
 
-  bar.innerHTML = `<span class="filter-bar-label">Status</span>${resetButton}${pinnedButton}${statusButtons}`;
+  bar.innerHTML = `<span class="filter-bar-label">Status</span>${viewStatusPill}${resetButton}${pinnedButton}${statusButtons}`;
 }
 
 function toggleTimerActions(id, event) {
