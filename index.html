@@ -4909,6 +4909,48 @@ function timerHasManualNote(timer) {
   return note !== '' && !isGeneratedSnapshotNote(note);
 }
 
+function snapshotGeneratedNoteKey(note) {
+  const text = String(note || '').trim();
+  return isGeneratedSnapshotNote(text) ? text : '';
+}
+
+function buildPinnedSnapshotNoteCounts(account) {
+  const counts = new Map();
+
+  timers.forEach(timer => {
+    if (getAccount(timer) !== account || !isTimerPinned(timer)) return;
+
+    const key = snapshotGeneratedNoteKey(timer.note);
+    if (!key) return;
+
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  return counts;
+}
+
+function retainPinnedSnapshotTimers(newTimers, pinnedSnapshotNoteCounts) {
+  let retainedCount = 0;
+
+  newTimers.forEach(timer => {
+    const key = snapshotGeneratedNoteKey(timer.note);
+    const pinnedMatches = key ? (pinnedSnapshotNoteCounts.get(key) || 0) : 0;
+
+    if (pinnedMatches <= 0) return;
+
+    timer.pinned = true;
+    retainedCount += 1;
+
+    if (pinnedMatches === 1) {
+      pinnedSnapshotNoteCounts.delete(key);
+    } else {
+      pinnedSnapshotNoteCounts.set(key, pinnedMatches - 1);
+    }
+  });
+
+  return retainedCount;
+}
+
 function syncSnapshotReplaceOptions() {
   const replaceEl = document.getElementById('snapshot-replace-existing');
   const preserveEl = document.getElementById('snapshot-preserve-manual-notes');
@@ -4950,8 +4992,10 @@ function saveSnapshotTimers() {
   const replaceExisting = document.getElementById('snapshot-replace-existing').checked;
   const preserveManualNotes = document.getElementById('snapshot-preserve-manual-notes').checked;
   const newTimers = selected.map(c => snapshotCandidateToTimer(c, now, account, shouldStart, sound));
+  const pinnedSnapshotNoteCounts = replaceExisting ? buildPinnedSnapshotNoteCounts(account) : new Map();
   let removedCount = 0;
   let preservedCount = 0;
+  let retainedPinCount = 0;
 
   if (replaceExisting) {
     const nextTimers = [];
@@ -4972,6 +5016,7 @@ function saveSnapshotTimers() {
     });
 
     timers = nextTimers;
+    retainedPinCount = retainPinnedSnapshotTimers(newTimers, pinnedSnapshotNoteCounts);
   }
 
   timers.push(...newTimers);
@@ -4988,7 +5033,8 @@ function saveSnapshotTimers() {
 
   if (replaceExisting) {
     const preservedText = preservedCount ? `; ${preservedCount} manually noted timer${preservedCount === 1 ? '' : 's'} preserved` : '';
-    toast(`${newTimers.length} snapshot timer${newTimers.length === 1 ? '' : 's'} added for ${account}; ${removedCount} existing timer${removedCount === 1 ? '' : 's'} replaced${preservedText}`, 'success');
+    const retainedPinText = retainedPinCount ? `; ${retainedPinCount} pin${retainedPinCount === 1 ? '' : 's'} retained` : '';
+    toast(`${newTimers.length} snapshot timer${newTimers.length === 1 ? '' : 's'} added for ${account}; ${removedCount} existing timer${removedCount === 1 ? '' : 's'} replaced${preservedText}${retainedPinText}`, 'success');
   } else {
     toast(`${newTimers.length} snapshot timer${newTimers.length === 1 ? '' : 's'} added for ${account}`, 'success');
   }
