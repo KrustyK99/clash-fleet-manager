@@ -288,6 +288,8 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .bulk-options{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
 .bulk-option{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
 .bulk-option input{width:auto;accent-color:var(--accent)}
+.bulk-target-summary{font-size:12px;color:var(--text3);line-height:1.35;margin-top:6px}
+.bulk-target-summary strong{color:var(--text2);font-weight:500}
 .bulk-timer-header,.bulk-timer-row{display:grid;grid-template-columns:125px minmax(150px,1.35fr) 50px 50px 50px 50px minmax(130px,1fr) 32px;gap:6px;align-items:center}
 .bulk-timer-header{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:6px;padding-right:4px}
 .bulk-rows{display:flex;flex-direction:column;gap:6px;max-height:44vh;overflow-y:auto;padding-right:4px}
@@ -1244,10 +1246,11 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 <div class="modal-bg" id="bulk-modal" style="display:none" onclick="if(event.target===this)closeBulkModal()">
   <div class="modal modal-wide">
     <h2>Add Multiple Timers</h2>
-    <div class="bulk-help">Choose one account, then enter several upgrade timers at once. Blank rows are ignored. Use <strong>Ctrl+Enter</strong> to save from this window.</div>
+    <div class="bulk-help">Choose one account, the current saved view, or all accounts, then enter several upgrade timers at once. Blank rows are ignored. Use <strong>Ctrl+Enter</strong> to save from this window.</div>
     <div class="form-row">
-      <label>Account *</label>
-      <select id="bulk-account" title="Account"></select>
+      <label>Apply timers to *</label>
+      <select id="bulk-account" title="Timer target" onchange="updateBulkTargetSummary()"></select>
+      <div id="bulk-target-summary" class="bulk-target-summary"></div>
     </div>
     <div class="form-row">
       <label>Default upgrade type</label>
@@ -1654,6 +1657,9 @@ const DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS = {
   agingHours: 72
 };
 
+const BULK_TARGET_ALL_ACCOUNTS = '__bulk_all_accounts__';
+const BULK_TARGET_CURRENT_VIEW = '__bulk_current_view__';
+
 
 function newId() {
   // crypto.randomUUID() is only available in secure contexts in some browsers.
@@ -2040,9 +2046,49 @@ function populateAccountControls(force=false) {
     }
   }
 
+  function fillBulkTargetSelect(selectEl) {
+    if (!selectEl || selectEl.tagName !== 'SELECT') return;
+    const current = selectEl.value;
+    const view = getSelectedAccountView();
+    const viewIsRestricted = accountViewRestrictsAccounts(view);
+    const allAccounts = getKnownAccounts();
+
+    const specialOptions = [
+      `<option value="${BULK_TARGET_ALL_ACCOUNTS}"${current === BULK_TARGET_ALL_ACCOUNTS ? ' selected' : ''}>All Accounts (${allAccounts.length})</option>`
+    ];
+
+    if (viewIsRestricted) {
+      const viewAccounts = getAccountsForView(view);
+      specialOptions.push(`<option value="${BULK_TARGET_CURRENT_VIEW}"${current === BULK_TARGET_CURRENT_VIEW ? ' selected' : ''}>Current Saved View: ${esc(view.label)} (${viewAccounts.length})</option>`);
+    }
+
+    selectEl.innerHTML = [
+      `<option value="">— Select account or scope —</option>`,
+      ...specialOptions,
+      `<option value="" disabled>──────────</option>`,
+      ...accounts.map(account => `<option value="${esc(account)}"${account === current ? ' selected' : ''}>${esc(account)}</option>`)
+    ].join('');
+
+    if (current && current !== BULK_TARGET_ALL_ACCOUNTS && current !== BULK_TARGET_CURRENT_VIEW && !accounts.includes(current)) {
+      if (!restrictToView) {
+        const opt = document.createElement('option');
+        opt.value = current;
+        opt.textContent = current;
+        opt.selected = true;
+        selectEl.appendChild(opt);
+      } else {
+        selectEl.value = '';
+      }
+    } else if (current === BULK_TARGET_CURRENT_VIEW && !viewIsRestricted) {
+      selectEl.value = '';
+    }
+
+    updateBulkTargetSummary();
+  }
+
   // Real selects are more reliable than datalist pulldowns over local/internal web hosting.
   fillAccountSelect(document.getElementById('q-account'), '— Select account —');
-  fillAccountSelect(document.getElementById('bulk-account'), '— Select account —');
+  fillBulkTargetSelect(document.getElementById('bulk-account'));
   fillAccountSelect(document.getElementById('snapshot-account'), '— Select account —');
 
   // The single-timer modal still uses free text plus autocomplete so you can create custom account names.
@@ -4211,14 +4257,64 @@ function saveTimer() {
 }
 
 // ── Bulk Add Modal ─────────────────────────────────────────────────────────
+function resolveBulkTargetAccounts(value=document.getElementById('bulk-account')?.value || '') {
+  const target = String(value || '').trim();
+
+  if (target === BULK_TARGET_ALL_ACCOUNTS) {
+    return getKnownAccounts();
+  }
+
+  if (target === BULK_TARGET_CURRENT_VIEW) {
+    return sortAccountNames(getAccountsForView(getSelectedAccountView()));
+  }
+
+  return target ? [target] : [];
+}
+
+function getBulkTargetLabel(value=document.getElementById('bulk-account')?.value || '') {
+  const target = String(value || '').trim();
+
+  if (target === BULK_TARGET_ALL_ACCOUNTS) return 'All Accounts';
+  if (target === BULK_TARGET_CURRENT_VIEW) return `Current Saved View: ${getSelectedAccountView().label}`;
+  return target;
+}
+
+function updateBulkTargetSummary() {
+  const summary = document.getElementById('bulk-target-summary');
+  const select = document.getElementById('bulk-account');
+  if (!summary || !select) return;
+
+  const value = select.value;
+  const accounts = resolveBulkTargetAccounts(value);
+  const label = getBulkTargetLabel(value);
+
+  if (!value) {
+    summary.textContent = 'Choose a single account, the current saved view, or all known accounts.';
+    return;
+  }
+
+  if (!accounts.length) {
+    summary.textContent = 'No accounts are available for this target.';
+    return;
+  }
+
+  if (accounts.length === 1) {
+    summary.innerHTML = `Creates timers for <strong>${esc(accounts[0])}</strong>.`;
+    return;
+  }
+
+  summary.innerHTML = `Creates one copy of each timer row for <strong>${esc(label)}</strong> (${accounts.length} accounts).`;
+}
+
 function openBulkModal() {
-  populateAccountControls();
+  populateAccountControls(true);
   const accountEl = document.getElementById('bulk-account');
   const defaultTypeEl = document.getElementById('bulk-default-type');
   const quickAccount = document.getElementById('q-account');
   const quickType = document.getElementById('q-upgrade-type');
 
   accountEl.value = getPreferredAccountForCurrentView(filterGroup !== 'All' ? filterGroup : '', quickAccount ? quickAccount.value : '');
+  updateBulkTargetSummary();
   defaultTypeEl.innerHTML = upgradeTypeOptionsHtml(quickType ? quickType.value : '');
   document.getElementById('bulk-start').checked = true;
   document.getElementById('bulk-sound').checked = true;
@@ -4373,9 +4469,12 @@ function removeBulkTimerRow(btn) {
 }
 
 function saveBulkTimers() {
-  const account = document.getElementById('bulk-account').value.trim();
-  if (!account) {
-    toast('Choose an account first.', 'warning');
+  const targetValue = document.getElementById('bulk-account').value.trim();
+  const targetAccounts = resolveBulkTargetAccounts(targetValue);
+  const targetLabel = getBulkTargetLabel(targetValue);
+
+  if (!targetValue || !targetAccounts.length) {
+    toast('Choose an account or account scope first.', 'warning');
     document.getElementById('bulk-account').focus();
     return;
   }
@@ -4384,19 +4483,20 @@ function saveBulkTimers() {
   const shouldStart = document.getElementById('bulk-start').checked;
   const sound = document.getElementById('bulk-sound').checked;
   const now = Date.now();
-  const newTimers = [];
+  const timerRows = [];
 
   for (const row of document.querySelectorAll('#bulk-rows .bulk-timer-row')) {
     const nameEl = row.querySelector('.bulk-name');
     const name = nameEl.value.trim();
-    const upgradeType = row.querySelector('.bulk-type').value.trim() || defaultType;
+    const rowType = row.querySelector('.bulk-type').value.trim();
+    const upgradeType = rowType || defaultType;
     const note = row.querySelector('.bulk-note').value.trim();
     const d = parseInt(row.querySelector('.bulk-days').value) || 0;
     const h = parseInt(row.querySelector('.bulk-hours').value) || 0;
     const m = parseInt(row.querySelector('.bulk-mins').value) || 0;
     const s = parseInt(row.querySelector('.bulk-secs').value) || 0;
     const duration = d*86400 + h*3600 + m*60 + s;
-    const rowHasAnything = name || upgradeType || note || d || h || m || s;
+    const rowHasAnything = name || rowType || note || d || h || m || s;
 
     if (!rowHasAnything) continue;
 
@@ -4412,44 +4512,65 @@ function saveBulkTimers() {
       return;
     }
 
-    newTimers.push({
-      id: newId(),
-      name,
-      duration,
-      remaining: duration,
-      account,
-      group: account,
-      upgradeType,
-      note,
-      repeat: false,
-      sound,
-      status: shouldStart ? 'running' : 'stopped',
-      endTime: shouldStart ? now + duration * 1000 : null,
-      expiredAt: null,
-      pinned: false,
-      created: now
-    });
+    timerRows.push({ name, duration, upgradeType, note });
   }
 
-  if (!newTimers.length) {
+  if (!timerRows.length) {
     toast('Enter at least one timer row.', 'warning');
     const firstName = document.querySelector('#bulk-rows .bulk-name');
     if (firstName) firstName.focus();
     return;
   }
 
-  timers.push(...newTimers);
-  updateAccountSnapshotMeta(account, {
-    lastLoadedAt: new Date(now).toISOString(),
-    tag: snapshotLastSnapshot && snapshotLastSnapshot.tag ? snapshotLastSnapshot.tag : '',
-    candidateCount: snapshotCandidates.length,
-    selectedCount: selected.length
+  const totalTimerCount = timerRows.length * targetAccounts.length;
+  if (targetAccounts.length > 1) {
+    const rowLabel = `${timerRows.length} timer row${timerRows.length === 1 ? '' : 's'}`;
+    const accountLabel = `${targetAccounts.length} account${targetAccounts.length === 1 ? '' : 's'}`;
+    const timerLabel = `${totalTimerCount} timer${totalTimerCount === 1 ? '' : 's'}`;
+    const confirmed = window.confirm(`Add ${rowLabel} to ${accountLabel}?\n\nTarget: ${targetLabel}\nThis will create ${timerLabel}.`);
+    if (!confirmed) return;
+  }
+
+  const newTimers = [];
+  targetAccounts.forEach(account => {
+    timerRows.forEach(row => {
+      newTimers.push({
+        id: newId(),
+        name: row.name,
+        duration: row.duration,
+        remaining: row.duration,
+        account,
+        group: account,
+        upgradeType: row.upgradeType,
+        note: row.note,
+        repeat: false,
+        sound,
+        status: shouldStart ? 'running' : 'stopped',
+        endTime: shouldStart ? now + row.duration * 1000 : null,
+        expiredAt: null,
+        pinned: false,
+        created: now
+      });
+    });
   });
-  filterGroup = account;
+
+  timers.push(...newTimers);
+
+  if (targetAccounts.length === 1) {
+    filterGroup = targetAccounts[0];
+  } else {
+    filterGroup = 'All';
+  }
+
   save();
   closeBulkModal();
   renderTimers();
-  toast(`${newTimers.length} timer${newTimers.length === 1 ? '' : 's'} added for ${account}`, 'success');
+
+  if (targetAccounts.length === 1) {
+    toast(`${newTimers.length} timer${newTimers.length === 1 ? '' : 's'} added for ${targetAccounts[0]}`, 'success');
+  } else {
+    toast(`${newTimers.length} timer${newTimers.length === 1 ? '' : 's'} added for ${targetAccounts.length} accounts`, 'success');
+  }
 }
 
 // ── Snapshot Add Modal ─────────────────────────────────────────────────────
