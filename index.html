@@ -707,6 +707,45 @@ body.compact-mode .timer-adjust-title,
 body.compact-mode .timer-adjust-current{font-size:10px}
 body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 
+
+/* Narrow desktop layout fix
+   Keep the desktop sidebar layout, but let the crowded top bar and filter rows wrap
+   before the tablet/mobile stacked layout takes over. This prevents the right side
+   of the page from being clipped on small desktop windows. */
+@media (min-width: 1025px) and (max-width: 1280px){
+  body{overflow-x:hidden}
+  .app{width:100%;max-width:100vw}
+
+  .topbar{
+    padding:10px 12px;
+    flex-wrap:wrap;
+    gap:8px;
+    overflow:visible;
+    min-width:0;
+  }
+  .topbar-title{flex:1 1 auto;min-width:0}
+  .topbar > .topbar-spacer{display:none}
+  .topbar .sync-status{flex:0 1 auto;text-align:center;min-width:0}
+  .topbar .btn,
+  .topbar label.btn{
+    flex:0 1 auto;
+    justify-content:center;
+    padding:7px 10px;
+    min-width:0;
+  }
+
+  .main,
+  .content,
+  .timer-list{min-width:0}
+  .group-list,
+  .stats-bar,
+  .toolbar{
+    flex-wrap:wrap;
+    min-width:0;
+  }
+  .timer-card{max-width:100%}
+}
+
 /* Quick add panel */
 .quick-add{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
 .quick-add-title{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:8px}
