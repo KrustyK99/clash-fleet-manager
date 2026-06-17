@@ -839,6 +839,39 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 .group-pill.account-pill{display:inline-flex;align-items:center;gap:4px}
 .group-pill-pin-count{display:inline-flex;align-items:center;color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;line-height:1}
 .group-pill.active .group-pill-pin-count{color:var(--amber)}
+.account-pill-builder-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  border-style:dashed;
+}
+.account-pill-builder-toggle.active{
+  border-color:rgba(108,108,255,0.55);
+  background:var(--accent-glow);
+  color:var(--accent);
+}
+.account-pill-builder-count{
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  color:var(--text2);
+  border-radius:999px;
+  padding:1px 5px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  font-weight:700;
+  line-height:1;
+  white-space:nowrap;
+}
+.account-pill-builder-count.all-busy{border-color:rgba(61,214,140,0.35);background:var(--green-bg);color:var(--green)}
+.account-pill-builder-count.has-idle{border-color:rgba(245,166,35,0.42);background:var(--amber-bg);color:var(--amber)}
+.account-pill-builder-count.unknown{border-color:var(--border2);background:var(--surface2);color:var(--text2)}
+.account-pill-builder-home-icon{font-size:10px;line-height:1;color:var(--text2)}
+.account-pill-builder-count.all-busy .account-pill-builder-home-icon{color:var(--green)}
+.account-pill-builder-count.has-idle .account-pill-builder-home-icon{color:var(--amber)}
+.account-pill-builder-count-separator{color:var(--text3);font-weight:500}
 .group-pill.freshness-fresh:hover{border-color:var(--green);color:var(--green);background:var(--green-bg)}
 .group-pill.freshness-aging:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-bg)}
 .group-pill.freshness-stale:hover{border-color:var(--red);color:var(--red);background:var(--red-bg)}
@@ -1050,6 +1083,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .account-gap-pill,.account-gap-account{font-size:12px}
   .account-summary-gap-badge{width:20px;height:20px;font-size:11px}
   .account-summary-builder-badge{font-size:11px;padding:3px 7px}
+  .account-pill-builder-toggle,.account-pill-builder-count{font-size:11px}
   .account-summary-detail-row{font-size:13px}
   .account-summary-detail-time{font-size:12px}
 
@@ -1513,6 +1547,7 @@ let tickInterval = null;
 let sidebarVisible = true;
 let focusMode = false;
 let compactMode = false;
+let showAccountPillBuilderCounts = false;
 let cardModes = {}; // id -> 'elapsed' | 'endtime'
 let adjustingTimerId = null;
 let expandedActionsTimerId = null;
@@ -1536,6 +1571,7 @@ const API_URL = 'api.php';
 const EMERGENCY_BACKUP_KEY = STORAGE_KEY + '_emergency_backup';
 const FOCUS_MODE_KEY = STORAGE_KEY + '_focus_mode';
 const COMPACT_MODE_KEY = STORAGE_KEY + '_compact_mode';
+const ACCOUNT_PILL_BUILDERS_KEY = STORAGE_KEY + '_account_pill_builders';
 const ACCOUNT_VIEW_KEY = STORAGE_KEY + '_account_view';
 
 const UPGRADE_TYPES = [
@@ -3637,8 +3673,21 @@ function renderGroupBar() {
   if (!groups.some(g => g !== 'All') && filterGroup === 'All') {
     bar.style.display = 'none';
   } else {
+    const summaryByAccount = new Map(buildAccountSummaryRows());
+    const builderToggleLabel = showAccountPillBuilderCounts ? 'Builders On' : 'Builders Off';
+    const builderToggleTitle = showAccountPillBuilderCounts
+      ? 'Hide builder counts in account filter pills'
+      : 'Show builder counts in account filter pills';
+    const builderToggle = `
+      <button class="group-pill account-pill-builder-toggle${showAccountPillBuilderCounts ? ' active' : ''}"
+              type="button"
+              title="${esc(builderToggleTitle)}"
+              aria-label="${esc(builderToggleTitle)}"
+              aria-pressed="${showAccountPillBuilderCounts ? 'true' : 'false'}"
+              onclick="toggleAccountPillBuilderCounts()">🏠 ${esc(builderToggleLabel)}</button>`;
+
     bar.style.display = 'flex';
-    bar.innerHTML = [`<span class="filter-bar-label">Account</span>`].concat(groups.map(g => {
+    bar.innerHTML = [`<span class="filter-bar-label">Account</span>`, builderToggle].concat(groups.map(g => {
       const isAll = g === 'All';
       const freshness = isAll ? null : getSnapshotFreshness(g);
       const freshnessClass = freshness ? ` freshness-${freshness.cls}` : '';
@@ -3648,12 +3697,16 @@ function renderGroupBar() {
       const pinnedBadge = pinnedCount
         ? `<span class="group-pill-pin-count" aria-label="${esc(pinnedLabel)}">★${pinnedCount}</span>`
         : '';
+      const builderBadge = (!isAll && showAccountPillBuilderCounts)
+        ? accountPillBuilderBadgeHtml(g, summaryByAccount.get(g) || createAccountSummaryRow())
+        : '';
       const titleParts = [];
       if (freshness) titleParts.push(freshness.title);
+      if (builderBadge) titleParts.push(accountSummaryBuilderTitle(g, summaryByAccount.get(g) || createAccountSummaryRow()));
       if (pinnedCount) titleParts.push(pinnedLabel);
       const title = titleParts.length ? titleParts.join(' · ') : 'Show all accounts';
       const groupArg = esc(JSON.stringify(g));
-      return `<button class="group-pill account-pill${g===filterGroup?' active':''}${freshnessClass}${pinnedClass}" title="${esc(title)}" onclick="setGroup(${groupArg})"><span>${esc(g)}</span>${pinnedBadge}</button>`;
+      return `<button class="group-pill account-pill${g===filterGroup?' active':''}${freshnessClass}${pinnedClass}" title="${esc(title)}" onclick="setGroup(${groupArg})"><span>${esc(g)}</span>${builderBadge}${pinnedBadge}</button>`;
     })).join('');
   }
 
@@ -3987,6 +4040,27 @@ function accountSummaryBuilderBadgeHtml(account, c) {
   return `
     <span class="account-summary-builder-badge" title="${esc(title)}" aria-label="${esc(title)}">
       <span class="account-summary-builder-icon" aria-hidden="true">🛠</span>${esc(label)}
+    </span>
+  `;
+}
+
+function accountPillBuilderBadgeHtml(account, c) {
+  const capacity = getAccountBuilderCapacity(account);
+  const homeTotal = normalizeOptionalNonNegativeInt(capacity.homeTotal);
+  const builderBaseTotal = normalizeOptionalNonNegativeInt(capacity.builderBaseTotal);
+  const homeActive = Number(c && c.homeBuilderActive) || 0;
+  const builderBaseActive = Number(c && c.builderBaseBuilderActive) || 0;
+  const homeTotalLabel = homeTotal === null ? '?' : String(homeTotal);
+  const builderBaseTotalLabel = builderBaseTotal === null ? '?' : String(builderBaseTotal);
+  const title = accountSummaryBuilderTitle(account, c || createAccountSummaryRow());
+  const knownTotals = homeTotal !== null || builderBaseTotal !== null;
+  const hasIdleHome = homeTotal !== null && homeActive < homeTotal;
+  const hasIdleBuilderBase = builderBaseTotal !== null && builderBaseActive < builderBaseTotal;
+  const statusClass = !knownTotals ? 'unknown' : (hasIdleHome || hasIdleBuilderBase ? 'has-idle' : 'all-busy');
+
+  return `
+    <span class="account-pill-builder-count ${statusClass}" title="${esc(title)}" aria-label="${esc(title)}">
+      <span class="account-pill-builder-home-icon" aria-hidden="true">🏠</span>${esc(`${homeActive}/${homeTotalLabel}`)}<span class="account-pill-builder-count-separator" aria-hidden="true">·</span>${esc(`${builderBaseActive}/${builderBaseTotalLabel}`)}
     </span>
   `;
 }
@@ -5508,6 +5582,18 @@ function applySavedCompactMode() {
   applyCompactMode();
 }
 
+// ── Account pill builder counts ────────────────────────────────────────────
+function applySavedAccountPillBuilderCounts() {
+  const saved = localStorage.getItem(ACCOUNT_PILL_BUILDERS_KEY);
+  showAccountPillBuilderCounts = saved === null ? false : saved === '1';
+}
+
+function toggleAccountPillBuilderCounts() {
+  showAccountPillBuilderCounts = !showAccountPillBuilderCounts;
+  localStorage.setItem(ACCOUNT_PILL_BUILDERS_KEY, showAccountPillBuilderCounts ? '1' : '0');
+  renderTimers();
+}
+
 // ── Sidebar toggle ─────────────────────────────────────────────────────────
 function applySidebarToggleState() {
   const main = document.querySelector('.main');
@@ -5579,6 +5665,7 @@ async function boot() {
   applySavedAccountView();
   applySavedFocusMode();
   applySavedCompactMode();
+  applySavedAccountPillBuilderCounts();
   populateStaticSelects();
   await load();
   renderTimers();
