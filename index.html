@@ -496,6 +496,23 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
   font-size:10px;
   line-height:1;
 }
+.account-summary-builder-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  border:1px solid rgba(108,108,255,0.35);
+  background:var(--accent-glow);
+  color:var(--accent);
+  border-radius:999px;
+  padding:2px 6px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  font-weight:700;
+  line-height:1;
+  white-space:nowrap;
+  flex:0 0 auto;
+}
+.account-summary-builder-icon{font-size:10px;line-height:1;color:var(--text2)}
 .account-summary-detail{
   margin:0 0 6px 0;
   padding:5px 0 8px 15px;
@@ -1032,6 +1049,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .account-summary-cell{font-size:13px}
   .account-gap-pill,.account-gap-account{font-size:12px}
   .account-summary-gap-badge{width:20px;height:20px;font-size:11px}
+  .account-summary-builder-badge{font-size:11px;padding:3px 7px}
   .account-summary-detail-row{font-size:13px}
   .account-summary-detail-time{font-size:12px}
 
@@ -1559,6 +1577,8 @@ const COC_DATA_ID_MAP = {
   '1000031': { name: 'Eagle Artillery', type: 'Builder', village: 'Home' },
   '1000067': { name: 'Scattershot', type: 'Builder', village: 'Home' },
   '1000015': { name: 'Builder\'s Hut', type: 'Builder', village: 'Home' },
+  '1000034': { name: 'Builder Hall', type: 'Builder Base', village: 'Builder Base' },
+  '1000081': { name: 'B.O.B Control', type: 'Builder Base', village: 'Builder Base' },
   '1000072': { name: 'Spell Tower', type: 'Builder', village: 'Home' },
   '1000077': { name: 'Monolith', type: 'Builder', village: 'Home' },
   '1000089': { name: 'Firespitter', type: 'Builder', village: 'Home' },
@@ -1723,6 +1743,10 @@ const DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS = {
   agingHours: 72
 };
 
+const HOME_BUILDER_HUT_DATA_ID = '1000015';
+const BUILDER_HALL_DATA_ID = '1000034';
+const BOB_CONTROL_DATA_ID = '1000081';
+
 const BULK_TARGET_ALL_ACCOUNTS = '__bulk_all_accounts__';
 const BULK_TARGET_CURRENT_VIEW = '__bulk_current_view__';
 
@@ -1759,6 +1783,24 @@ function normalizeSnapshotFreshnessSettings(raw) {
   return { freshHours, agingHours };
 }
 
+function normalizeOptionalNonNegativeInt(value) {
+  if (!Number.isFinite(Number(value))) return null;
+  return Math.max(0, Math.round(Number(value)));
+}
+
+function normalizeBuilderCapacity(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+
+  const homeTotal = normalizeOptionalNonNegativeInt(raw.homeTotal);
+  const builderBaseTotal = normalizeOptionalNonNegativeInt(raw.builderBaseTotal);
+  if (homeTotal === null && builderBaseTotal === null) return null;
+
+  const normalized = {};
+  if (homeTotal !== null) normalized.homeTotal = homeTotal;
+  if (builderBaseTotal !== null) normalized.builderBaseTotal = builderBaseTotal;
+  return normalized;
+}
+
 function normalizeAccountSnapshotMeta(raw) {
   const normalized = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return normalized;
@@ -1771,12 +1813,17 @@ function normalizeAccountSnapshotMeta(raw) {
     const loadedMs = Date.parse(loadedAt);
     if (!Number.isFinite(loadedMs)) return;
 
-    normalized[name] = {
+    const entry = {
       lastLoadedAt: new Date(loadedMs).toISOString(),
       tag: String(meta.tag || '').trim(),
       candidateCount: Number.isFinite(Number(meta.candidateCount)) ? Math.max(0, Math.round(Number(meta.candidateCount))) : 0,
       selectedCount: Number.isFinite(Number(meta.selectedCount)) ? Math.max(0, Math.round(Number(meta.selectedCount))) : 0
     };
+
+    const builderCapacity = normalizeBuilderCapacity(meta.builderCapacity);
+    if (builderCapacity) entry.builderCapacity = builderCapacity;
+
+    normalized[name] = entry;
   });
 
   return normalized;
@@ -1847,6 +1894,57 @@ function updateAccountSnapshotMeta(account, details={}) {
       lastLoadedAt: details.lastLoadedAt || new Date().toISOString()
     }
   });
+}
+
+function getAccountBuilderCapacity(account) {
+  const name = String(account || '').trim();
+  const meta = name ? accountSnapshotMeta[name] : null;
+  return normalizeBuilderCapacity(meta && meta.builderCapacity) || {};
+}
+
+function snapshotItemCount(snapshot, bucket, dataId) {
+  const rows = snapshot && Array.isArray(snapshot[bucket]) ? snapshot[bucket] : [];
+  const target = String(dataId);
+
+  return rows.reduce((total, item) => {
+    if (!item || typeof item !== 'object' || String(item.data ?? item.id ?? item.data_id ?? '') !== target) return total;
+    const count = Number(item.cnt);
+    return total + (Number.isFinite(count) && count > 0 ? Math.round(count) : 1);
+  }, 0);
+}
+
+function snapshotMaxItemLevel(snapshot, bucket, dataId) {
+  const rows = snapshot && Array.isArray(snapshot[bucket]) ? snapshot[bucket] : [];
+  const target = String(dataId);
+  let maxLevel = null;
+
+  rows.forEach(item => {
+    if (!item || typeof item !== 'object' || String(item.data ?? item.id ?? item.data_id ?? '') !== target) return;
+    const level = Number(item.lvl);
+    if (!Number.isFinite(level)) return;
+    maxLevel = maxLevel === null ? level : Math.max(maxLevel, level);
+  });
+
+  return maxLevel;
+}
+
+function deriveBuilderCapacityFromSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+
+  const homeBuilderHuts = snapshotItemCount(snapshot, 'buildings', HOME_BUILDER_HUT_DATA_ID);
+  const bobControlLevel = snapshotMaxItemLevel(snapshot, 'buildings2', BOB_CONTROL_DATA_ID);
+  const builderHallLevel = snapshotMaxItemLevel(snapshot, 'buildings2', BUILDER_HALL_DATA_ID);
+  const hasBuilderBase = Array.isArray(snapshot.buildings2) && snapshot.buildings2.length > 0;
+
+  const homeTotal = homeBuilderHuts > 0
+    ? homeBuilderHuts + (Number.isFinite(bobControlLevel) && bobControlLevel >= 5 ? 1 : 0)
+    : null;
+
+  const builderBaseTotal = hasBuilderBase
+    ? 1 + (Number.isFinite(builderHallLevel) && builderHallLevel >= 6 ? 1 : 0)
+    : null;
+
+  return normalizeBuilderCapacity({ homeTotal, builderBaseTotal });
 }
 
 function compactUpgradeTypeLabel(type) {
@@ -3778,6 +3876,44 @@ function isActiveAccountWorkTimer(t) {
   return Number(t.remaining) > 0 && (status === 'running' || status === 'paused');
 }
 
+function getTimerSnapshotBucket(t) {
+  const explicit = String(t && t.snapshotBucket ? t.snapshotBucket : '').trim();
+  if (explicit) return explicit;
+
+  const note = String(t && t.note ? t.note : '');
+  const match = note.match(/^Snapshot(?:\s+[^|]+)?\s+\|\s+([^|]+)\.(?:timer|helper_cooldown)\s+\|/i);
+  return match ? snapshotGetBucket(match[1].trim()) : '';
+}
+
+function getExplicitTimerWorkQueue(t) {
+  const explicit = String(t && t.workQueue ? t.workQueue : '').trim();
+  if (explicit) return explicit;
+
+  const bucket = getTimerSnapshotBucket(t);
+  if (bucket) return snapshotInferWorkQueue(bucket, 'timer');
+
+  return '';
+}
+
+function isHomeBuilderWorkTimer(t) {
+  if (!isActiveAccountWorkTimer(t)) return false;
+
+  const workQueue = getExplicitTimerWorkQueue(t);
+  if (workQueue) return workQueue === 'home_builder';
+
+  const type = getUpgradeType(t).toLowerCase();
+  return type === 'builder' || type === 'hero';
+}
+
+function isBuilderBaseBuilderWorkTimer(t) {
+  if (!isActiveAccountWorkTimer(t)) return false;
+
+  const workQueue = getExplicitTimerWorkQueue(t);
+  if (workQueue) return workQueue === 'builder_base_builder';
+
+  return getUpgradeType(t).toLowerCase() === 'builder base';
+}
+
 function timerIsActiveUpgradeType(t, type) {
   return getUpgradeType(t).toLowerCase() === String(type || '').toLowerCase() && isActiveAccountWorkTimer(t);
 }
@@ -3789,6 +3925,8 @@ function createAccountSummaryRow() {
     stopped:0,
     expired:0,
     timers:[],
+    homeBuilderActive:0,
+    builderBaseBuilderActive:0,
     hasActiveLab:false,
     hasActivePet:false
   };
@@ -3813,11 +3951,44 @@ function buildAccountSummaryRows() {
   });
 
   accounts.forEach(row => {
+    row.homeBuilderActive = row.timers.filter(isHomeBuilderWorkTimer).length;
+    row.builderBaseBuilderActive = row.timers.filter(isBuilderBaseBuilderWorkTimer).length;
     row.hasActiveLab = row.timers.some(t => timerIsActiveUpgradeType(t, 'Lab'));
     row.hasActivePet = row.timers.some(t => timerIsActiveUpgradeType(t, 'Pet'));
   });
 
   return Array.from(accounts.entries()).sort((a,b)=>a[0].localeCompare(b[0], undefined, { numeric:true, sensitivity:'base' }));
+}
+
+function accountSummaryBuilderTitle(account, c) {
+  const capacity = getAccountBuilderCapacity(account);
+  const homeTotal = normalizeOptionalNonNegativeInt(capacity.homeTotal);
+  const builderBaseTotal = normalizeOptionalNonNegativeInt(capacity.builderBaseTotal);
+  const homeActive = Number(c.homeBuilderActive) || 0;
+  const builderBaseActive = Number(c.builderBaseBuilderActive) || 0;
+
+  const homeText = homeTotal === null
+    ? `Home builders: ${homeActive} active; total unknown until a snapshot is loaded.`
+    : `Home builders: ${homeActive}/${homeTotal} active, ${Math.max(0, homeTotal - homeActive)} idle.`;
+
+  const builderBaseText = builderBaseTotal === null
+    ? `Builder Base builders: ${builderBaseActive} active; total unknown until a snapshot is loaded.`
+    : `Builder Base builders: ${builderBaseActive}/${builderBaseTotal} active, ${Math.max(0, builderBaseTotal - builderBaseActive)} idle.`;
+
+  return `${homeText} ${builderBaseText}`;
+}
+
+function accountSummaryBuilderBadgeHtml(account, c) {
+  const homeActive = Number(c.homeBuilderActive) || 0;
+  const builderBaseActive = Number(c.builderBaseBuilderActive) || 0;
+  const label = `${homeActive}/${builderBaseActive}`;
+  const title = accountSummaryBuilderTitle(account, c);
+
+  return `
+    <span class="account-summary-builder-badge" title="${esc(title)}" aria-label="${esc(title)}">
+      <span class="account-summary-builder-icon" aria-hidden="true">🛠</span>${esc(label)}
+    </span>
+  `;
 }
 
 function getAccountGapTypes(c) {
@@ -3996,7 +4167,8 @@ function renderAccountSummary() {
         const gaps = getAccountGapTypes(c);
         const gapText = gaps.length ? `, ${gaps.map(g => g.label.toLowerCase()).join(', ')}` : '';
         const freshness = getSnapshotFreshness(account);
-        const titleText = `${freshness.title} ${expanded ? 'Collapse' : 'Expand'} ${account} and filter timer list${gapText ? ' — ' + gapText : ''}`;
+        const builderText = accountSummaryBuilderTitle(account, c);
+        const titleText = `${builderText} ${freshness.title} ${expanded ? 'Collapse' : 'Expand'} ${account} and filter timer list${gapText ? ' — ' + gapText : ''}`;
         return `
           <div class="account-summary-table-row${expanded ? ' expanded' : ''}"
                onclick="toggleAccountSummaryDetails(event, ${accountArg})"
@@ -4005,12 +4177,13 @@ function renderAccountSummary() {
                role="button"
                title="${esc(titleText)}"
                aria-expanded="${expanded ? 'true' : 'false'}"
-               aria-label="${esc(account)}: ${freshness.label} snapshot, ${c.running} running, ${c.paused} paused, ${c.stopped} stopped, ${c.expired} expired${gapText}">
+               aria-label="${esc(account)}: ${c.homeBuilderActive} home builder active, ${c.builderBaseBuilderActive} builder base builder active, ${freshness.label} snapshot, ${c.running} running, ${c.paused} paused, ${c.stopped} stopped, ${c.expired} expired${gapText}">
             <span class="account-summary-account">
               <span class="account-summary-account-wrap">
                 <span class="account-summary-chevron" aria-hidden="true">${expanded ? '▾' : '▸'}</span>
                 ${snapshotFreshnessDotHtml(account)}
                 <span class="account-summary-name">${esc(account)}</span>
+                ${accountSummaryBuilderBadgeHtml(account, c)}
                 ${accountGapBadgesHtml(c)}
               </span>
             </span>
@@ -4782,6 +4955,17 @@ function snapshotInferUpgradeType(bucket, timerKey, dataId) {
   return 'Capital / Other';
 }
 
+function snapshotInferWorkQueue(bucket, timerKey) {
+  if (timerKey === 'helper_cooldown') return 'other';
+  if (bucket === 'buildings' || bucket === 'traps' || bucket === 'heroes') return 'home_builder';
+  if (bucket === 'buildings2' || bucket === 'traps2' || bucket === 'heroes2') return 'builder_base_builder';
+  if (bucket === 'units2') return 'builder_base_lab';
+  if (bucket === 'units' || bucket === 'spells' || bucket === 'siege_machines') return 'lab';
+  if (bucket === 'pets') return 'pet';
+  if (bucket === 'equipment') return 'equipment';
+  return 'other';
+}
+
 function snapshotExtractInlineName(node) {
   const nameFields = ['name', 'Name', 'displayName', 'display_name', 'debugName', 'debug_name', 'uiName', 'ui_name'];
   for (const field of nameFields) {
@@ -4835,6 +5019,7 @@ function parseAccountSnapshot(snapshot) {
           raw: node
         };
         entry.upgradeType = snapshotInferUpgradeType(entry.bucket, entry.timerKey, entry.dataId);
+        entry.workQueue = snapshotInferWorkQueue(entry.bucket, entry.timerKey);
         entry.name = snapshotMakeCandidateName(entry);
         found.push(entry);
       }
@@ -4969,6 +5154,12 @@ function snapshotCandidateToTimer(c, now, account, shouldStart, sound) {
     group: account,
     upgradeType: c.upgradeType || 'Capital / Other',
     note: `Snapshot${tag ? ' ' + tag : ''} | ${sourcePath} | ${dataPart} | ${levelPart}`,
+    workQueue: c.workQueue || snapshotInferWorkQueue(c.bucket, c.timerKey),
+    snapshotBucket: c.bucket,
+    snapshotPath: c.path,
+    snapshotTimerKey: c.timerKey,
+    snapshotDataId: c.dataId == null ? null : String(c.dataId),
+    snapshotLevel: Number.isFinite(c.level) ? c.level : null,
     repeat: false,
     sound,
     status: shouldStart ? 'running' : 'stopped',
@@ -5105,12 +5296,15 @@ function saveSnapshotTimers() {
   }
 
   timers.push(...newTimers);
-  updateAccountSnapshotMeta(account, {
+  const snapshotMetaDetails = {
     lastLoadedAt: new Date(now).toISOString(),
     tag: snapshotLastSnapshot && snapshotLastSnapshot.tag ? snapshotLastSnapshot.tag : '',
     candidateCount: snapshotCandidates.length,
     selectedCount: selected.length
-  });
+  };
+  const builderCapacity = deriveBuilderCapacityFromSnapshot(snapshotLastSnapshot);
+  if (builderCapacity) snapshotMetaDetails.builderCapacity = builderCapacity;
+  updateAccountSnapshotMeta(account, snapshotMetaDetails);
   filterGroup = account;
   save();
   closeSnapshotModal();

@@ -247,11 +247,45 @@ function normalizeNonNegativeInt($value): int {
     return max(0, (int) round((float) $value));
 }
 
-function normalizeAccountSnapshotMeta($meta): array {
+function normalizeOptionalNonNegativeInt($value): ?int {
+    if (!is_numeric($value)) {
+        return null;
+    }
+
+    return max(0, (int) round((float) $value));
+}
+
+function normalizeBuilderCapacity($capacity, $fallback = null): ?array {
+    $source = is_array($capacity) ? $capacity : (is_array($fallback) ? $fallback : null);
+
+    if (!is_array($source)) {
+        return null;
+    }
+
+    $homeTotal = normalizeOptionalNonNegativeInt($source['homeTotal'] ?? null);
+    $builderBaseTotal = normalizeOptionalNonNegativeInt($source['builderBaseTotal'] ?? null);
+
+    if ($homeTotal === null && $builderBaseTotal === null) {
+        return null;
+    }
+
+    $normalized = [];
+    if ($homeTotal !== null) {
+        $normalized['homeTotal'] = $homeTotal;
+    }
+    if ($builderBaseTotal !== null) {
+        $normalized['builderBaseTotal'] = $builderBaseTotal;
+    }
+
+    return $normalized;
+}
+
+function normalizeAccountSnapshotMeta($meta, $existingMeta = null): array {
     if (!is_array($meta)) {
         return [];
     }
 
+    $existing = is_array($existingMeta) ? $existingMeta : [];
     $normalized = [];
 
     foreach ($meta as $account => $rawMeta) {
@@ -275,12 +309,29 @@ function normalizeAccountSnapshotMeta($meta): array {
             ? trim((string) $rawMeta['tag'])
             : '';
 
-        $normalized[$name] = [
+        $existingAccountMeta = isset($existing[$name]) && is_array($existing[$name])
+            ? $existing[$name]
+            : null;
+
+        // Preserve builder capacity for saves from older browser tabs/clients that
+        // know about accountSnapshotMeta but do not send the newer builderCapacity
+        // child object yet.
+        $builderCapacity = array_key_exists('builderCapacity', $rawMeta)
+            ? normalizeBuilderCapacity($rawMeta['builderCapacity'], null)
+            : normalizeBuilderCapacity(null, $existingAccountMeta['builderCapacity'] ?? null);
+
+        $entry = [
             'lastLoadedAt' => $lastLoadedAt,
             'tag' => $tag,
             'candidateCount' => normalizeNonNegativeInt($rawMeta['candidateCount'] ?? 0),
             'selectedCount' => normalizeNonNegativeInt($rawMeta['selectedCount'] ?? 0)
         ];
+
+        if ($builderCapacity !== null) {
+            $entry['builderCapacity'] = $builderCapacity;
+        }
+
+        $normalized[$name] = $entry;
     }
 
     return $normalized;
@@ -476,7 +527,10 @@ if ($action === 'save') {
 
     // Preserve account snapshot metadata when older clients save only timers.
     $accountSnapshotMeta = array_key_exists('accountSnapshotMeta', $incoming)
-        ? normalizeAccountSnapshotMeta($incoming['accountSnapshotMeta'])
+        ? normalizeAccountSnapshotMeta(
+            $incoming['accountSnapshotMeta'],
+            $currentData['accountSnapshotMeta'] ?? ($currentData['snapshotMeta'] ?? null)
+        )
         : normalizeAccountSnapshotMeta($currentData['accountSnapshotMeta'] ?? ($currentData['snapshotMeta'] ?? null));
 
     $payload = [
