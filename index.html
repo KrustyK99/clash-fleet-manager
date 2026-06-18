@@ -28,6 +28,8 @@
   --red-bg:rgba(255,92,92,0.08);
   --radius:8px;
   --radius-lg:12px;
+  --sidebar-width:280px;
+  --sidebar-resizer-width:6px;
 }
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
 h1,h2,h3{font-weight:500}
@@ -41,8 +43,34 @@ h1,h2,h3{font-weight:500}
 .sync-status.saving{color:var(--amber);border-color:rgba(245,166,35,0.35)}
 .sync-status.error{color:var(--red);border-color:rgba(255,92,92,0.35)}
 .topbar-spacer{flex:1}
-.main{display:grid;grid-template-columns:280px minmax(0,1fr);overflow:hidden}
+.main{display:grid;grid-template-columns:var(--sidebar-width,280px) var(--sidebar-resizer-width,6px) minmax(0,1fr);overflow:hidden}
 .sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-x:hidden;overflow-y:auto;min-height:0}
+.sidebar-resizer{
+  position:relative;
+  width:var(--sidebar-resizer-width,6px);
+  min-width:var(--sidebar-resizer-width,6px);
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  cursor:col-resize;
+  touch-action:none;
+  user-select:none;
+}
+.sidebar-resizer::before{
+  content:'';
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:2px;
+  height:42px;
+  transform:translate(-50%,-50%);
+  border-left:1px solid var(--border2);
+  border-right:1px solid var(--border2);
+  opacity:0.55;
+  transition:border-color 0.15s,opacity 0.15s;
+}
+.sidebar-resizer:hover::before,
+.sidebar-resizer:focus::before{border-color:var(--accent);opacity:1}
+.sidebar-resizer:focus{outline:none;background:var(--accent-glow)}
 .sidebar-section{padding:16px;border-bottom:1px solid var(--border)}
 .sidebar-section label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);display:block;margin-bottom:6px}
 .content{display:flex;flex-direction:column;overflow:hidden;min-width:0}
@@ -666,8 +694,13 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 
 /* Sidebar collapse */
 .main{transition:grid-template-columns 0.22s ease}
-.main.sidebar-hidden{grid-template-columns:0px 1fr}
+.main.sidebar-resizing{transition:none;user-select:none}
+.main.sidebar-resizing .sidebar,
+.main.sidebar-resizing .content{pointer-events:none}
+body.sidebar-resize-active{cursor:col-resize;user-select:none}
+.main.sidebar-hidden{grid-template-columns:0px 0px minmax(0,1fr)}
 .main.sidebar-hidden .sidebar{overflow:hidden;border-right:none}
+.main.sidebar-hidden .sidebar-resizer{display:none}
 .sidebar-toggle,.focus-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:12px;line-height:1;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap}
 .sidebar-toggle:hover,.focus-toggle-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
 .sidebar-toggle.active,.focus-toggle-btn.active{background:var(--surface2);color:var(--accent);border-color:var(--accent)}
@@ -682,6 +715,7 @@ body.focus-mode .app{grid-template-rows:1fr}
 body.focus-mode .topbar{display:none}
 body.focus-mode .main{grid-template-columns:1fr}
 body.focus-mode .sidebar{display:none}
+body.focus-mode .sidebar-resizer{display:none}
 body.focus-mode .content{height:100vh}
 body.focus-mode .group-list,
 body.focus-mode .stats-bar,
@@ -1002,6 +1036,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .main{display:block;overflow:visible}
   .main.sidebar-hidden .sidebar{display:none}
   .sidebar{width:100%;max-height:none;border-right:0;border-bottom:1px solid var(--border);overflow:visible}
+  .sidebar-resizer{display:none}
   .content{width:100%;overflow:visible;min-width:0}
 
   .account-summary-section{flex:0 0 auto;overflow:visible}
@@ -1038,6 +1073,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .main{display:block;overflow:visible}
   .main.sidebar-hidden .sidebar{display:none}
   .sidebar{width:100%;max-height:none;border-right:0;border-bottom:1px solid var(--border);overflow:visible}
+  .sidebar-resizer{display:none}
   .content{width:100%;overflow:visible;min-width:0}
 
   .group-list,.stats-bar,.toolbar{padding-left:12px !important;padding-right:12px !important;flex-wrap:wrap}
@@ -1258,6 +1294,8 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
         </div>
       </div>
     </div>
+
+    <div class="sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="Resize menu" tabindex="0" title="Drag to resize menu"></div>
 
     <!-- Main content -->
     <div class="content">
@@ -1545,6 +1583,7 @@ let expandedGapType = null;
 let editingId = null;
 let tickInterval = null;
 let sidebarVisible = true;
+let sidebarWidth = 280;
 let focusMode = false;
 let compactMode = false;
 let showAccountPillBuilderCounts = false;
@@ -1573,6 +1612,11 @@ const FOCUS_MODE_KEY = STORAGE_KEY + '_focus_mode';
 const COMPACT_MODE_KEY = STORAGE_KEY + '_compact_mode';
 const ACCOUNT_PILL_BUILDERS_KEY = STORAGE_KEY + '_account_pill_builders';
 const ACCOUNT_VIEW_KEY = STORAGE_KEY + '_account_view';
+const SIDEBAR_WIDTH_KEY = STORAGE_KEY + '_sidebar_width';
+const SIDEBAR_DEFAULT_WIDTH = 280;
+const SIDEBAR_MIN_WIDTH = 230;
+const SIDEBAR_MAX_WIDTH = 520;
+const SIDEBAR_MIN_CONTENT_WIDTH = 440;
 
 const UPGRADE_TYPES = [
   '',
@@ -3948,8 +3992,40 @@ function getExplicitTimerWorkQueue(t) {
   return '';
 }
 
+function isGuardianSnapshotBucket(bucket) {
+  const normalized = String(bucket || '').trim().toLowerCase();
+  return normalized === 'guardian' || normalized === 'guardians';
+}
+
+function isGuardianWorkTimer(t) {
+  const snapshotTimerKey = String(t && t.snapshotTimerKey ? t.snapshotTimerKey : '').trim().toLowerCase();
+  const note = String(t && t.note ? t.note : '');
+
+  // Helper cooldowns can also come from snapshot metadata, but they do not consume builders.
+  if (snapshotTimerKey === 'helper_cooldown' || /\.helper_cooldown\s+\|/i.test(note)) return false;
+
+  const explicitBucket = String(t && t.snapshotBucket ? t.snapshotBucket : '').trim();
+  if (isGuardianSnapshotBucket(explicitBucket)) return true;
+
+  const inferredBucket = getTimerSnapshotBucket(t);
+  if (isGuardianSnapshotBucket(inferredBucket)) return true;
+
+  const snapshotPath = String(t && t.snapshotPath ? t.snapshotPath : '').trim().toLowerCase();
+  if (/^guardians?(?:\[|\.|$)/.test(snapshotPath)) return true;
+
+  const type = getUpgradeType(t).toLowerCase();
+  if (type === 'guardian' || type === 'guardians') return true;
+
+  const name = String(t && t.name ? t.name : '').trim().toLowerCase();
+  return /\bguardians?\b/.test(name);
+}
+
 function isHomeBuilderWorkTimer(t) {
   if (!isActiveAccountWorkTimer(t)) return false;
+
+  // Guardians use home builders. Check this before trusting an older saved workQueue
+  // value so snapshot timers previously classified as `other` are counted correctly.
+  if (isGuardianWorkTimer(t)) return true;
 
   const workQueue = getExplicitTimerWorkQueue(t);
   if (workQueue) return workQueue === 'home_builder';
@@ -5000,6 +5076,7 @@ function snapshotGetBucket(path) {
 function snapshotBucketLabel(bucket) {
   const labels = {
     helpers: 'Helper',
+    guardians: 'Guardian',
     buildings: 'Building',
     traps: 'Trap',
     units: 'Lab',
@@ -5021,6 +5098,7 @@ function snapshotInferUpgradeType(bucket, timerKey, dataId) {
   const known = COC_DATA_ID_MAP[String(dataId)];
   if (known && known.type) return known.type;
   if (timerKey === 'helper_cooldown') return 'Capital / Other';
+  if (isGuardianSnapshotBucket(bucket)) return 'Builder';
   if (bucket === 'heroes') return 'Hero';
   if (bucket === 'units' || bucket === 'spells' || bucket === 'siege_machines') return 'Lab';
   if (bucket === 'pets') return 'Pet';
@@ -5031,7 +5109,7 @@ function snapshotInferUpgradeType(bucket, timerKey, dataId) {
 
 function snapshotInferWorkQueue(bucket, timerKey) {
   if (timerKey === 'helper_cooldown') return 'other';
-  if (bucket === 'buildings' || bucket === 'traps' || bucket === 'heroes') return 'home_builder';
+  if (bucket === 'buildings' || bucket === 'traps' || bucket === 'heroes' || isGuardianSnapshotBucket(bucket)) return 'home_builder';
   if (bucket === 'buildings2' || bucket === 'traps2' || bucket === 'heroes2') return 'builder_base_builder';
   if (bucket === 'units2') return 'builder_base_lab';
   if (bucket === 'units' || bucket === 'spells' || bucket === 'siege_machines') return 'lab';
@@ -5594,6 +5672,107 @@ function toggleAccountPillBuilderCounts() {
   renderTimers();
 }
 
+
+// ── Resizable sidebar ──────────────────────────────────────────────────────
+function desktopSidebarLayoutActive() {
+  return !window.matchMedia || window.matchMedia('(min-width: 1025px)').matches;
+}
+
+function clampSidebarWidth(width) {
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1200;
+  const maxForViewport = Math.max(SIDEBAR_MIN_WIDTH, viewportWidth - SIDEBAR_MIN_CONTENT_WIDTH);
+  const maxWidth = Math.min(SIDEBAR_MAX_WIDTH, maxForViewport);
+  return Math.min(Math.max(Math.round(width || SIDEBAR_DEFAULT_WIDTH), SIDEBAR_MIN_WIDTH), maxWidth);
+}
+
+function applySidebarWidth() {
+  sidebarWidth = clampSidebarWidth(sidebarWidth);
+  document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
+
+  const resizer = document.getElementById('sidebar-resizer');
+  if (resizer) {
+    resizer.setAttribute('aria-valuemin', String(SIDEBAR_MIN_WIDTH));
+    resizer.setAttribute('aria-valuemax', String(clampSidebarWidth(SIDEBAR_MAX_WIDTH)));
+    resizer.setAttribute('aria-valuenow', String(sidebarWidth));
+    resizer.title = `Drag to resize menu (${sidebarWidth}px)`;
+  }
+}
+
+function setSidebarWidth(width, persist=true) {
+  sidebarWidth = clampSidebarWidth(width);
+  applySidebarWidth();
+  if (persist) localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+}
+
+function applySavedSidebarWidth() {
+  const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+  sidebarWidth = Number.isFinite(saved) && saved > 0 ? saved : SIDEBAR_DEFAULT_WIDTH;
+  applySidebarWidth();
+}
+
+function setupSidebarResizer() {
+  const resizer = document.getElementById('sidebar-resizer');
+  if (!resizer) return;
+
+  let resizing = false;
+  let startX = 0;
+  let startWidth = sidebarWidth;
+
+  const stopResize = () => {
+    if (!resizing) return;
+    resizing = false;
+    document.removeEventListener('pointermove', moveResize);
+    document.removeEventListener('pointerup', stopResize);
+    document.removeEventListener('pointercancel', stopResize);
+    const main = document.querySelector('.main');
+    if (main) main.classList.remove('sidebar-resizing');
+    document.body.classList.remove('sidebar-resize-active');
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+  };
+
+  const moveResize = (event) => {
+    if (!resizing) return;
+    event.preventDefault();
+    setSidebarWidth(startWidth + (event.clientX - startX), false);
+  };
+
+  resizer.addEventListener('pointerdown', (event) => {
+    if (!sidebarVisible || !desktopSidebarLayoutActive()) return;
+    event.preventDefault();
+    resizing = true;
+    startX = event.clientX;
+    startWidth = sidebarWidth;
+    const main = document.querySelector('.main');
+    if (main) main.classList.add('sidebar-resizing');
+    document.body.classList.add('sidebar-resize-active');
+    document.addEventListener('pointermove', moveResize);
+    document.addEventListener('pointerup', stopResize);
+    document.addEventListener('pointercancel', stopResize);
+  });
+
+  resizer.addEventListener('keydown', (event) => {
+    if (!sidebarVisible || !desktopSidebarLayoutActive()) return;
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setSidebarWidth(sidebarWidth - 16);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setSidebarWidth(sidebarWidth + 16);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setSidebarWidth(SIDEBAR_MIN_WIDTH);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setSidebarWidth(SIDEBAR_MAX_WIDTH);
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setSidebarWidth(SIDEBAR_DEFAULT_WIDTH);
+    }
+  });
+
+  window.addEventListener('resize', applySidebarWidth);
+}
+
 // ── Sidebar toggle ─────────────────────────────────────────────────────────
 function applySidebarToggleState() {
   const main = document.querySelector('.main');
@@ -5608,6 +5787,14 @@ function applySidebarToggleState() {
     btn.setAttribute('aria-label', btn.title);
   }
   if (label) label.textContent = sidebarVisible ? 'Menu On' : 'Menu';
+
+  const resizer = document.getElementById('sidebar-resizer');
+  if (resizer) {
+    resizer.setAttribute('aria-hidden', sidebarVisible ? 'false' : 'true');
+    resizer.setAttribute('aria-disabled', sidebarVisible ? 'false' : 'true');
+    resizer.tabIndex = sidebarVisible ? 0 : -1;
+  }
+
   updateSearchFilterIndicators();
 }
 
@@ -5660,6 +5847,8 @@ function toggleCardMode(id) {
 // ── Boot ──────────────────────────────────────────────────────────────────
 async function boot() {
   setupNativeSelectRenderGuard();
+  applySavedSidebarWidth();
+  setupSidebarResizer();
   applyInitialMobileLayout();
   await loadAccountViews();
   applySavedAccountView();
