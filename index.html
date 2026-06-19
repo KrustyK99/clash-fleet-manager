@@ -28,6 +28,8 @@
   --red-bg:rgba(255,92,92,0.08);
   --radius:8px;
   --radius-lg:12px;
+  --sidebar-width:280px;
+  --sidebar-resizer-width:6px;
 }
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
 h1,h2,h3{font-weight:500}
@@ -41,8 +43,34 @@ h1,h2,h3{font-weight:500}
 .sync-status.saving{color:var(--amber);border-color:rgba(245,166,35,0.35)}
 .sync-status.error{color:var(--red);border-color:rgba(255,92,92,0.35)}
 .topbar-spacer{flex:1}
-.main{display:grid;grid-template-columns:280px minmax(0,1fr);overflow:hidden}
+.main{display:grid;grid-template-columns:var(--sidebar-width,280px) var(--sidebar-resizer-width,6px) minmax(0,1fr);overflow:hidden}
 .sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-x:hidden;overflow-y:auto;min-height:0}
+.sidebar-resizer{
+  position:relative;
+  width:var(--sidebar-resizer-width,6px);
+  min-width:var(--sidebar-resizer-width,6px);
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  cursor:col-resize;
+  touch-action:none;
+  user-select:none;
+}
+.sidebar-resizer::before{
+  content:'';
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:2px;
+  height:42px;
+  transform:translate(-50%,-50%);
+  border-left:1px solid var(--border2);
+  border-right:1px solid var(--border2);
+  opacity:0.55;
+  transition:border-color 0.15s,opacity 0.15s;
+}
+.sidebar-resizer:hover::before,
+.sidebar-resizer:focus::before{border-color:var(--accent);opacity:1}
+.sidebar-resizer:focus{outline:none;background:var(--accent-glow)}
 .sidebar-section{padding:16px;border-bottom:1px solid var(--border)}
 .sidebar-section label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);display:block;margin-bottom:6px}
 .content{display:flex;flex-direction:column;overflow:hidden;min-width:0}
@@ -299,6 +327,144 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 @media (max-width: 820px){.modal-wide{width:95vw}.bulk-timer-header{display:none}.bulk-timer-row{grid-template-columns:1fr 1fr}.bulk-timer-row .bulk-remove-btn{grid-column:1/-1;width:100%}}
 
 
+/* Fleet summary modal */
+.modal.fleet-summary-modal{width:1040px;max-height:90vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.fleet-summary-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.fleet-summary-title-wrap{min-width:0}
+.fleet-summary-title{display:flex;align-items:center;gap:8px;font-size:17px;margin:0 0 4px 0;color:var(--text)}
+.fleet-summary-subtitle{font-size:12px;color:var(--text3);line-height:1.35}
+.fleet-summary-refresh{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);white-space:nowrap;border:1px solid var(--border);border-radius:999px;padding:4px 8px;background:var(--surface2)}
+.fleet-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.fleet-kpi-card{border:1px solid var(--border);background:linear-gradient(135deg,var(--surface2) 0%,rgba(255,255,255,0.018) 100%);border-radius:var(--radius-lg);padding:10px 11px;min-width:0}
+.fleet-kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-kpi-value{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;line-height:1.1;color:var(--text)}
+.fleet-kpi-note{font-size:11px;color:var(--text3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-kpi-card.good .fleet-kpi-value{color:var(--green)}
+.fleet-kpi-card.warn .fleet-kpi-value{color:var(--amber)}
+.fleet-kpi-card.danger .fleet-kpi-value{color:var(--red)}
+.fleet-summary-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.35fr);gap:12px;align-items:start}
+.fleet-panel{border:1px solid var(--border);background:rgba(255,255,255,0.018);border-radius:var(--radius-lg);padding:12px;min-width:0}
+.fleet-panel + .fleet-panel{margin-top:12px}
+.fleet-panel-title{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);line-height:1.35}
+.fleet-panel-title strong{font-size:12px;color:var(--text2);font-weight:600;text-transform:none;letter-spacing:0;line-height:1.35;text-align:right}
+.fleet-attention-list{display:flex;flex-direction:column;gap:7px}
+.fleet-attention-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid rgba(255,255,255,0.055);border-radius:var(--radius);padding:8px 9px;background:rgba(255,255,255,0.015)}
+.fleet-attention-item.good{border-color:rgba(61,214,140,0.22);background:var(--green-bg)}
+.fleet-attention-item.warn{border-color:rgba(245,166,35,0.22);background:var(--amber-bg)}
+.fleet-attention-item.danger{border-color:rgba(255,92,92,0.24);background:var(--red-bg)}
+.fleet-attention-icon{width:20px;text-align:center;font-size:14px;line-height:1}
+.fleet-attention-main{min-width:0}
+.fleet-attention-label{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-attention-detail{font-size:11px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-attention-count{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--text2);white-space:nowrap}
+.fleet-bar-list{display:flex;flex-direction:column;gap:7px}
+.fleet-bar-row{display:grid;grid-template-columns:minmax(88px,0.85fr) minmax(0,1.8fr) auto;gap:8px;align-items:center;min-width:0}
+.fleet-bar-label{font-size:12px;color:var(--text);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-bar-track{height:10px;background:var(--surface3);border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,0.04)}
+.fleet-bar-fill{display:block;height:100%;width:0;background:var(--accent);border-radius:999px;min-width:0;transition:width 0.2s ease}
+.fleet-bar-fill.warn{background:var(--amber)}
+.fleet-bar-fill.danger{background:var(--red)}
+.fleet-bar-fill.good{background:var(--green)}
+.fleet-bar-fill.muted{background:var(--text3)}
+.fleet-bar-value{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2);white-space:nowrap}
+.fleet-due-grid{display:flex;flex-direction:column;gap:8px}
+.fleet-matrix{display:flex;flex-direction:column;gap:0;max-height:360px;overflow:auto;padding-right:4px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.fleet-matrix-header,.fleet-matrix-row{display:grid;grid-template-columns:minmax(118px,1.4fr) 72px 62px 58px 58px 72px;gap:6px;align-items:center}
+.fleet-matrix-header{position:sticky;top:0;z-index:1;background:var(--surface);padding:0 0 7px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3)}
+.fleet-matrix-row{padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.035);font-size:12px;color:var(--text2);min-height:34px}
+.fleet-matrix-row:last-child{border-bottom:none}
+.fleet-matrix-account{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);font-weight:500;line-height:1.25}
+.fleet-pill{display:inline-flex;align-items:center;justify-content:center;min-width:0;border:1px solid var(--border);border-radius:999px;padding:3px 7px;font-family:'JetBrains Mono',monospace;font-size:10px;line-height:1.15;color:var(--text2);background:var(--surface2);white-space:nowrap}
+.fleet-pill.good{color:var(--green);background:var(--green-bg);border-color:rgba(61,214,140,0.28)}
+.fleet-pill.warn{color:var(--amber);background:var(--amber-bg);border-color:rgba(245,166,35,0.28)}
+.fleet-pill.danger{color:var(--red);background:var(--red-bg);border-color:rgba(255,92,92,0.28)}
+.fleet-pill.muted{color:var(--text3);background:transparent;border-color:var(--border)}
+.fleet-next-list{display:flex;flex-direction:column;gap:5px;max-height:360px;overflow:auto;padding-right:4px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.fleet-next-row{display:grid;grid-template-columns:minmax(86px,0.8fr) minmax(0,1.5fr) auto;gap:8px;align-items:center;border:1px solid rgba(255,255,255,0.045);border-radius:var(--radius);padding:7px 8px;background:rgba(255,255,255,0.012);cursor:pointer}
+.fleet-next-row:hover{border-color:rgba(108,108,255,0.38);background:var(--accent-glow)}
+.fleet-next-account{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-next-name{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-next-time{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);white-space:nowrap}
+.fleet-next-time.ready{color:var(--red)}
+.fleet-next-time.soon{color:var(--amber)}
+.fleet-empty{font-size:12px;color:var(--text3);border:1px dashed var(--border);border-radius:var(--radius);padding:10px;text-align:center}
+.fleet-floating-actions{
+  position:fixed;
+  right:max(18px,calc((100vw - min(1040px,95vw)) / 2 + 18px));
+  bottom:calc(5vh + 18px);
+  z-index:185;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  align-items:flex-end;
+  pointer-events:none;
+}
+.fleet-floating-btn{
+  width:44px;
+  height:44px;
+  border-radius:999px;
+  border:1px solid var(--border2);
+  background:rgba(24,24,31,0.94);
+  color:var(--text);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  backdrop-filter:blur(4px);
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(8px);
+  transition:opacity 0.15s ease,transform 0.15s ease,background 0.15s ease,border-color 0.15s ease,color 0.15s ease;
+}
+.fleet-floating-btn.visible,
+.fleet-floating-btn.always-visible{opacity:1;pointer-events:auto;transform:translateY(0)}
+.fleet-floating-btn:hover{background:var(--surface3);border-color:var(--accent);color:var(--accent)}
+.fleet-floating-btn:active{transform:translateY(0) scale(0.96)}
+.fleet-floating-btn:disabled{opacity:0.55;cursor:not-allowed;transform:translateY(0)}
+.fleet-floating-btn:disabled:hover{background:rgba(24,24,31,0.94);border-color:var(--border2);color:var(--text)}
+@media (max-width: 980px){
+  .modal.fleet-summary-modal{width:95vw}
+  .fleet-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .fleet-summary-grid{grid-template-columns:1fr}
+  .fleet-matrix-header,.fleet-matrix-row{grid-template-columns:minmax(110px,1.4fr) 66px 54px 48px 48px 64px}
+}
+@media (max-width: 700px){
+  .fleet-summary-bg{align-items:flex-start;padding:6px 0;overflow:hidden}
+  .modal.fleet-summary-modal{width:calc(100vw - 12px);max-width:calc(100vw - 12px);max-height:calc(100dvh - 12px);padding:10px;overflow-y:auto}
+  .fleet-summary-head{flex-direction:column;align-items:stretch;gap:8px;margin-bottom:12px}
+  .fleet-summary-title{font-size:16px;margin-bottom:3px}
+  .fleet-summary-refresh{align-self:flex-start}
+  .fleet-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .fleet-kpi-card{padding:9px}
+  .fleet-kpi-value{font-size:18px}
+  .fleet-summary-grid{gap:10px}
+  .fleet-panel{padding:8px}
+  .fleet-panel + .fleet-panel{margin-top:10px}
+  .fleet-panel-title{flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:8px}
+  .fleet-panel-title strong{text-align:left}
+  .fleet-attention-detail{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .fleet-bar-row{grid-template-columns:minmax(78px,0.85fr) minmax(72px,1fr) auto;gap:7px}
+  .fleet-matrix{width:100%;max-width:100%;max-height:none;overflow-x:hidden;overflow-y:visible;padding-right:0;padding-bottom:2px;overscroll-behavior:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+  .fleet-next-list{max-height:none;overflow:visible;padding-right:0;overscroll-behavior:auto}
+  .fleet-matrix-header{display:grid;position:sticky;top:0;z-index:3;background:linear-gradient(180deg,var(--surface) 0%,rgba(24,24,31,0.98) 100%);padding:0 0 7px 0}
+  .fleet-matrix-header,.fleet-matrix-row{grid-template-columns:minmax(82px,1.5fr) minmax(42px,0.78fr) minmax(36px,0.66fr) minmax(40px,0.72fr) minmax(40px,0.72fr) minmax(46px,0.82fr);gap:3px;min-width:0;width:100%}
+  .fleet-matrix-row{align-items:center;padding:8px 0;min-height:32px;overflow:visible}
+  .fleet-matrix-header > span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fleet-matrix-header > span:not(:first-child){text-align:center}
+  .fleet-matrix-header > span:first-child,
+  .fleet-matrix-account{position:static;background:transparent;padding-right:4px}
+  .fleet-matrix-account{z-index:auto;font-size:12px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fleet-pill{justify-content:center;justify-self:stretch;font-size:9px;line-height:1.1;padding:4px 3px;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .fleet-floating-actions{right:14px;bottom:18px;gap:8px}
+  .fleet-floating-btn{width:42px;height:42px}
+  .fleet-next-row{grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:8px}
+  .fleet-next-account{grid-column:1/2;font-weight:600}
+  .fleet-next-name{grid-column:1/-1;grid-row:2;white-space:normal;line-height:1.25}
+  .fleet-next-time{grid-column:2;grid-row:1;align-self:start}
+}
+
+
 /* Paste list import */
 .bulk-paste-panel{
   border:1px dashed var(--border2);
@@ -496,6 +662,23 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
   font-size:10px;
   line-height:1;
 }
+.account-summary-builder-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  border:1px solid rgba(108,108,255,0.35);
+  background:var(--accent-glow);
+  color:var(--accent);
+  border-radius:999px;
+  padding:2px 6px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  font-weight:700;
+  line-height:1;
+  white-space:nowrap;
+  flex:0 0 auto;
+}
+.account-summary-builder-icon{font-size:10px;line-height:1;color:var(--text2)}
 .account-summary-detail{
   margin:0 0 6px 0;
   padding:5px 0 8px 15px;
@@ -649,8 +832,13 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 
 /* Sidebar collapse */
 .main{transition:grid-template-columns 0.22s ease}
-.main.sidebar-hidden{grid-template-columns:0px 1fr}
+.main.sidebar-resizing{transition:none;user-select:none}
+.main.sidebar-resizing .sidebar,
+.main.sidebar-resizing .content{pointer-events:none}
+body.sidebar-resize-active{cursor:col-resize;user-select:none}
+.main.sidebar-hidden{grid-template-columns:0px 0px minmax(0,1fr)}
 .main.sidebar-hidden .sidebar{overflow:hidden;border-right:none}
+.main.sidebar-hidden .sidebar-resizer{display:none}
 .sidebar-toggle,.focus-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:12px;line-height:1;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap}
 .sidebar-toggle:hover,.focus-toggle-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
 .sidebar-toggle.active,.focus-toggle-btn.active{background:var(--surface2);color:var(--accent);border-color:var(--accent)}
@@ -665,6 +853,7 @@ body.focus-mode .app{grid-template-rows:1fr}
 body.focus-mode .topbar{display:none}
 body.focus-mode .main{grid-template-columns:1fr}
 body.focus-mode .sidebar{display:none}
+body.focus-mode .sidebar-resizer{display:none}
 body.focus-mode .content{height:100vh}
 body.focus-mode .group-list,
 body.focus-mode .stats-bar,
@@ -822,6 +1011,39 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 .group-pill.account-pill{display:inline-flex;align-items:center;gap:4px}
 .group-pill-pin-count{display:inline-flex;align-items:center;color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;line-height:1}
 .group-pill.active .group-pill-pin-count{color:var(--amber)}
+.account-pill-builder-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  border-style:dashed;
+}
+.account-pill-builder-toggle.active{
+  border-color:rgba(108,108,255,0.55);
+  background:var(--accent-glow);
+  color:var(--accent);
+}
+.account-pill-builder-count{
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  color:var(--text2);
+  border-radius:999px;
+  padding:1px 5px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  font-weight:700;
+  line-height:1;
+  white-space:nowrap;
+}
+.account-pill-builder-count.all-busy{border-color:rgba(61,214,140,0.35);background:var(--green-bg);color:var(--green)}
+.account-pill-builder-count.has-idle{border-color:rgba(245,166,35,0.42);background:var(--amber-bg);color:var(--amber)}
+.account-pill-builder-count.unknown{border-color:var(--border2);background:var(--surface2);color:var(--text2)}
+.account-pill-builder-home-icon{font-size:10px;line-height:1;color:var(--text2)}
+.account-pill-builder-count.all-busy .account-pill-builder-home-icon{color:var(--green)}
+.account-pill-builder-count.has-idle .account-pill-builder-home-icon{color:var(--amber)}
+.account-pill-builder-count-separator{color:var(--text3);font-weight:500}
 .group-pill.freshness-fresh:hover{border-color:var(--green);color:var(--green);background:var(--green-bg)}
 .group-pill.freshness-aging:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-bg)}
 .group-pill.freshness-stale:hover{border-color:var(--red);color:var(--red);background:var(--red-bg)}
@@ -952,6 +1174,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .main{display:block;overflow:visible}
   .main.sidebar-hidden .sidebar{display:none}
   .sidebar{width:100%;max-height:none;border-right:0;border-bottom:1px solid var(--border);overflow:visible}
+  .sidebar-resizer{display:none}
   .content{width:100%;overflow:visible;min-width:0}
 
   .account-summary-section{flex:0 0 auto;overflow:visible}
@@ -988,6 +1211,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .main{display:block;overflow:visible}
   .main.sidebar-hidden .sidebar{display:none}
   .sidebar{width:100%;max-height:none;border-right:0;border-bottom:1px solid var(--border);overflow:visible}
+  .sidebar-resizer{display:none}
   .content{width:100%;overflow:visible;min-width:0}
 
   .group-list,.stats-bar,.toolbar{padding-left:12px !important;padding-right:12px !important;flex-wrap:wrap}
@@ -1032,6 +1256,8 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .account-summary-cell{font-size:13px}
   .account-gap-pill,.account-gap-account{font-size:12px}
   .account-summary-gap-badge{width:20px;height:20px;font-size:11px}
+  .account-summary-builder-badge{font-size:11px;padding:3px 7px}
+  .account-pill-builder-toggle,.account-pill-builder-count{font-size:11px}
   .account-summary-detail-row{font-size:13px}
   .account-summary-detail-time{font-size:12px}
 
@@ -1076,6 +1302,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
     <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle-btn" title="Hide filters and summary" aria-label="Hide filters and summary" aria-pressed="true"><span class="view-toggle-icon" aria-hidden="true">☰</span><span class="view-toggle-label" id="sidebar-toggle-label">Menu On</span><span class="sidebar-search-indicator" id="sidebar-search-indicator" aria-hidden="true">🔎</span></button>
     <button class="focus-toggle-btn" onclick="toggleFocusMode()" id="focus-toggle-btn" title="Show timers only" aria-label="Show timers only" aria-pressed="false"><span class="view-toggle-icon" aria-hidden="true">◱</span><span class="view-toggle-label" id="focus-toggle-label">Focus</span></button>
     <button class="focus-toggle-btn" onclick="toggleCompactMode()" id="compact-toggle-btn" title="Use compact timer cards" aria-label="Use compact timer cards" aria-pressed="false"><span class="view-toggle-icon" aria-hidden="true">▤</span><span class="view-toggle-label" id="compact-toggle-label">Compact</span></button>
+    <button class="focus-toggle-btn" onclick="openFleetSummaryModal()" id="fleet-summary-btn" title="Open fleet summary" aria-label="Open fleet summary"><span class="view-toggle-icon" aria-hidden="true">▦</span><span class="view-toggle-label">Fleet</span></button>
     <span class="topbar-title">CLASH TIMERS</span>
     <span class="topbar-spacer"></span>
     <span class="sync-status" id="sync-status">Loading…</span>
@@ -1206,6 +1433,8 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
         </div>
       </div>
     </div>
+
+    <div class="sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="Resize menu" tabindex="0" title="Drag to resize menu"></div>
 
     <!-- Main content -->
     <div class="content">
@@ -1468,6 +1697,31 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   </div>
 </div>
 
+<!-- Fleet Summary Modal -->
+<div class="modal-bg fleet-summary-bg" id="fleet-summary-modal" style="display:none" onclick="if(event.target===this)closeFleetSummaryModal()">
+  <div class="modal modal-wide fleet-summary-modal">
+    <div id="fleet-summary-content"></div>
+    <div class="fleet-floating-actions" aria-label="Fleet summary quick actions">
+      <button class="fleet-floating-btn always-visible" onclick="reloadFleetSummary()" id="fleet-reload-btn" title="Reload timers from the NAS file" aria-label="Reload timers from the NAS file">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10"></path>
+          <path d="M20.49 15a9 9 0 01-14.85 3.36L1 14"></path>
+        </svg>
+      </button>
+      <button class="fleet-floating-btn" onclick="scrollFleetSummaryToTop()" id="fleet-scroll-top-btn" title="Scroll fleet summary to top" aria-label="Scroll fleet summary to top">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" type="button" onclick="closeFleetSummaryModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast container -->
 <div class="toast-container" id="toasts"></div>
 
@@ -1493,8 +1747,10 @@ let expandedGapType = null;
 let editingId = null;
 let tickInterval = null;
 let sidebarVisible = true;
+let sidebarWidth = 280;
 let focusMode = false;
 let compactMode = false;
+let showAccountPillBuilderCounts = false;
 let cardModes = {}; // id -> 'elapsed' | 'endtime'
 let adjustingTimerId = null;
 let expandedActionsTimerId = null;
@@ -1518,7 +1774,13 @@ const API_URL = 'api.php';
 const EMERGENCY_BACKUP_KEY = STORAGE_KEY + '_emergency_backup';
 const FOCUS_MODE_KEY = STORAGE_KEY + '_focus_mode';
 const COMPACT_MODE_KEY = STORAGE_KEY + '_compact_mode';
+const ACCOUNT_PILL_BUILDERS_KEY = STORAGE_KEY + '_account_pill_builders';
 const ACCOUNT_VIEW_KEY = STORAGE_KEY + '_account_view';
+const SIDEBAR_WIDTH_KEY = STORAGE_KEY + '_sidebar_width';
+const SIDEBAR_DEFAULT_WIDTH = 280;
+const SIDEBAR_MIN_WIDTH = 230;
+const SIDEBAR_MAX_WIDTH = 520;
+const SIDEBAR_MIN_CONTENT_WIDTH = 440;
 
 const UPGRADE_TYPES = [
   '',
@@ -1559,6 +1821,8 @@ const COC_DATA_ID_MAP = {
   '1000031': { name: 'Eagle Artillery', type: 'Builder', village: 'Home' },
   '1000067': { name: 'Scattershot', type: 'Builder', village: 'Home' },
   '1000015': { name: 'Builder\'s Hut', type: 'Builder', village: 'Home' },
+  '1000034': { name: 'Builder Hall', type: 'Builder Base', village: 'Builder Base' },
+  '1000081': { name: 'B.O.B Control', type: 'Builder Base', village: 'Builder Base' },
   '1000072': { name: 'Spell Tower', type: 'Builder', village: 'Home' },
   '1000077': { name: 'Monolith', type: 'Builder', village: 'Home' },
   '1000089': { name: 'Firespitter', type: 'Builder', village: 'Home' },
@@ -1665,7 +1929,8 @@ const COC_DATA_ID_MAP = {
   '26000098': { name: 'Revive Spell', type: 'Lab', village: 'Home' },
   '26000109': { name: 'Ice Block Spell', type: 'Lab', village: 'Home' },
   '93000001': { name: 'Helper Cooldown', type: 'Capital / Other', village: 'Home' },
-  '28000007': { name: 'Dragon Duke', type: 'Hero', village: 'Home' }
+  '28000007': { name: 'Dragon Duke', type: 'Hero', village: 'Home' },
+  '1000102': { name: 'Super Wizard Towr', type: 'Builder', village: 'Home' }
 };
 
 function upgradeTypeOptionsHtml(selected='') {
@@ -1723,6 +1988,13 @@ const DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS = {
   agingHours: 72
 };
 
+const HOME_BUILDER_HUT_DATA_ID = '1000015';
+// Home Village markers observed on accounts with B.O.B / the sixth home builder.
+// Some exports include 1000064, some include 1000093, and some include both.
+const HOME_BOB_HUT_DATA_IDS = ['1000064', '1000093'];
+const BUILDER_HALL_DATA_ID = '1000034';
+const BOB_CONTROL_DATA_ID = '1000081';
+
 const BULK_TARGET_ALL_ACCOUNTS = '__bulk_all_accounts__';
 const BULK_TARGET_CURRENT_VIEW = '__bulk_current_view__';
 
@@ -1759,6 +2031,24 @@ function normalizeSnapshotFreshnessSettings(raw) {
   return { freshHours, agingHours };
 }
 
+function normalizeOptionalNonNegativeInt(value) {
+  if (!Number.isFinite(Number(value))) return null;
+  return Math.max(0, Math.round(Number(value)));
+}
+
+function normalizeBuilderCapacity(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+
+  const homeTotal = normalizeOptionalNonNegativeInt(raw.homeTotal);
+  const builderBaseTotal = normalizeOptionalNonNegativeInt(raw.builderBaseTotal);
+  if (homeTotal === null && builderBaseTotal === null) return null;
+
+  const normalized = {};
+  if (homeTotal !== null) normalized.homeTotal = homeTotal;
+  if (builderBaseTotal !== null) normalized.builderBaseTotal = builderBaseTotal;
+  return normalized;
+}
+
 function normalizeAccountSnapshotMeta(raw) {
   const normalized = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return normalized;
@@ -1771,12 +2061,17 @@ function normalizeAccountSnapshotMeta(raw) {
     const loadedMs = Date.parse(loadedAt);
     if (!Number.isFinite(loadedMs)) return;
 
-    normalized[name] = {
+    const entry = {
       lastLoadedAt: new Date(loadedMs).toISOString(),
       tag: String(meta.tag || '').trim(),
       candidateCount: Number.isFinite(Number(meta.candidateCount)) ? Math.max(0, Math.round(Number(meta.candidateCount))) : 0,
       selectedCount: Number.isFinite(Number(meta.selectedCount)) ? Math.max(0, Math.round(Number(meta.selectedCount))) : 0
     };
+
+    const builderCapacity = normalizeBuilderCapacity(meta.builderCapacity);
+    if (builderCapacity) entry.builderCapacity = builderCapacity;
+
+    normalized[name] = entry;
   });
 
   return normalized;
@@ -1847,6 +2142,137 @@ function updateAccountSnapshotMeta(account, details={}) {
       lastLoadedAt: details.lastLoadedAt || new Date().toISOString()
     }
   });
+}
+
+function getAccountBuilderCapacity(account) {
+  const name = String(account || '').trim();
+  const meta = name ? accountSnapshotMeta[name] : null;
+  return normalizeBuilderCapacity(meta && meta.builderCapacity) || {};
+}
+
+function snapshotItemCount(snapshot, bucket, dataId) {
+  const rows = snapshot && Array.isArray(snapshot[bucket]) ? snapshot[bucket] : [];
+  const target = String(dataId);
+
+  return rows.reduce((total, item) => {
+    if (!item || typeof item !== 'object' || String(item.data ?? item.id ?? item.data_id ?? '') !== target) return total;
+    const count = Number(item.cnt);
+    return total + (Number.isFinite(count) && count > 0 ? Math.round(count) : 1);
+  }, 0);
+}
+
+function snapshotMaxItemLevel(snapshot, bucket, dataId) {
+  const rows = snapshot && Array.isArray(snapshot[bucket]) ? snapshot[bucket] : [];
+  const target = String(dataId);
+  let maxLevel = null;
+
+  rows.forEach(item => {
+    if (!item || typeof item !== 'object' || String(item.data ?? item.id ?? item.data_id ?? '') !== target) return;
+    const level = Number(item.lvl);
+    if (!Number.isFinite(level)) return;
+    maxLevel = maxLevel === null ? level : Math.max(maxLevel, level);
+  });
+
+  return maxLevel;
+}
+
+function snapshotHasAnyDataId(snapshot, dataIds) {
+  if (!snapshot || typeof snapshot !== 'object') return false;
+
+  const targets = new Set((Array.isArray(dataIds) ? dataIds : [dataIds]).map(value => String(value)));
+  let found = false;
+
+  function visit(node) {
+    if (found || !node || typeof node !== 'object') return;
+
+    if (!Array.isArray(node)) {
+      const id = String(node.data ?? node.id ?? node.data_id ?? '');
+      if (targets.has(id)) {
+        found = true;
+        return;
+      }
+    }
+
+    Object.values(node).forEach(visit);
+  }
+
+  visit(snapshot);
+  return found;
+}
+
+function deriveBuilderCapacityFromSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+
+  const homeBuilderHuts = snapshotItemCount(snapshot, 'buildings', HOME_BUILDER_HUT_DATA_ID);
+  const hasHomeBobMarker = HOME_BOB_HUT_DATA_IDS.some(dataId => snapshotItemCount(snapshot, 'buildings', dataId) > 0)
+    || snapshotHasAnyDataId(snapshot, HOME_BOB_HUT_DATA_IDS);
+  const bobControlLevel = snapshotMaxItemLevel(snapshot, 'buildings2', BOB_CONTROL_DATA_ID);
+  const builderHallLevel = snapshotMaxItemLevel(snapshot, 'buildings2', BUILDER_HALL_DATA_ID);
+  const hasBuilderBase = Array.isArray(snapshot.buildings2) && snapshot.buildings2.length > 0;
+
+  const hasSixthHomeBuilder = hasHomeBobMarker || (Number.isFinite(bobControlLevel) && bobControlLevel >= 5);
+  let homeTotal = null;
+
+  if (homeBuilderHuts > 0) {
+    // B.O.B / the sixth builder is represented as a separate marker in the export,
+    // not as another Builder's Hut row. Guard with Math.max so accounts that already
+    // report six huts are not accidentally inflated to seven, while accounts such as
+    // bruh with 5 huts + B.O.B markers correctly save as 6.
+    homeTotal = hasSixthHomeBuilder
+      ? Math.max(6, homeBuilderHuts >= 6 ? homeBuilderHuts : homeBuilderHuts + 1)
+      : homeBuilderHuts;
+  } else if (hasSixthHomeBuilder) {
+    // Defensive fallback for future export shapes where the hut count is omitted but
+    // a completed B.O.B marker is still present.
+    homeTotal = 6;
+  }
+
+  const builderBaseTotal = hasBuilderBase
+    ? 1 + (Number.isFinite(builderHallLevel) && builderHallLevel >= 6 ? 1 : 0)
+    : null;
+
+  return normalizeBuilderCapacity({ homeTotal, builderBaseTotal });
+}
+
+
+function snapshotBuilderCapacityStatusText(snapshot) {
+  const capacity = deriveBuilderCapacityFromSnapshot(snapshot);
+  if (!capacity) return '';
+
+  const parts = [];
+  const homeTotal = normalizeOptionalNonNegativeInt(capacity.homeTotal);
+  const builderBaseTotal = normalizeOptionalNonNegativeInt(capacity.builderBaseTotal);
+  if (homeTotal !== null) parts.push(`${homeTotal} home builder${homeTotal === 1 ? '' : 's'}`);
+  if (builderBaseTotal !== null) parts.push(`${builderBaseTotal} Builder Base builder${builderBaseTotal === 1 ? '' : 's'}`);
+
+  return parts.length ? ` Detected capacity: ${parts.join(', ')}.` : '';
+}
+
+function updateSnapshotMetaFromParsedSnapshot(candidateCount, selectedCount=null, timestampMs=Date.now()) {
+  const accountEl = document.getElementById('snapshot-account');
+  const account = accountEl ? accountEl.value.trim() : '';
+  if (!account || !snapshotLastSnapshot || typeof snapshotLastSnapshot !== 'object') return null;
+
+  const details = {
+    lastLoadedAt: new Date(timestampMs).toISOString(),
+    tag: snapshotLastSnapshot.tag ? snapshotLastSnapshot.tag : '',
+    candidateCount: Number.isFinite(Number(candidateCount)) ? Math.max(0, Math.round(Number(candidateCount))) : 0
+  };
+
+  if (selectedCount !== null && Number.isFinite(Number(selectedCount))) {
+    details.selectedCount = Math.max(0, Math.round(Number(selectedCount)));
+  }
+
+  const builderCapacity = deriveBuilderCapacityFromSnapshot(snapshotLastSnapshot);
+  if (builderCapacity) details.builderCapacity = builderCapacity;
+
+  updateAccountSnapshotMeta(account, details);
+  return { account, builderCapacity };
+}
+
+function refreshSnapshotMetadataDependentUi() {
+  renderTimers();
+  if (fleetSummaryModalIsOpen()) renderFleetSummaryModal();
 }
 
 function compactUpgradeTypeLabel(type) {
@@ -2237,6 +2663,13 @@ function getScrollTopTarget() {
 function updateScrollTopButton() {
   const btn = document.getElementById('scroll-top-btn');
   if (!btn) return;
+
+  // The fleet summary owns its own floating top button while it is open.
+  // Keep the page-level button behind the modal so the controls do not overlap.
+  if (fleetSummaryModalIsOpen()) {
+    btn.classList.remove('visible');
+    return;
+  }
 
   const target = getScrollTopTarget();
   const shouldShow = !!target && target.scrollHeight > target.clientHeight + 1 && target.scrollTop > 80;
@@ -2715,10 +3148,12 @@ function restoreViewState(state) {
 }
 
 function setReloadButtonBusy(isBusy) {
-  const btn = document.getElementById('reload-timers-btn');
-  if (!btn) return;
-  btn.disabled = !!isBusy;
-  btn.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+  ['reload-timers-btn', 'fleet-reload-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = !!isBusy;
+    btn.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+  });
 }
 
 async function reloadTimerFile() {
@@ -3539,8 +3974,21 @@ function renderGroupBar() {
   if (!groups.some(g => g !== 'All') && filterGroup === 'All') {
     bar.style.display = 'none';
   } else {
+    const summaryByAccount = new Map(buildAccountSummaryRows());
+    const builderToggleLabel = showAccountPillBuilderCounts ? 'Builders On' : 'Builders Off';
+    const builderToggleTitle = showAccountPillBuilderCounts
+      ? 'Hide builder counts in account filter pills'
+      : 'Show builder counts in account filter pills';
+    const builderToggle = `
+      <button class="group-pill account-pill-builder-toggle${showAccountPillBuilderCounts ? ' active' : ''}"
+              type="button"
+              title="${esc(builderToggleTitle)}"
+              aria-label="${esc(builderToggleTitle)}"
+              aria-pressed="${showAccountPillBuilderCounts ? 'true' : 'false'}"
+              onclick="toggleAccountPillBuilderCounts()">🏠 ${esc(builderToggleLabel)}</button>`;
+
     bar.style.display = 'flex';
-    bar.innerHTML = [`<span class="filter-bar-label">Account</span>`].concat(groups.map(g => {
+    bar.innerHTML = [`<span class="filter-bar-label">Account</span>`, builderToggle].concat(groups.map(g => {
       const isAll = g === 'All';
       const freshness = isAll ? null : getSnapshotFreshness(g);
       const freshnessClass = freshness ? ` freshness-${freshness.cls}` : '';
@@ -3550,12 +3998,16 @@ function renderGroupBar() {
       const pinnedBadge = pinnedCount
         ? `<span class="group-pill-pin-count" aria-label="${esc(pinnedLabel)}">★${pinnedCount}</span>`
         : '';
+      const builderBadge = (!isAll && showAccountPillBuilderCounts)
+        ? accountPillBuilderBadgeHtml(g, summaryByAccount.get(g) || createAccountSummaryRow())
+        : '';
       const titleParts = [];
       if (freshness) titleParts.push(freshness.title);
+      if (builderBadge) titleParts.push(accountSummaryBuilderTitle(g, summaryByAccount.get(g) || createAccountSummaryRow()));
       if (pinnedCount) titleParts.push(pinnedLabel);
       const title = titleParts.length ? titleParts.join(' · ') : 'Show all accounts';
       const groupArg = esc(JSON.stringify(g));
-      return `<button class="group-pill account-pill${g===filterGroup?' active':''}${freshnessClass}${pinnedClass}" title="${esc(title)}" onclick="setGroup(${groupArg})"><span>${esc(g)}</span>${pinnedBadge}</button>`;
+      return `<button class="group-pill account-pill${g===filterGroup?' active':''}${freshnessClass}${pinnedClass}" title="${esc(title)}" onclick="setGroup(${groupArg})"><span>${esc(g)}</span>${builderBadge}${pinnedBadge}</button>`;
     })).join('');
   }
 
@@ -3778,6 +4230,76 @@ function isActiveAccountWorkTimer(t) {
   return Number(t.remaining) > 0 && (status === 'running' || status === 'paused');
 }
 
+function getTimerSnapshotBucket(t) {
+  const explicit = String(t && t.snapshotBucket ? t.snapshotBucket : '').trim();
+  if (explicit) return explicit;
+
+  const note = String(t && t.note ? t.note : '');
+  const match = note.match(/^Snapshot(?:\s+[^|]+)?\s+\|\s+([^|]+)\.(?:timer|helper_cooldown)\s+\|/i);
+  return match ? snapshotGetBucket(match[1].trim()) : '';
+}
+
+function getExplicitTimerWorkQueue(t) {
+  const explicit = String(t && t.workQueue ? t.workQueue : '').trim();
+  if (explicit) return explicit;
+
+  const bucket = getTimerSnapshotBucket(t);
+  if (bucket) return snapshotInferWorkQueue(bucket, 'timer');
+
+  return '';
+}
+
+function isGuardianSnapshotBucket(bucket) {
+  const normalized = String(bucket || '').trim().toLowerCase();
+  return normalized === 'guardian' || normalized === 'guardians';
+}
+
+function isGuardianWorkTimer(t) {
+  const snapshotTimerKey = String(t && t.snapshotTimerKey ? t.snapshotTimerKey : '').trim().toLowerCase();
+  const note = String(t && t.note ? t.note : '');
+
+  // Helper cooldowns can also come from snapshot metadata, but they do not consume builders.
+  if (snapshotTimerKey === 'helper_cooldown' || /\.helper_cooldown\s+\|/i.test(note)) return false;
+
+  const explicitBucket = String(t && t.snapshotBucket ? t.snapshotBucket : '').trim();
+  if (isGuardianSnapshotBucket(explicitBucket)) return true;
+
+  const inferredBucket = getTimerSnapshotBucket(t);
+  if (isGuardianSnapshotBucket(inferredBucket)) return true;
+
+  const snapshotPath = String(t && t.snapshotPath ? t.snapshotPath : '').trim().toLowerCase();
+  if (/^guardians?(?:\[|\.|$)/.test(snapshotPath)) return true;
+
+  const type = getUpgradeType(t).toLowerCase();
+  if (type === 'guardian' || type === 'guardians') return true;
+
+  const name = String(t && t.name ? t.name : '').trim().toLowerCase();
+  return /\bguardians?\b/.test(name);
+}
+
+function isHomeBuilderWorkTimer(t) {
+  if (!isActiveAccountWorkTimer(t)) return false;
+
+  // Guardians use home builders. Check this before trusting an older saved workQueue
+  // value so snapshot timers previously classified as `other` are counted correctly.
+  if (isGuardianWorkTimer(t)) return true;
+
+  const workQueue = getExplicitTimerWorkQueue(t);
+  if (workQueue) return workQueue === 'home_builder';
+
+  const type = getUpgradeType(t).toLowerCase();
+  return type === 'builder' || type === 'hero';
+}
+
+function isBuilderBaseBuilderWorkTimer(t) {
+  if (!isActiveAccountWorkTimer(t)) return false;
+
+  const workQueue = getExplicitTimerWorkQueue(t);
+  if (workQueue) return workQueue === 'builder_base_builder';
+
+  return getUpgradeType(t).toLowerCase() === 'builder base';
+}
+
 function timerIsActiveUpgradeType(t, type) {
   return getUpgradeType(t).toLowerCase() === String(type || '').toLowerCase() && isActiveAccountWorkTimer(t);
 }
@@ -3789,6 +4311,8 @@ function createAccountSummaryRow() {
     stopped:0,
     expired:0,
     timers:[],
+    homeBuilderActive:0,
+    builderBaseBuilderActive:0,
     hasActiveLab:false,
     hasActivePet:false
   };
@@ -3813,11 +4337,65 @@ function buildAccountSummaryRows() {
   });
 
   accounts.forEach(row => {
+    row.homeBuilderActive = row.timers.filter(isHomeBuilderWorkTimer).length;
+    row.builderBaseBuilderActive = row.timers.filter(isBuilderBaseBuilderWorkTimer).length;
     row.hasActiveLab = row.timers.some(t => timerIsActiveUpgradeType(t, 'Lab'));
     row.hasActivePet = row.timers.some(t => timerIsActiveUpgradeType(t, 'Pet'));
   });
 
   return Array.from(accounts.entries()).sort((a,b)=>a[0].localeCompare(b[0], undefined, { numeric:true, sensitivity:'base' }));
+}
+
+function accountSummaryBuilderTitle(account, c) {
+  const capacity = getAccountBuilderCapacity(account);
+  const homeTotal = normalizeOptionalNonNegativeInt(capacity.homeTotal);
+  const builderBaseTotal = normalizeOptionalNonNegativeInt(capacity.builderBaseTotal);
+  const homeActive = Number(c.homeBuilderActive) || 0;
+  const builderBaseActive = Number(c.builderBaseBuilderActive) || 0;
+
+  const homeText = homeTotal === null
+    ? `Home builders: ${homeActive} active; total unknown until a snapshot is loaded.`
+    : `Home builders: ${homeActive}/${homeTotal} active, ${Math.max(0, homeTotal - homeActive)} idle.`;
+
+  const builderBaseText = builderBaseTotal === null
+    ? `Builder Base builders: ${builderBaseActive} active; total unknown until a snapshot is loaded.`
+    : `Builder Base builders: ${builderBaseActive}/${builderBaseTotal} active, ${Math.max(0, builderBaseTotal - builderBaseActive)} idle.`;
+
+  return `${homeText} ${builderBaseText}`;
+}
+
+function accountSummaryBuilderBadgeHtml(account, c) {
+  const homeActive = Number(c.homeBuilderActive) || 0;
+  const builderBaseActive = Number(c.builderBaseBuilderActive) || 0;
+  const label = `${homeActive}/${builderBaseActive}`;
+  const title = accountSummaryBuilderTitle(account, c);
+
+  return `
+    <span class="account-summary-builder-badge" title="${esc(title)}" aria-label="${esc(title)}">
+      <span class="account-summary-builder-icon" aria-hidden="true">🛠</span>${esc(label)}
+    </span>
+  `;
+}
+
+function accountPillBuilderBadgeHtml(account, c) {
+  const capacity = getAccountBuilderCapacity(account);
+  const homeTotal = normalizeOptionalNonNegativeInt(capacity.homeTotal);
+  const builderBaseTotal = normalizeOptionalNonNegativeInt(capacity.builderBaseTotal);
+  const homeActive = Number(c && c.homeBuilderActive) || 0;
+  const builderBaseActive = Number(c && c.builderBaseBuilderActive) || 0;
+  const homeTotalLabel = homeTotal === null ? '?' : String(homeTotal);
+  const builderBaseTotalLabel = builderBaseTotal === null ? '?' : String(builderBaseTotal);
+  const title = accountSummaryBuilderTitle(account, c || createAccountSummaryRow());
+  const knownTotals = homeTotal !== null || builderBaseTotal !== null;
+  const hasIdleHome = homeTotal !== null && homeActive < homeTotal;
+  const hasIdleBuilderBase = builderBaseTotal !== null && builderBaseActive < builderBaseTotal;
+  const statusClass = !knownTotals ? 'unknown' : (hasIdleHome || hasIdleBuilderBase ? 'has-idle' : 'all-busy');
+
+  return `
+    <span class="account-pill-builder-count ${statusClass}" title="${esc(title)}" aria-label="${esc(title)}">
+      <span class="account-pill-builder-home-icon" aria-hidden="true">🏠</span>${esc(`${homeActive}/${homeTotalLabel}`)}<span class="account-pill-builder-count-separator" aria-hidden="true">·</span>${esc(`${builderBaseActive}/${builderBaseTotalLabel}`)}
+    </span>
+  `;
 }
 
 function getAccountGapTypes(c) {
@@ -3996,7 +4574,8 @@ function renderAccountSummary() {
         const gaps = getAccountGapTypes(c);
         const gapText = gaps.length ? `, ${gaps.map(g => g.label.toLowerCase()).join(', ')}` : '';
         const freshness = getSnapshotFreshness(account);
-        const titleText = `${freshness.title} ${expanded ? 'Collapse' : 'Expand'} ${account} and filter timer list${gapText ? ' — ' + gapText : ''}`;
+        const builderText = accountSummaryBuilderTitle(account, c);
+        const titleText = `${builderText} ${freshness.title} ${expanded ? 'Collapse' : 'Expand'} ${account} and filter timer list${gapText ? ' — ' + gapText : ''}`;
         return `
           <div class="account-summary-table-row${expanded ? ' expanded' : ''}"
                onclick="toggleAccountSummaryDetails(event, ${accountArg})"
@@ -4005,12 +4584,13 @@ function renderAccountSummary() {
                role="button"
                title="${esc(titleText)}"
                aria-expanded="${expanded ? 'true' : 'false'}"
-               aria-label="${esc(account)}: ${freshness.label} snapshot, ${c.running} running, ${c.paused} paused, ${c.stopped} stopped, ${c.expired} expired${gapText}">
+               aria-label="${esc(account)}: ${c.homeBuilderActive} home builder active, ${c.builderBaseBuilderActive} builder base builder active, ${freshness.label} snapshot, ${c.running} running, ${c.paused} paused, ${c.stopped} stopped, ${c.expired} expired${gapText}">
             <span class="account-summary-account">
               <span class="account-summary-account-wrap">
                 <span class="account-summary-chevron" aria-hidden="true">${expanded ? '▾' : '▸'}</span>
                 ${snapshotFreshnessDotHtml(account)}
                 <span class="account-summary-name">${esc(account)}</span>
+                ${accountSummaryBuilderBadgeHtml(account, c)}
                 ${accountGapBadgesHtml(c)}
               </span>
             </span>
@@ -4029,6 +4609,450 @@ function renderAccountSummary() {
   const restoredDetail = el.querySelector('.account-summary-detail-list');
   if (restoredDetail) restoredDetail.scrollTop = previousDetailScrollTop;
 }
+// ── Fleet summary modal ───────────────────────────────────────────────────
+function getFleetSummaryScroller() {
+  const modal = document.getElementById('fleet-summary-modal');
+  return modal ? modal.querySelector('.fleet-summary-modal') : null;
+}
+
+function openFleetSummaryModal() {
+  const modal = document.getElementById('fleet-summary-modal');
+  if (!modal) return;
+  renderFleetSummaryModal();
+  modal.style.display = 'flex';
+  const scroller = getFleetSummaryScroller();
+  if (scroller) scroller.scrollTop = 0;
+  updateScrollTopButton();
+  updateFleetSummaryFloatingButtons();
+}
+
+function closeFleetSummaryModal() {
+  const modal = document.getElementById('fleet-summary-modal');
+  if (modal) modal.style.display = 'none';
+  updateFleetSummaryFloatingButtons();
+  updateScrollTopButton();
+}
+
+function fleetSummaryModalIsOpen() {
+  const modal = document.getElementById('fleet-summary-modal');
+  return !!modal && modal.style.display !== 'none';
+}
+
+function updateFleetSummaryFloatingButtons() {
+  const scrollTopBtn = document.getElementById('fleet-scroll-top-btn');
+  if (!scrollTopBtn) return;
+
+  const scroller = getFleetSummaryScroller();
+  const shouldShow = fleetSummaryModalIsOpen()
+    && !!scroller
+    && scroller.scrollHeight > scroller.clientHeight + 1
+    && scroller.scrollTop > 80;
+
+  scrollTopBtn.classList.toggle('visible', shouldShow);
+}
+
+function scrollFleetSummaryToTop() {
+  const scroller = getFleetSummaryScroller();
+  if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' });
+  setTimeout(updateFleetSummaryFloatingButtons, 250);
+}
+
+async function reloadFleetSummary() {
+  await reloadTimerFile();
+  updateFleetSummaryFloatingButtons();
+}
+
+function setupFleetSummaryFloatingControls() {
+  const scroller = getFleetSummaryScroller();
+  if (scroller) scroller.addEventListener('scroll', updateFleetSummaryFloatingButtons, { passive: true });
+  window.addEventListener('resize', updateFleetSummaryFloatingButtons);
+  updateFleetSummaryFloatingButtons();
+}
+
+function fleetAccountArg(account) {
+  return esc(JSON.stringify(String(account || '')));
+}
+
+function fleetPercent(value, max) {
+  const n = Math.max(0, Number(value) || 0);
+  if (n <= 0) return 0;
+  const m = Math.max(1, Number(max) || 1);
+  return Math.max(2, Math.min(100, Math.round((n / m) * 100)));
+}
+
+function fleetActiveTimer(t) {
+  const status = String(t && t.status || '').toLowerCase();
+  if (status === 'stopped') return false;
+  return status === 'running' || status === 'paused' || status === 'expired' || Number(t && t.remaining) <= 0;
+}
+
+function fleetDueBucket(t) {
+  if (String(t && t.status || '').toLowerCase() === 'stopped') return null;
+  const remaining = Math.max(0, Number(t && t.remaining) || 0);
+  if (String(t && t.status || '').toLowerCase() === 'expired' || remaining <= 0) return 'ready';
+  if (remaining <= 8 * 3600) return 'next8';
+  if (remaining <= 24 * 3600) return 'next24';
+  if (remaining <= 3 * 86400) return 'next3d';
+  if (remaining <= 7 * 86400) return 'next7d';
+  return 'later';
+}
+
+function fleetDueBucketDefs() {
+  return [
+    { key:'ready', label:'Ready now', cls:'danger' },
+    { key:'next8', label:'0–8h', cls:'warn' },
+    { key:'next24', label:'8–24h', cls:'' },
+    { key:'next3d', label:'1–3d', cls:'' },
+    { key:'next7d', label:'3–7d', cls:'' },
+    { key:'later', label:'7d+', cls:'muted' }
+  ];
+}
+
+function fleetStatusClassForCapacity(active, total) {
+  const capacity = normalizeOptionalNonNegativeInt(total);
+  const n = Number(active) || 0;
+  if (capacity === null) return n > 0 ? 'good' : 'muted';
+  if (n >= capacity) return 'good';
+  if (n === 0) return 'danger';
+  return 'warn';
+}
+
+function fleetQueuePill(active, total, labelWhenNone='—') {
+  const capacity = normalizeOptionalNonNegativeInt(total);
+  const n = Number(active) || 0;
+  const cls = fleetStatusClassForCapacity(n, capacity);
+  const text = capacity === null ? (n ? String(n) : labelWhenNone) : `${n}/${capacity}`;
+  return `<span class="fleet-pill ${cls}">${esc(text)}</span>`;
+}
+
+function fleetBinaryPill(active, yesLabel='On', noLabel='Off') {
+  return `<span class="fleet-pill ${active ? 'good' : 'danger'}">${esc(active ? yesLabel : noLabel)}</span>`;
+}
+
+function fleetSnapshotPill(account) {
+  const freshness = getSnapshotFreshness(account);
+  const cls = freshness.key === 'fresh' ? 'good' : (freshness.key === 'aging' ? 'warn' : (freshness.key === 'stale' ? 'danger' : 'muted'));
+  return `<span class="fleet-pill ${cls}" title="${esc(freshness.title)}">${esc(freshness.label)}</span>`;
+}
+
+function fleetKpiCard(label, value, note='', cls='') {
+  return `
+    <div class="fleet-kpi-card ${cls}">
+      <div class="fleet-kpi-label">${esc(label)}</div>
+      <div class="fleet-kpi-value">${esc(value)}</div>
+      ${note ? `<div class="fleet-kpi-note">${esc(note)}</div>` : ''}
+    </div>
+  `;
+}
+
+function fleetAttentionItem(icon, label, detail, count, cls='') {
+  return `
+    <div class="fleet-attention-item ${cls}">
+      <div class="fleet-attention-icon" aria-hidden="true">${icon}</div>
+      <div class="fleet-attention-main">
+        <div class="fleet-attention-label">${esc(label)}</div>
+        <div class="fleet-attention-detail">${esc(detail)}</div>
+      </div>
+      <div class="fleet-attention-count">${esc(count)}</div>
+    </div>
+  `;
+}
+
+function fleetSelectAccount(account) {
+  const name = String(account || '').trim();
+  if (!name) return;
+  filterGroup = name;
+  expandedAccount = name;
+  closeFleetSummaryModal();
+  renderTimers();
+}
+
+function buildFleetSummaryData() {
+  const rows = buildAccountSummaryRows();
+  const viewTimers = getViewScopedTimers();
+  const activeTimers = viewTimers.filter(fleetActiveTimer);
+  const pinnedCount = viewTimers.filter(isTimerPinned).length;
+  const dueCounts = Object.fromEntries(fleetDueBucketDefs().map(def => [def.key, 0]));
+
+  activeTimers.forEach(t => {
+    const key = fleetDueBucket(t);
+    if (key && Object.prototype.hasOwnProperty.call(dueCounts, key)) dueCounts[key] += 1;
+  });
+
+  const missingLab = getMissingAccounts(rows, 'Lab');
+  const missingPet = getMissingAccounts(rows, 'Pet');
+  const staleOrUnknown = rows.filter(([account]) => {
+    const key = getSnapshotFreshness(account).key;
+    return key === 'stale' || key === 'unknown';
+  }).map(([account]) => account);
+
+  const idleHome = [];
+  const idleBuilderBase = [];
+  let homeActiveTotal = 0;
+  let homeCapacityTotal = 0;
+  let knownHomeCapacityAccounts = 0;
+  let builderBaseActiveTotal = 0;
+  let builderBaseCapacityTotal = 0;
+  let knownBuilderBaseCapacityAccounts = 0;
+
+  rows.forEach(([account, c]) => {
+    const capacity = getAccountBuilderCapacity(account);
+    const homeTotal = normalizeOptionalNonNegativeInt(capacity.homeTotal);
+    const builderBaseTotal = normalizeOptionalNonNegativeInt(capacity.builderBaseTotal);
+    const homeActive = Number(c.homeBuilderActive) || 0;
+    const builderBaseActive = Number(c.builderBaseBuilderActive) || 0;
+
+    homeActiveTotal += homeActive;
+    builderBaseActiveTotal += builderBaseActive;
+
+    if (homeTotal !== null) {
+      knownHomeCapacityAccounts += 1;
+      homeCapacityTotal += homeTotal;
+      if (homeActive < homeTotal) idleHome.push({ account, active:homeActive, total:homeTotal, idle:homeTotal - homeActive });
+    }
+
+    if (builderBaseTotal !== null) {
+      knownBuilderBaseCapacityAccounts += 1;
+      builderBaseCapacityTotal += builderBaseTotal;
+      if (builderBaseActive < builderBaseTotal) idleBuilderBase.push({ account, active:builderBaseActive, total:builderBaseTotal, idle:builderBaseTotal - builderBaseActive });
+    }
+  });
+
+  const nextTimers = activeTimers
+    .slice()
+    .sort((a,b) => {
+      const ao = dueWindow(a).order;
+      const bo = dueWindow(b).order;
+      if (ao !== bo) return ao - bo;
+      return (Number(a.remaining) || 0) - (Number(b.remaining) || 0);
+    })
+    .slice(0, 14);
+
+  return {
+    rows,
+    viewTimers,
+    activeTimers,
+    pinnedCount,
+    dueCounts,
+    missingLab,
+    missingPet,
+    staleOrUnknown,
+    idleHome,
+    idleBuilderBase,
+    homeActiveTotal,
+    homeCapacityTotal,
+    knownHomeCapacityAccounts,
+    builderBaseActiveTotal,
+    builderBaseCapacityTotal,
+    knownBuilderBaseCapacityAccounts,
+    nextTimers
+  };
+}
+
+function renderFleetHomeBuilderBars(rows) {
+  if (!rows.length) return '<div class="fleet-empty">No accounts in this view.</div>';
+  const sorted = rows.slice().sort((a,b) => (Number(b[1].homeBuilderActive)||0) - (Number(a[1].homeBuilderActive)||0) || a[0].localeCompare(b[0], undefined, { numeric:true, sensitivity:'base' }));
+  const maxActive = Math.max(1, ...sorted.map(([,c]) => Number(c.homeBuilderActive) || 0));
+
+  return `
+    <div class="fleet-bar-list">
+      ${sorted.map(([account, c]) => {
+        const capacity = getAccountBuilderCapacity(account);
+        const total = normalizeOptionalNonNegativeInt(capacity.homeTotal);
+        const active = Number(c.homeBuilderActive) || 0;
+        const cls = fleetStatusClassForCapacity(active, total);
+        const denom = total === null ? maxActive : Math.max(1, total);
+        const label = total === null ? `${active}` : `${active}/${total}`;
+        return `
+          <div class="fleet-bar-row" title="${esc(accountSummaryBuilderTitle(account, c))}">
+            <span class="fleet-bar-label">${esc(account)}</span>
+            <span class="fleet-bar-track"><span class="fleet-bar-fill ${cls}" style="width:${fleetPercent(active, denom)}%"></span></span>
+            <span class="fleet-bar-value">${esc(label)}</span>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderFleetDueBars(dueCounts) {
+  const defs = fleetDueBucketDefs();
+  const maxCount = Math.max(1, ...defs.map(def => Number(dueCounts[def.key]) || 0));
+  return `
+    <div class="fleet-due-grid">
+      ${defs.map(def => {
+        const count = Number(dueCounts[def.key]) || 0;
+        return `
+          <div class="fleet-bar-row">
+            <span class="fleet-bar-label">${esc(def.label)}</span>
+            <span class="fleet-bar-track"><span class="fleet-bar-fill ${def.cls}" style="width:${fleetPercent(count, maxCount)}%"></span></span>
+            <span class="fleet-bar-value">${count}</span>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderFleetMatrix(rows) {
+  if (!rows.length) return '<div class="fleet-empty">No accounts in this view.</div>';
+  return `
+    <div class="fleet-matrix" aria-label="Account queue coverage matrix">
+      <div class="fleet-matrix-header">
+        <span>Account</span><span>Home</span><span>BB</span><span>Lab</span><span>Pet</span><span>Snap</span>
+      </div>
+      ${rows.map(([account, c]) => {
+        const capacity = getAccountBuilderCapacity(account);
+        const homeTotal = normalizeOptionalNonNegativeInt(capacity.homeTotal);
+        const builderBaseTotal = normalizeOptionalNonNegativeInt(capacity.builderBaseTotal);
+        return `
+          <div class="fleet-matrix-row">
+            <span class="fleet-matrix-account" title="${esc(account)}">${esc(account)}</span>
+            ${fleetQueuePill(c.homeBuilderActive, homeTotal)}
+            ${fleetQueuePill(c.builderBaseBuilderActive, builderBaseTotal)}
+            ${fleetBinaryPill(c.hasActiveLab, 'Lab', '—')}
+            ${fleetBinaryPill(c.hasActivePet, 'Pet', '—')}
+            ${fleetSnapshotPill(account)}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderFleetNextTimers(nextTimers) {
+  if (!nextTimers.length) return '<div class="fleet-empty">No active timers in this view.</div>';
+  return `
+    <div class="fleet-next-list">
+      ${nextTimers.map(t => {
+        const account = getAccount(t) || 'Unassigned';
+        const due = dueWindow(t);
+        const timeLabel = accountSummaryTimerLabel(t);
+        return `
+          <div class="fleet-next-row" onclick="fleetSelectAccount(${fleetAccountArg(account)})" title="Filter to ${esc(account)}">
+            <span class="fleet-next-account">${esc(account)}</span>
+            <span class="fleet-next-name">${esc(t.name || 'Untitled timer')}</span>
+            <span class="fleet-next-time ${due.cls}">${esc(timeLabel)}</span>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderFleetSummaryModal() {
+  const el = document.getElementById('fleet-summary-content');
+  if (!el) return;
+
+  // The countdown tick re-renders the timer UI frequently. Preserve the
+  // fleet modal scroll positions so mobile scrolling does not snap back
+  // to the top while the summary is open.
+  const modal = el.closest('.fleet-summary-modal');
+  const oldMatrix = el.querySelector('.fleet-matrix');
+  const oldNextList = el.querySelector('.fleet-next-list');
+  const scrollState = {
+    modalTop: modal ? modal.scrollTop : 0,
+    matrixTop: oldMatrix ? oldMatrix.scrollTop : 0,
+    matrixLeft: oldMatrix ? oldMatrix.scrollLeft : 0,
+    nextTop: oldNextList ? oldNextList.scrollTop : 0
+  };
+
+  const data = buildFleetSummaryData();
+  const view = getSelectedAccountView();
+  const viewLabel = view && view.label ? view.label : 'All Accounts';
+  const accountCount = data.rows.length;
+  const accountLabel = accountCount === 1 ? '1 account' : `${accountCount} accounts`;
+  const due24 = (Number(data.dueCounts.ready) || 0) + (Number(data.dueCounts.next8) || 0) + (Number(data.dueCounts.next24) || 0);
+  const totalTimers = data.viewTimers.length;
+  const activeTimers = data.activeTimers.length;
+  const runningTimers = data.viewTimers.filter(t => t.status === 'running').length;
+  const expiredTimers = data.viewTimers.filter(t => t.status === 'expired' || Number(t.remaining) <= 0).length;
+  const lastUpdatedText = serverLastUpdated ? new Date(serverLastUpdated).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' }) : 'local state';
+
+  const homeCapacityNote = data.knownHomeCapacityAccounts
+    ? `${data.homeCapacityTotal ? Math.max(0, data.homeCapacityTotal - data.homeActiveTotal) : 0} idle known`
+    : 'capacity unknown';
+  const builderBaseCapacityNote = data.knownBuilderBaseCapacityAccounts
+    ? `${data.builderBaseCapacityTotal ? Math.max(0, data.builderBaseCapacityTotal - data.builderBaseActiveTotal) : 0} idle known`
+    : 'capacity unknown';
+
+  const attentionItems = [
+    fleetAttentionItem('⏰', 'Ready timers', 'Expired or zero remaining timers that need collection/action.', expiredTimers, expiredTimers ? 'danger' : 'good'),
+    fleetAttentionItem('🌙', 'Due within 8h', 'Likely today/tonight account checks.', data.dueCounts.next8 || 0, data.dueCounts.next8 ? 'warn' : 'good'),
+    fleetAttentionItem('🧪', 'No active Lab', data.missingLab.length ? data.missingLab.join(', ') : 'Every account has lab coverage.', data.missingLab.length, data.missingLab.length ? 'warn' : 'good'),
+    fleetAttentionItem('🐾', 'No active Pet', data.missingPet.length ? data.missingPet.join(', ') : 'Every account has pet coverage.', data.missingPet.length, data.missingPet.length ? 'warn' : 'good'),
+    fleetAttentionItem('🛠', 'Idle home builders', data.idleHome.length ? data.idleHome.map(x => `${x.account} ${x.active}/${x.total}`).join(', ') : 'Known home builders are fully occupied.', data.idleHome.reduce((sum,x)=>sum+x.idle,0), data.idleHome.length ? 'warn' : 'good'),
+    fleetAttentionItem('📸', 'Stale/no snapshot', data.staleOrUnknown.length ? data.staleOrUnknown.join(', ') : 'Snapshots are fresh or aging within your threshold.', data.staleOrUnknown.length, data.staleOrUnknown.length ? 'warn' : 'good')
+  ].join('');
+
+  el.innerHTML = `
+    <div class="fleet-summary-head">
+      <div class="fleet-summary-title-wrap">
+        <h2 class="fleet-summary-title"><span aria-hidden="true">▦</span> Fleet summary</h2>
+        <div class="fleet-summary-subtitle">Scope: ${esc(viewLabel)} · ${esc(accountLabel)} · reads current timers and snapshot metadata only.</div>
+      </div>
+      <span class="fleet-summary-refresh">Updated ${esc(lastUpdatedText)}</span>
+    </div>
+
+    <div class="fleet-kpi-grid">
+      ${fleetKpiCard('Accounts', accountCount, viewLabel)}
+      ${fleetKpiCard('Active timers', `${activeTimers}/${totalTimers}`, `${runningTimers} running`)}
+      ${fleetKpiCard('Due < 24h', due24, 'ready + next 24h', due24 ? 'warn' : 'good')}
+      ${fleetKpiCard('Pinned', data.pinnedCount, 'important timers')}
+      ${fleetKpiCard('Home builders', data.knownHomeCapacityAccounts ? `${data.homeActiveTotal}/${data.homeCapacityTotal}` : data.homeActiveTotal, homeCapacityNote, data.idleHome.length ? 'warn' : 'good')}
+      ${fleetKpiCard('BB builders', data.knownBuilderBaseCapacityAccounts ? `${data.builderBaseActiveTotal}/${data.builderBaseCapacityTotal}` : data.builderBaseActiveTotal, builderBaseCapacityNote, data.idleBuilderBase.length ? 'warn' : 'good')}
+    </div>
+
+    <div class="fleet-summary-grid">
+      <div>
+        <div class="fleet-panel">
+          <div class="fleet-panel-title"><span>Needs attention</span><strong>${expiredTimers + Number(data.dueCounts.next8 || 0)} urgent-ish</strong></div>
+          <div class="fleet-attention-list">${attentionItems}</div>
+        </div>
+
+        <div class="fleet-panel">
+          <div class="fleet-panel-title"><span>Due window</span><strong>${activeTimers} active</strong></div>
+          ${renderFleetDueBars(data.dueCounts)}
+        </div>
+
+        <div class="fleet-panel">
+          <div class="fleet-panel-title"><span>Next up</span><strong>tap account to filter</strong></div>
+          ${renderFleetNextTimers(data.nextTimers)}
+        </div>
+      </div>
+
+      <div>
+        <div class="fleet-panel">
+          <div class="fleet-panel-title"><span>Active home builders</span><strong>guardians included</strong></div>
+          ${renderFleetHomeBuilderBars(data.rows)}
+        </div>
+
+        <div class="fleet-panel">
+          <div class="fleet-panel-title"><span>Queue coverage matrix</span><strong>Home · BB · Lab · Pet · Snapshot</strong></div>
+          ${renderFleetMatrix(data.rows)}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const restoreFleetScroll = () => {
+    if (modal) modal.scrollTop = scrollState.modalTop;
+    const newMatrix = el.querySelector('.fleet-matrix');
+    const newNextList = el.querySelector('.fleet-next-list');
+    if (newMatrix) {
+      newMatrix.scrollTop = scrollState.matrixTop;
+      newMatrix.scrollLeft = scrollState.matrixLeft;
+    }
+    if (newNextList) newNextList.scrollTop = scrollState.nextTop;
+  };
+  restoreFleetScroll();
+  requestAnimationFrame(() => {
+    restoreFleetScroll();
+    updateFleetSummaryFloatingButtons();
+  });
+}
+
+
 function renderStats() {
   const bar = document.getElementById('stats-bar');
   if (!bar) return;
@@ -4140,6 +5164,7 @@ function renderTimers() {
   renderTypeBar();
   renderAccountSummary();
   renderStats();
+  if (fleetSummaryModalIsOpen()) renderFleetSummaryModal();
   let list = getVisibleTimerList();
   renderCopyDataBar(list);
   renderDeleteSelectionBar(list);
@@ -4753,6 +5778,7 @@ function snapshotGetBucket(path) {
 function snapshotBucketLabel(bucket) {
   const labels = {
     helpers: 'Helper',
+    guardians: 'Guardian',
     buildings: 'Building',
     traps: 'Trap',
     units: 'Lab',
@@ -4774,12 +5800,24 @@ function snapshotInferUpgradeType(bucket, timerKey, dataId) {
   const known = COC_DATA_ID_MAP[String(dataId)];
   if (known && known.type) return known.type;
   if (timerKey === 'helper_cooldown') return 'Capital / Other';
+  if (isGuardianSnapshotBucket(bucket)) return 'Builder';
   if (bucket === 'heroes') return 'Hero';
   if (bucket === 'units' || bucket === 'spells' || bucket === 'siege_machines') return 'Lab';
   if (bucket === 'pets') return 'Pet';
   if (bucket === 'equipment') return 'Equipment';
   if (bucket === 'buildings' || bucket === 'traps') return 'Builder';
   return 'Capital / Other';
+}
+
+function snapshotInferWorkQueue(bucket, timerKey) {
+  if (timerKey === 'helper_cooldown') return 'other';
+  if (bucket === 'buildings' || bucket === 'traps' || bucket === 'heroes' || isGuardianSnapshotBucket(bucket)) return 'home_builder';
+  if (bucket === 'buildings2' || bucket === 'traps2' || bucket === 'heroes2') return 'builder_base_builder';
+  if (bucket === 'units2') return 'builder_base_lab';
+  if (bucket === 'units' || bucket === 'spells' || bucket === 'siege_machines') return 'lab';
+  if (bucket === 'pets') return 'pet';
+  if (bucket === 'equipment') return 'equipment';
+  return 'other';
 }
 
 function snapshotExtractInlineName(node) {
@@ -4835,6 +5873,7 @@ function parseAccountSnapshot(snapshot) {
           raw: node
         };
         entry.upgradeType = snapshotInferUpgradeType(entry.bucket, entry.timerKey, entry.dataId);
+        entry.workQueue = snapshotInferWorkQueue(entry.bucket, entry.timerKey);
         entry.name = snapshotMakeCandidateName(entry);
         found.push(entry);
       }
@@ -4860,7 +5899,16 @@ function parseSnapshotJsonText() {
     snapshotLastSnapshot = JSON.parse(raw);
     snapshotCandidates = parseAccountSnapshot(snapshotLastSnapshot);
     renderSnapshotCandidates();
-    setSnapshotStatus(`Parsed ${snapshotCandidates.length} timer candidate${snapshotCandidates.length === 1 ? '' : 's'}.`, snapshotCandidates.length ? 'ok' : 'warning');
+
+    const metaUpdate = updateSnapshotMetaFromParsedSnapshot(snapshotCandidates.length);
+    const metaText = metaUpdate ? ` Updated ${metaUpdate.account} snapshot metadata.` : ' Choose an account to update snapshot metadata.';
+    setSnapshotStatus(`Parsed ${snapshotCandidates.length} timer candidate${snapshotCandidates.length === 1 ? '' : 's'}.${snapshotBuilderCapacityStatusText(snapshotLastSnapshot)}${metaText}`, snapshotCandidates.length ? 'ok' : 'warning');
+
+    if (metaUpdate) {
+      refreshSnapshotMetadataDependentUi();
+      save();
+    }
+
     if (snapshotCandidates.length) toast(`Parsed ${snapshotCandidates.length} snapshot candidate${snapshotCandidates.length === 1 ? '' : 's'}`, 'success');
   } catch (err) {
     snapshotLastSnapshot = null;
@@ -4969,6 +6017,12 @@ function snapshotCandidateToTimer(c, now, account, shouldStart, sound) {
     group: account,
     upgradeType: c.upgradeType || 'Capital / Other',
     note: `Snapshot${tag ? ' ' + tag : ''} | ${sourcePath} | ${dataPart} | ${levelPart}`,
+    workQueue: c.workQueue || snapshotInferWorkQueue(c.bucket, c.timerKey),
+    snapshotBucket: c.bucket,
+    snapshotPath: c.path,
+    snapshotTimerKey: c.timerKey,
+    snapshotDataId: c.dataId == null ? null : String(c.dataId),
+    snapshotLevel: Number.isFinite(c.level) ? c.level : null,
     repeat: false,
     sound,
     status: shouldStart ? 'running' : 'stopped',
@@ -5105,16 +6159,12 @@ function saveSnapshotTimers() {
   }
 
   timers.push(...newTimers);
-  updateAccountSnapshotMeta(account, {
-    lastLoadedAt: new Date(now).toISOString(),
-    tag: snapshotLastSnapshot && snapshotLastSnapshot.tag ? snapshotLastSnapshot.tag : '',
-    candidateCount: snapshotCandidates.length,
-    selectedCount: selected.length
-  });
+  updateSnapshotMetaFromParsedSnapshot(snapshotCandidates.length, selected.length, now);
   filterGroup = account;
   save();
   closeSnapshotModal();
   renderTimers();
+  if (fleetSummaryModalIsOpen()) renderFleetSummaryModal();
 
   if (replaceExisting) {
     const preservedText = preservedCount ? `; ${preservedCount} manually noted timer${preservedCount === 1 ? '' : 's'} preserved` : '';
@@ -5130,7 +6180,13 @@ document.getElementById('snapshot-include-helper').addEventListener('change', ()
   if (!snapshotLastSnapshot) return;
   snapshotCandidates = parseAccountSnapshot(snapshotLastSnapshot);
   renderSnapshotCandidates();
-  setSnapshotStatus(`Parsed ${snapshotCandidates.length} timer candidate${snapshotCandidates.length === 1 ? '' : 's'}.`, snapshotCandidates.length ? 'ok' : 'warning');
+  const metaUpdate = updateSnapshotMetaFromParsedSnapshot(snapshotCandidates.length);
+  const metaText = metaUpdate ? ` Updated ${metaUpdate.account} snapshot metadata.` : ' Choose an account to update snapshot metadata.';
+  setSnapshotStatus(`Parsed ${snapshotCandidates.length} timer candidate${snapshotCandidates.length === 1 ? '' : 's'}.${snapshotBuilderCapacityStatusText(snapshotLastSnapshot)}${metaText}`, snapshotCandidates.length ? 'ok' : 'warning');
+  if (metaUpdate) {
+    refreshSnapshotMetadataDependentUi();
+    save();
+  }
 });
 
 // ── Import / Export ───────────────────────────────────────────────────────
@@ -5314,6 +6370,119 @@ function applySavedCompactMode() {
   applyCompactMode();
 }
 
+// ── Account pill builder counts ────────────────────────────────────────────
+function applySavedAccountPillBuilderCounts() {
+  const saved = localStorage.getItem(ACCOUNT_PILL_BUILDERS_KEY);
+  showAccountPillBuilderCounts = saved === null ? false : saved === '1';
+}
+
+function toggleAccountPillBuilderCounts() {
+  showAccountPillBuilderCounts = !showAccountPillBuilderCounts;
+  localStorage.setItem(ACCOUNT_PILL_BUILDERS_KEY, showAccountPillBuilderCounts ? '1' : '0');
+  renderTimers();
+}
+
+
+// ── Resizable sidebar ──────────────────────────────────────────────────────
+function desktopSidebarLayoutActive() {
+  return !window.matchMedia || window.matchMedia('(min-width: 1025px)').matches;
+}
+
+function clampSidebarWidth(width) {
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1200;
+  const maxForViewport = Math.max(SIDEBAR_MIN_WIDTH, viewportWidth - SIDEBAR_MIN_CONTENT_WIDTH);
+  const maxWidth = Math.min(SIDEBAR_MAX_WIDTH, maxForViewport);
+  return Math.min(Math.max(Math.round(width || SIDEBAR_DEFAULT_WIDTH), SIDEBAR_MIN_WIDTH), maxWidth);
+}
+
+function applySidebarWidth() {
+  sidebarWidth = clampSidebarWidth(sidebarWidth);
+  document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
+
+  const resizer = document.getElementById('sidebar-resizer');
+  if (resizer) {
+    resizer.setAttribute('aria-valuemin', String(SIDEBAR_MIN_WIDTH));
+    resizer.setAttribute('aria-valuemax', String(clampSidebarWidth(SIDEBAR_MAX_WIDTH)));
+    resizer.setAttribute('aria-valuenow', String(sidebarWidth));
+    resizer.title = `Drag to resize menu (${sidebarWidth}px)`;
+  }
+}
+
+function setSidebarWidth(width, persist=true) {
+  sidebarWidth = clampSidebarWidth(width);
+  applySidebarWidth();
+  if (persist) localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+}
+
+function applySavedSidebarWidth() {
+  const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+  sidebarWidth = Number.isFinite(saved) && saved > 0 ? saved : SIDEBAR_DEFAULT_WIDTH;
+  applySidebarWidth();
+}
+
+function setupSidebarResizer() {
+  const resizer = document.getElementById('sidebar-resizer');
+  if (!resizer) return;
+
+  let resizing = false;
+  let startX = 0;
+  let startWidth = sidebarWidth;
+
+  const stopResize = () => {
+    if (!resizing) return;
+    resizing = false;
+    document.removeEventListener('pointermove', moveResize);
+    document.removeEventListener('pointerup', stopResize);
+    document.removeEventListener('pointercancel', stopResize);
+    const main = document.querySelector('.main');
+    if (main) main.classList.remove('sidebar-resizing');
+    document.body.classList.remove('sidebar-resize-active');
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+  };
+
+  const moveResize = (event) => {
+    if (!resizing) return;
+    event.preventDefault();
+    setSidebarWidth(startWidth + (event.clientX - startX), false);
+  };
+
+  resizer.addEventListener('pointerdown', (event) => {
+    if (!sidebarVisible || !desktopSidebarLayoutActive()) return;
+    event.preventDefault();
+    resizing = true;
+    startX = event.clientX;
+    startWidth = sidebarWidth;
+    const main = document.querySelector('.main');
+    if (main) main.classList.add('sidebar-resizing');
+    document.body.classList.add('sidebar-resize-active');
+    document.addEventListener('pointermove', moveResize);
+    document.addEventListener('pointerup', stopResize);
+    document.addEventListener('pointercancel', stopResize);
+  });
+
+  resizer.addEventListener('keydown', (event) => {
+    if (!sidebarVisible || !desktopSidebarLayoutActive()) return;
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setSidebarWidth(sidebarWidth - 16);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setSidebarWidth(sidebarWidth + 16);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setSidebarWidth(SIDEBAR_MIN_WIDTH);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setSidebarWidth(SIDEBAR_MAX_WIDTH);
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setSidebarWidth(SIDEBAR_DEFAULT_WIDTH);
+    }
+  });
+
+  window.addEventListener('resize', applySidebarWidth);
+}
+
 // ── Sidebar toggle ─────────────────────────────────────────────────────────
 function applySidebarToggleState() {
   const main = document.querySelector('.main');
@@ -5328,6 +6497,14 @@ function applySidebarToggleState() {
     btn.setAttribute('aria-label', btn.title);
   }
   if (label) label.textContent = sidebarVisible ? 'Menu On' : 'Menu';
+
+  const resizer = document.getElementById('sidebar-resizer');
+  if (resizer) {
+    resizer.setAttribute('aria-hidden', sidebarVisible ? 'false' : 'true');
+    resizer.setAttribute('aria-disabled', sidebarVisible ? 'false' : 'true');
+    resizer.tabIndex = sidebarVisible ? 0 : -1;
+  }
+
   updateSearchFilterIndicators();
 }
 
@@ -5380,15 +6557,19 @@ function toggleCardMode(id) {
 // ── Boot ──────────────────────────────────────────────────────────────────
 async function boot() {
   setupNativeSelectRenderGuard();
+  applySavedSidebarWidth();
+  setupSidebarResizer();
   applyInitialMobileLayout();
   await loadAccountViews();
   applySavedAccountView();
   applySavedFocusMode();
   applySavedCompactMode();
+  applySavedAccountPillBuilderCounts();
   populateStaticSelects();
   await load();
   renderTimers();
   setupScrollTopButton();
+  setupFleetSummaryFloatingControls();
   tickInterval = setInterval(tick, 500);
 }
 
