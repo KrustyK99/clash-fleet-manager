@@ -1044,6 +1044,23 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
 .account-pill-builder-count.all-busy .account-pill-builder-home-icon{color:var(--green)}
 .account-pill-builder-count.has-idle .account-pill-builder-home-icon{color:var(--amber)}
 .account-pill-builder-count-separator{color:var(--text3);font-weight:500}
+.account-pill-snapshot-age{
+  display:inline-flex;
+  align-items:center;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  color:var(--text2);
+  border-radius:999px;
+  padding:1px 5px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  font-weight:700;
+  line-height:1;
+  white-space:nowrap;
+}
+.group-pill.freshness-fresh .account-pill-snapshot-age{border-color:rgba(61,214,140,0.35);background:var(--green-bg);color:var(--green)}
+.group-pill.freshness-aging .account-pill-snapshot-age{border-color:rgba(245,166,35,0.42);background:var(--amber-bg);color:var(--amber)}
+.group-pill.freshness-stale .account-pill-snapshot-age{border-color:rgba(255,92,92,0.42);background:var(--red-bg);color:var(--red)}
 .group-pill.freshness-fresh:hover{border-color:var(--green);color:var(--green);background:var(--green-bg)}
 .group-pill.freshness-aging:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-bg)}
 .group-pill.freshness-stale:hover{border-color:var(--red);color:var(--red);background:var(--red-bg)}
@@ -1257,7 +1274,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   .account-gap-pill,.account-gap-account{font-size:12px}
   .account-summary-gap-badge{width:20px;height:20px;font-size:11px}
   .account-summary-builder-badge{font-size:11px;padding:3px 7px}
-  .account-pill-builder-toggle,.account-pill-builder-count{font-size:11px}
+  .account-pill-builder-toggle,.account-pill-builder-count,.account-pill-snapshot-age{font-size:11px}
   .account-summary-detail-row{font-size:13px}
   .account-summary-detail-time{font-size:12px}
 
@@ -2093,6 +2110,17 @@ function snapshotFreshnessAgeLabel(ageMs) {
   return new Date(Date.now() - ageMs).toLocaleDateString([], { month:'short', day:'numeric' });
 }
 
+function snapshotCompactAgeLabel(ageMs) {
+  if (!Number.isFinite(ageMs) || ageMs < 0) return 'now';
+  const minutes = Math.floor(ageMs / 60000);
+  if (minutes < 1) return 'now';
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+}
+
 function getSnapshotFreshness(account) {
   const name = String(account || '').trim();
   const meta = name ? accountSnapshotMeta[name] : null;
@@ -2105,6 +2133,7 @@ function getSnapshotFreshness(account) {
       cls: 'unknown',
       label: 'Unknown',
       shortLabel: 'No snapshot',
+      compactAgeLabel: '',
       title: 'No snapshot loaded yet for this account.'
     };
   }
@@ -2119,12 +2148,14 @@ function getSnapshotFreshness(account) {
   const tagText = meta && meta.tag ? ` (${meta.tag})` : '';
   const countText = meta && Number(meta.selectedCount) ? ` — ${meta.selectedCount} timer${Number(meta.selectedCount) === 1 ? '' : 's'} loaded` : '';
   const ageLabel = snapshotFreshnessAgeLabel(ageMs);
+  const compactAgeLabel = snapshotCompactAgeLabel(ageMs);
 
   return {
     key,
     cls: key,
     label: labels[key],
     shortLabel: ageLabel,
+    compactAgeLabel,
     title: `${labels[key]} snapshot: loaded ${ageLabel}${tagText} on ${loadedText}${countText}.`
   };
 }
@@ -2276,7 +2307,6 @@ function updateSnapshotMetaFromParsedSnapshot(candidateCount, selectedCount=null
 
 function refreshSnapshotMetadataDependentUi() {
   renderTimers();
-  if (fleetSummaryModalIsOpen()) renderFleetSummaryModal();
 }
 
 function compactUpgradeTypeLabel(type) {
@@ -4005,13 +4035,16 @@ function renderGroupBar() {
       const builderBadge = (!isAll && showAccountPillBuilderCounts)
         ? accountPillBuilderBadgeHtml(g, summaryByAccount.get(g) || createAccountSummaryRow())
         : '';
+      const snapshotAgeBadge = (!isAll && showAccountPillBuilderCounts && freshness && freshness.compactAgeLabel)
+        ? `<span class="account-pill-snapshot-age" title="${esc(freshness.title)}" aria-label="${esc(freshness.title)}">${esc(freshness.compactAgeLabel)}</span>`
+        : '';
       const titleParts = [];
       if (freshness) titleParts.push(freshness.title);
       if (builderBadge) titleParts.push(accountSummaryBuilderTitle(g, summaryByAccount.get(g) || createAccountSummaryRow()));
       if (pinnedCount) titleParts.push(pinnedLabel);
       const title = titleParts.length ? titleParts.join(' · ') : 'Show all accounts';
       const groupArg = esc(JSON.stringify(g));
-      return `<button class="group-pill account-pill${g===filterGroup?' active':''}${freshnessClass}${pinnedClass}" title="${esc(title)}" onclick="setGroup(${groupArg})"><span>${esc(g)}</span>${builderBadge}${pinnedBadge}</button>`;
+      return `<button class="group-pill account-pill${g===filterGroup?' active':''}${freshnessClass}${pinnedClass}" title="${esc(title)}" onclick="setGroup(${groupArg})"><span>${esc(g)}</span>${builderBadge}${snapshotAgeBadge}${pinnedBadge}</button>`;
     })).join('');
   }
 
@@ -4663,6 +4696,7 @@ function scrollFleetSummaryToTop() {
 
 async function reloadFleetSummary() {
   await reloadTimerFile();
+  renderFleetSummaryModal();
   updateFleetSummaryFloatingButtons();
 }
 
@@ -5168,7 +5202,10 @@ function renderTimers() {
   renderTypeBar();
   renderAccountSummary();
   renderStats();
-  if (fleetSummaryModalIsOpen()) renderFleetSummaryModal();
+  // The fleet summary is intentionally static while open. The timer tick calls
+  // renderTimers() frequently; rebuilding the modal during that cycle can interrupt
+  // touch scrolling and make nested fleet panels snap back to previous positions.
+  // Refresh the summary only when it is opened or when the modal Reload button is used.
   let list = getVisibleTimerList();
   renderCopyDataBar(list);
   renderDeleteSelectionBar(list);
@@ -6168,7 +6205,6 @@ function saveSnapshotTimers() {
   save();
   closeSnapshotModal();
   renderTimers();
-  if (fleetSummaryModalIsOpen()) renderFleetSummaryModal();
 
   if (replaceExisting) {
     const preservedText = preservedCount ? `; ${preservedCount} manually noted timer${preservedCount === 1 ? '' : 's'} preserved` : '';
