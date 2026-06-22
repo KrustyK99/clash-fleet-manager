@@ -360,6 +360,15 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .fleet-bar-list{display:flex;flex-direction:column;gap:7px}
 .fleet-bar-row{display:grid;grid-template-columns:minmax(88px,0.85fr) minmax(0,1.8fr) auto;gap:8px;align-items:center;min-width:0}
 .fleet-bar-label{font-size:12px;color:var(--text);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-bar-account-label{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
+.fleet-bar-account-name{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-bar-account-link{display:inline-block;color:var(--text);text-decoration:none;border-radius:4px}
+.fleet-bar-account-link:hover,.fleet-bar-account-link:focus{color:var(--accent);text-decoration:underline;outline:none}
+.fleet-bar-snapshot-age{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);border-radius:999px;padding:1px 5px;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;line-height:1;white-space:nowrap}
+.fleet-bar-snapshot-age.fresh{border-color:rgba(61,214,140,0.35);background:var(--green-bg);color:var(--green)}
+.fleet-bar-snapshot-age.aging{border-color:rgba(245,166,35,0.42);background:var(--amber-bg);color:var(--amber)}
+.fleet-bar-snapshot-age.stale{border-color:rgba(255,92,92,0.42);background:var(--red-bg);color:var(--red)}
+.fleet-bar-snapshot-age.unknown{border-color:var(--border2);background:var(--surface2);color:var(--text3)}
 .fleet-bar-track{height:10px;background:var(--surface3);border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,0.04)}
 .fleet-bar-fill{display:block;height:100%;width:0;background:var(--accent);border-radius:999px;min-width:0;transition:width 0.2s ease}
 .fleet-bar-fill.warn{background:var(--amber)}
@@ -4887,9 +4896,42 @@ function buildFleetSummaryData() {
   };
 }
 
+function fleetSnapshotAgeBadgeHtml(account) {
+  const freshness = getSnapshotFreshness(account);
+  const label = freshness.compactAgeLabel || 'no snap';
+  return `<span class="fleet-bar-snapshot-age ${freshness.cls}" title="${esc(freshness.title)}" aria-label="${esc(freshness.title)}">${esc(label)}</span>`;
+}
+
+function fleetSnapshotAgeSortValue(account) {
+  const name = String(account || '').trim();
+  const meta = name ? accountSnapshotMeta[name] : null;
+  const loadedMs = Date.parse((meta && meta.lastLoadedAt) || '');
+  return Number.isFinite(loadedMs) ? Math.max(0, Date.now() - loadedMs) : Number.POSITIVE_INFINITY;
+}
+
+function fleetHomeBuilderAttention(row) {
+  const [account, c] = row;
+  const capacity = getAccountBuilderCapacity(account);
+  const total = normalizeOptionalNonNegativeInt(capacity.homeTotal);
+  if (total === null) return 0;
+  const active = Number(c.homeBuilderActive) || 0;
+  return Math.max(0, total - active);
+}
+
 function renderFleetHomeBuilderBars(rows) {
   if (!rows.length) return '<div class="fleet-empty">No accounts in this view.</div>';
-  const sorted = rows.slice().sort((a,b) => (Number(b[1].homeBuilderActive)||0) - (Number(a[1].homeBuilderActive)||0) || a[0].localeCompare(b[0], undefined, { numeric:true, sensitivity:'base' }));
+  const sorted = rows.slice().sort((a,b) => {
+    const attentionDelta = fleetHomeBuilderAttention(b) - fleetHomeBuilderAttention(a);
+    if (attentionDelta !== 0) return attentionDelta;
+
+    const aAge = fleetSnapshotAgeSortValue(a[0]);
+    const bAge = fleetSnapshotAgeSortValue(b[0]);
+    if (!Number.isFinite(aAge) && Number.isFinite(bAge)) return -1;
+    if (Number.isFinite(aAge) && !Number.isFinite(bAge)) return 1;
+    if (Number.isFinite(aAge) && Number.isFinite(bAge) && bAge !== aAge) return bAge - aAge;
+
+    return a[0].localeCompare(b[0], undefined, { numeric:true, sensitivity:'base' });
+  });
   const maxActive = Math.max(1, ...sorted.map(([,c]) => Number(c.homeBuilderActive) || 0));
 
   return `
@@ -4901,9 +4943,15 @@ function renderFleetHomeBuilderBars(rows) {
         const cls = fleetStatusClassForCapacity(active, total);
         const denom = total === null ? maxActive : Math.max(1, total);
         const label = total === null ? `${active}` : `${active}/${total}`;
+        const builderTitle = accountSummaryBuilderTitle(account, c);
+        const freshness = getSnapshotFreshness(account);
+        const accountArg = fleetAccountArg(account);
         return `
-          <div class="fleet-bar-row" title="${esc(accountSummaryBuilderTitle(account, c))}">
-            <span class="fleet-bar-label">${esc(account)}</span>
+          <div class="fleet-bar-row" title="${esc(`${builderTitle} ${freshness.title}`)}">
+            <span class="fleet-bar-label fleet-bar-account-label">
+              <a href="#" class="fleet-bar-account-name fleet-bar-account-link" onclick="fleetSelectAccount(${accountArg}); return false;" title="Filter main page to ${esc(account)}">${esc(account)}</a>
+              ${fleetSnapshotAgeBadgeHtml(account)}
+            </span>
             <span class="fleet-bar-track"><span class="fleet-bar-fill ${cls}" style="width:${fleetPercent(active, denom)}%"></span></span>
             <span class="fleet-bar-value">${esc(label)}</span>
           </div>
