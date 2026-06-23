@@ -438,8 +438,57 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .fleet-floating-btn:active{transform:translateY(0) scale(0.96)}
 .fleet-floating-btn:disabled{opacity:0.55;cursor:not-allowed;transform:translateY(0)}
 .fleet-floating-btn:disabled:hover{background:rgba(24,24,31,0.94);border-color:var(--border2);color:var(--text)}
+.fleet-section-menu-wrap{position:relative;display:none;pointer-events:auto}
+.fleet-section-menu{
+  position:absolute;
+  right:52px;
+  bottom:0;
+  width:min(232px,calc(100vw - 92px));
+  max-height:calc(90vh - 40px);
+  overflow-y:auto;
+  border:1px solid var(--border2);
+  border-radius:var(--radius-lg);
+  background:rgba(24,24,31,0.97);
+  box-shadow:0 14px 34px rgba(0,0,0,0.42);
+  backdrop-filter:blur(6px);
+  padding:8px;
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(6px) scale(0.98);
+  transform-origin:bottom right;
+  transition:opacity 0.15s ease,transform 0.15s ease;
+}
+.fleet-section-menu.visible{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
+.fleet-section-menu-title{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--text3);
+  padding:4px 7px 7px 7px;
+}
+.fleet-section-menu-item{
+  width:100%;
+  border:0;
+  background:transparent;
+  color:var(--text2);
+  border-radius:var(--radius);
+  padding:8px 9px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  line-height:1.2;
+  text-align:left;
+  cursor:pointer;
+}
+.fleet-section-menu-item:hover,.fleet-section-menu-item:focus{background:var(--surface2);color:var(--text);outline:none}
+.fleet-section-menu-item:active{transform:scale(0.98)}
+.fleet-section-menu-icon{width:18px;text-align:center;line-height:1;flex:0 0 auto}
+.fleet-section-anchor{scroll-margin-top:8px}
+
 @media (max-width: 980px){
   .modal.fleet-summary-modal{width:95vw}
+  .fleet-section-menu-wrap{display:flex}
   .fleet-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .fleet-summary-grid{grid-template-columns:1fr}
   .fleet-matrix-header,.fleet-matrix-row{grid-template-columns:minmax(110px,1.4fr) 66px 54px 48px 48px 64px}
@@ -475,6 +524,7 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
   .fleet-pill{justify-content:center;justify-self:stretch;font-size:9px;line-height:1.1;padding:4px 3px;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
   .fleet-floating-actions{right:14px;bottom:18px;gap:8px}
   .fleet-floating-btn{width:42px;height:42px}
+  .fleet-section-menu{right:50px;width:min(230px,calc(100vw - 82px));max-height:calc(100dvh - 84px)}
   .fleet-next-row{grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:8px}
   .fleet-next-account{grid-column:1/2;font-weight:600}
   .fleet-next-name{grid-column:1/-1;grid-row:2;white-space:normal;line-height:1.25}
@@ -1736,6 +1786,24 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
   <div class="modal modal-wide fleet-summary-modal">
     <div id="fleet-summary-content"></div>
     <div class="fleet-floating-actions" aria-label="Fleet summary quick actions">
+      <div class="fleet-section-menu-wrap">
+        <button class="fleet-floating-btn always-visible" type="button" onclick="toggleFleetSummarySectionMenu(event)" id="fleet-section-menu-btn" title="Jump to a fleet summary section" aria-label="Jump to a fleet summary section" aria-expanded="false" aria-controls="fleet-section-menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="4" y1="6" x2="20" y2="6"></line>
+            <line x1="4" y1="12" x2="20" y2="12"></line>
+            <line x1="4" y1="18" x2="20" y2="18"></line>
+          </svg>
+        </button>
+        <div class="fleet-section-menu" id="fleet-section-menu" role="menu" aria-label="Fleet summary sections">
+          <div class="fleet-section-menu-title">Jump to</div>
+          <button class="fleet-section-menu-item" type="button" role="menuitem" onclick="scrollFleetSummaryToSection('fleet-section-overview')"><span class="fleet-section-menu-icon" aria-hidden="true">▦</span><span>Overview</span></button>
+          <button class="fleet-section-menu-item" type="button" role="menuitem" onclick="scrollFleetSummaryToSection('fleet-section-attention')"><span class="fleet-section-menu-icon" aria-hidden="true">⚠</span><span>Needs attention</span></button>
+          <button class="fleet-section-menu-item" type="button" role="menuitem" onclick="scrollFleetSummaryToSection('fleet-section-due')"><span class="fleet-section-menu-icon" aria-hidden="true">⏱</span><span>Due window</span></button>
+          <button class="fleet-section-menu-item" type="button" role="menuitem" onclick="scrollFleetSummaryToSection('fleet-section-next')"><span class="fleet-section-menu-icon" aria-hidden="true">⏭</span><span>Next up</span></button>
+          <button class="fleet-section-menu-item" type="button" role="menuitem" onclick="scrollFleetSummaryToSection('fleet-section-builders')"><span class="fleet-section-menu-icon" aria-hidden="true">🛠</span><span>Active home builders</span></button>
+          <button class="fleet-section-menu-item" type="button" role="menuitem" onclick="scrollFleetSummaryToSection('fleet-section-matrix')"><span class="fleet-section-menu-icon" aria-hidden="true">▤</span><span>Queue coverage matrix</span></button>
+        </div>
+      </div>
       <button class="fleet-floating-btn always-visible" onclick="reloadFleetSummary()" id="fleet-reload-btn" title="Reload timers from the NAS file" aria-label="Reload timers from the NAS file">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="23 4 23 10 17 10"></polyline>
@@ -4689,6 +4757,7 @@ function openFleetSummaryModal() {
 }
 
 function closeFleetSummaryModal() {
+  closeFleetSummarySectionMenu();
   const modal = document.getElementById('fleet-summary-modal');
   if (modal) modal.style.display = 'none';
   updateFleetSummaryFloatingButtons();
@@ -4704,22 +4773,64 @@ function updateFleetSummaryFloatingButtons() {
   const scrollTopBtn = document.getElementById('fleet-scroll-top-btn');
   if (!scrollTopBtn) return;
 
+  const isOpen = fleetSummaryModalIsOpen();
   const scroller = getFleetSummaryScroller();
-  const shouldShow = fleetSummaryModalIsOpen()
+  const shouldShow = isOpen
     && !!scroller
     && scroller.scrollHeight > scroller.clientHeight + 1
     && scroller.scrollTop > 80;
 
+  if (!isOpen) closeFleetSummarySectionMenu();
   scrollTopBtn.classList.toggle('visible', shouldShow);
 }
 
 function scrollFleetSummaryToTop() {
+  closeFleetSummarySectionMenu();
   const scroller = getFleetSummaryScroller();
   if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' });
   setTimeout(updateFleetSummaryFloatingButtons, 250);
 }
 
+function closeFleetSummarySectionMenu() {
+  const menu = document.getElementById('fleet-section-menu');
+  const button = document.getElementById('fleet-section-menu-btn');
+  if (menu) menu.classList.remove('visible');
+  if (button) button.setAttribute('aria-expanded', 'false');
+}
+
+function toggleFleetSummarySectionMenu(event) {
+  if (event) event.stopPropagation();
+  if (!fleetSummaryModalIsOpen()) return;
+  const menu = document.getElementById('fleet-section-menu');
+  const button = document.getElementById('fleet-section-menu-btn');
+  if (!menu) return;
+  const nextVisible = !menu.classList.contains('visible');
+  menu.classList.toggle('visible', nextVisible);
+  if (button) button.setAttribute('aria-expanded', nextVisible ? 'true' : 'false');
+}
+
+function scrollFleetSummaryToSection(sectionId) {
+  const scroller = getFleetSummaryScroller();
+  const target = document.getElementById(sectionId);
+  closeFleetSummarySectionMenu();
+  if (!scroller || !target) return;
+
+  const scrollerRect = scroller.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const top = Math.max(0, scroller.scrollTop + targetRect.top - scrollerRect.top - 8);
+  scroller.scrollTo({ top, behavior: 'smooth' });
+  setTimeout(updateFleetSummaryFloatingButtons, 250);
+}
+
+function closeFleetSummarySectionMenuOnOutsideClick(event) {
+  if (!fleetSummaryModalIsOpen()) return;
+  const target = event && event.target;
+  const insideMenu = target && target.closest && target.closest('.fleet-section-menu-wrap');
+  if (!insideMenu) closeFleetSummarySectionMenu();
+}
+
 async function reloadFleetSummary() {
+  closeFleetSummarySectionMenu();
   await reloadTimerFile();
   renderFleetSummaryModal();
   updateFleetSummaryFloatingButtons();
@@ -4729,6 +4840,7 @@ function setupFleetSummaryFloatingControls() {
   const scroller = getFleetSummaryScroller();
   if (scroller) scroller.addEventListener('scroll', updateFleetSummaryFloatingButtons, { passive: true });
   window.addEventListener('resize', updateFleetSummaryFloatingButtons);
+  document.addEventListener('click', closeFleetSummarySectionMenuOnOutsideClick);
   updateFleetSummaryFloatingButtons();
 }
 
@@ -5178,7 +5290,7 @@ function renderFleetSummaryModal() {
   ].join('');
 
   el.innerHTML = `
-    <div class="fleet-summary-head">
+    <div class="fleet-summary-head fleet-section-anchor" id="fleet-section-overview">
       <div class="fleet-summary-title-wrap">
         <h2 class="fleet-summary-title"><span aria-hidden="true">▦</span> Fleet summary</h2>
         <div class="fleet-summary-subtitle">Scope: ${esc(viewLabel)} · ${esc(accountLabel)} · reads current timers and snapshot metadata only.</div>
@@ -5197,29 +5309,29 @@ function renderFleetSummaryModal() {
 
     <div class="fleet-summary-grid">
       <div>
-        <div class="fleet-panel">
+        <div class="fleet-panel fleet-section-anchor" id="fleet-section-attention">
           <div class="fleet-panel-title"><span>Needs attention</span><strong>${expiredTimers + Number(data.dueCounts.next8 || 0)} urgent-ish</strong></div>
           <div class="fleet-attention-list">${attentionItems}</div>
         </div>
 
-        <div class="fleet-panel">
+        <div class="fleet-panel fleet-section-anchor" id="fleet-section-due">
           <div class="fleet-panel-title"><span>Due window</span><strong>${activeTimers} active</strong></div>
           ${renderFleetDueBars(data.dueCounts)}
         </div>
 
-        <div class="fleet-panel">
+        <div class="fleet-panel fleet-section-anchor" id="fleet-section-next">
           <div class="fleet-panel-title"><span>Next up</span><strong>tap account to filter</strong></div>
           ${renderFleetNextTimers(data.nextTimers)}
         </div>
       </div>
 
       <div>
-        <div class="fleet-panel">
+        <div class="fleet-panel fleet-section-anchor" id="fleet-section-builders">
           <div class="fleet-panel-title"><span>Active home builders</span><strong>guardians included</strong></div>
           ${renderFleetHomeBuilderBars(data.rows)}
         </div>
 
-        <div class="fleet-panel">
+        <div class="fleet-panel fleet-section-anchor" id="fleet-section-matrix">
           <div class="fleet-panel-title"><span>Queue coverage matrix</span><strong>Home · BB · Lab · Pet · Snapshot</strong></div>
           ${renderFleetMatrix(data.rows)}
         </div>
