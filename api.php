@@ -52,10 +52,11 @@ if (!file_exists($dataFile)) {
 
 if (!file_exists($viewsFile)) {
     file_put_contents($viewsFile, json_encode([
-        'schemaVersion' => 2,
+        'schemaVersion' => 3,
         'lastUpdated' => null,
         'views' => $defaultAccountViews,
-        'snapshotFreshnessSettings' => $defaultSnapshotFreshnessSettings
+        'snapshotFreshnessSettings' => $defaultSnapshotFreshnessSettings,
+        'accountTagMap' => []
     ], JSON_PRETTY_PRINT));
 }
 
@@ -115,6 +116,43 @@ function normalizeAccountName($account): ?string {
 
     $name = trim((string) $account);
     return $name === '' ? null : $name;
+}
+
+
+function normalizePlayerTag($tag): ?string {
+    if (!is_scalar($tag)) {
+        return null;
+    }
+
+    $clean = strtoupper(preg_replace('/\s+/', '', trim((string) $tag)) ?? '');
+    if ($clean === '') {
+        return null;
+    }
+
+    if ($clean[0] !== '#') {
+        $clean = '#' . $clean;
+    }
+
+    return $clean;
+}
+
+function normalizeAccountTagMap($map, $fallback = null): array {
+    $source = is_array($map) ? $map : (is_array($fallback) ? $fallback : []);
+    $normalized = [];
+
+    foreach ($source as $rawTag => $rawAccount) {
+        $tag = normalizePlayerTag($rawTag);
+        $account = normalizeAccountName($rawAccount);
+
+        if ($tag === null || $account === null) {
+            continue;
+        }
+
+        $normalized[$tag] = $account;
+    }
+
+    ksort($normalized, SORT_NATURAL | SORT_FLAG_CASE);
+    return $normalized;
 }
 
 function normalizeAccountViews(array $views): array {
@@ -368,11 +406,16 @@ if ($action === 'loadViews') {
         $data['snapshotFreshnessSettings'] ?? ($data['settings']['snapshotFreshnessSettings'] ?? null)
     );
 
+    $accountTagMap = normalizeAccountTagMap(
+        $data['accountTagMap'] ?? ($data['settings']['accountTagMap'] ?? null)
+    );
+
     respond([
-        'schemaVersion' => 2,
+        'schemaVersion' => 3,
         'lastUpdated' => $data['lastUpdated'] ?? null,
         'views' => $views,
-        'snapshotFreshnessSettings' => $snapshotFreshnessSettings
+        'snapshotFreshnessSettings' => $snapshotFreshnessSettings,
+        'accountTagMap' => $accountTagMap
     ]);
 }
 
@@ -439,11 +482,20 @@ if ($action === 'saveViews') {
             $currentData['snapshotFreshnessSettings'] ?? ($currentData['settings']['snapshotFreshnessSettings'] ?? null)
         );
 
+    // Preserve the account tag lookup for older clients. This map is shared app
+    // configuration used by batch snapshot import to resolve player tag -> app account.
+    $accountTagMap = array_key_exists('accountTagMap', $incoming)
+        ? normalizeAccountTagMap($incoming['accountTagMap'])
+        : normalizeAccountTagMap(
+            $currentData['accountTagMap'] ?? ($currentData['settings']['accountTagMap'] ?? null)
+        );
+
     $payload = [
-        'schemaVersion' => 2,
+        'schemaVersion' => 3,
         'lastUpdated' => nowIsoUtc(),
         'views' => $incomingViews,
-        'snapshotFreshnessSettings' => $snapshotFreshnessSettings
+        'snapshotFreshnessSettings' => $snapshotFreshnessSettings,
+        'accountTagMap' => $accountTagMap
     ];
 
     $backupFile = null;
