@@ -1,0 +1,7 @@
+# Database volume data
+mysql_data/
+
+# Python compiled bytecode
+__pycache__/
+*.pyc
+*.pyo
