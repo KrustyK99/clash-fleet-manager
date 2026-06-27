@@ -1,0 +1,33 @@
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_here
+      MYSQL_DATABASE: clash_tracker
+      MYSQL_USER: clash_user
+      MYSQL_PASSWORD: secure_password_here
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+      # We will mount your schema_mariadb.sql here later
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app     # Live-reloading for your Python code
+      - ./data:/app/data   # Mounting your flat files for the Imposter API
+    depends_on:
+      - db
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
