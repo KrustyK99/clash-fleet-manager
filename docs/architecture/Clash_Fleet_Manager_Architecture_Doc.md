@@ -1,4 +1,4 @@
-# Architecture & Migration Design Doc: Clash Fleet Manager v7
+# Architecture & Migration Design Doc: Clash Fleet Manager v8
 
 ## 1. Project Overview
 **Goal:** Migrate a legacy monolithic Clash of Clans fleet management tool (HTML/JS frontend, `api.php` backend, `timers.json` flat-file datastore) to a modern, containerized stack (Python/FastAPI backend, MariaDB relational database).
@@ -62,6 +62,22 @@
 ### Decision 12: Deployment Strategy (Manual First)
 * **What:** Initial deployments to the DigitalOcean Droplet will be executed manually via SSH, running `git pull` followed by `docker compose up -d --build`. Automated CI/CD (e.g., GitHub Actions) is explicitly deferred.
 * **Rationale:** Introducing automated deployment pipelines introduces finicky DevOps variables (SSH keys, YAML formatting, known_hosts bypassing). By deploying manually, we eliminate deployment orchestration as a point of failure while the new architecture stabilizes. CI/CD will be implemented only after the core application is stable and manual deployments become a bottleneck.
+
+### Decision 13: Disaster Recovery & Backups
+* **What:** Database backups will be handled via a nightly cron job running `mysqldump` to export the MariaDB data, compress it, and push it to secure offsite object storage (e.g., DigitalOcean Spaces or AWS S3).
+* **Rationale:** Full infrastructure-level snapshots are "all-or-nothing" and make restoring a single tenant's data impossible. Nightly SQL dumps provide surgical recovery flexibility, protect against accidental table drops, and are extremely cost-effective.
+
+### Decision 14: Configuration & Secrets Management
+* **What:** All sensitive data (database credentials, OAuth secrets, JWT signing keys) will be managed via local `.env` files injected into the Docker containers at runtime. The `.env` files are strictly added to `.gitignore`.
+* **Rationale:** Managed secret vaults are premature optimization for a single Droplet. A `.env` file paired with standard Linux Droplet hardening (key-based SSH, UFW firewall) provides robust security with zero added latency or cost.
+
+### Decision 15: Observability & Error Tracking
+* **What:** Sentry (Free Tier) will be integrated into both the Python API and the Javascript frontend to catch unhandled exceptions.
+* **Rationale:** Basic Docker logs are reactive and blind. Sentry provides proactive, instant alerts with full stack traces. Because delivery is asynchronous and UI errors are offloaded to the user's browser, the performance hit on the $12 Droplet is negligible.
+
+### Decision 16: API Versioning Contract
+* **What:** The initial release (v1) will use simple routing without strict versioning overhead. The documented end-state goal is to migrate to Header-Based Versioning (e.g., `Accept-Version: v2`) as the API matures.
+* **Rationale:** A pragmatic MVP approach. The early adopter user base is small enough to tolerate simple URL updates. Transitioning to header-based versioning later ensures API URLs remain clean forever while protecting older thick clients from breaking response payload changes.
 
 ---
 
