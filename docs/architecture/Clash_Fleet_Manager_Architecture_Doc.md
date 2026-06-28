@@ -1,95 +1,58 @@
-# Architecture & Migration Design Doc: Clash Fleet Manager v8
-
-## 1. Project Overview
-**Goal:** Migrate a legacy monolithic Clash of Clans fleet management tool (HTML/JS frontend, `api.php` backend, `timers.json` flat-file datastore) to a modern, containerized stack (Python/FastAPI backend, MariaDB relational database).
-**Migration Strategy:** Strangler Fig Pattern. The migration is being done iteratively to ensure continuous system stability, isolating variables at each step to prevent cascading debugging failures.
+# Technical Design Document: Clash Fleet Manager
+**Version:** 9.0 (Standardized TDD Format)
+**Status:** Approved for Implementation
 
 ---
 
-## 2. Target Production Environment
-* **Host:** DigitalOcean Droplet (Linux-based)
-* **Constraints:** $12/month tier (0.5 vCPU, 1GB RAM)
-* **Orchestration:** Docker Compose
+## 1. Context & Scope
+**Overview:** The project is a migration of a legacy, monolithic Clash of Clans fleet management tool (HTML/JS frontend, `api.php` backend, `timers.json` flat-file datastore) into a modern, multi-tenant SaaS application.
+**Migration Strategy:** The "Strangler Fig" pattern. Migration will occur iteratively to ensure continuous system stability, isolating variables at each step (e.g., swapping language before datastore) to prevent cascading debugging failures.
+**Target Environment:** A constrained DigitalOcean Droplet ($12/month tier: 0.5 vCPU, 1GB RAM) orchestrated via Docker Compose.
 
 ---
 
-## 3. Key Architectural Decisions & Rationale
+## 2. Goals & Non-Goals
+### Goals
+* **Multi-Tenant SaaS:** Transition the tool from a single-user personal utility into a secure, isolated SaaS platform.
+* **Frictionless Development:** Maintain an "Inner Dev Loop" of under 2 seconds using a monorepo structure, Docker volume mapping, and Uvicorn hot-reloading.
+* **Resource Preservation:** Architect the system to run efficiently on highly constrained hardware.
 
-### Decision 1: Local Containerized Simulation (Docker Compose)
-* **What:** The local development environment uses Docker Desktop (via WSL2 on Windows) to spin up a strict Linux-based Droplet simulator.
-* **Rationale:** "It works on my machine" syndrome is a massive risk during migrations. By explicitly setting `cpus: '0.5'` and `memory: 1G` in the `docker-compose.yaml` for both the `db` (MariaDB 10.11) and `api` (Python 3.11-slim) services, the local Windows laptop perfectly mimics the constrained production environment.
-
-### Decision 2: Monorepo Structure
-* **What:** The new Python `backend/` directory, database volumes, and `docker-compose.yaml` are integrated directly into the root of the existing legacy Git repository, sitting right next to the monolithic `index.html` and legacy `data/` folder.
-* **Rationale:** **Atomic Commits.** During a Strangler Fig migration, frontend API URL changes (`fetch()`) and new backend endpoints must be perfectly synchronized. A monorepo ensures that if a deployment breaks, a single Git revert rolls back both the frontend routing and the backend logic simultaneously. 
-
-### Decision 3: The "Inner Dev Loop" (Volume Mapping & Hot-Reloading)
-* **What:** The `docker-compose.yaml` maps the local Windows `./backend` folder to the container's `/app` directory, and the FastAPI Uvicorn server is booted with the `--reload` flag.
-* **Rationale:** Frictionless development. Modifying Python code on the Windows host instantly triggers a graceful restart of the Uvicorn server inside the isolated Linux container. This eliminates the need to rebuild Docker images for every code change, keeping the iteration cycle under 2 seconds.
-
-### Decision 4: The "Imposter API" (Isolation of Variables)
-* **What:** Stage 1 of the migration involves writing a Python FastAPI backend that does *nothing* but exactly mimic the legacy `api.php` file—reading and writing directly to the existing `timers.json` flat file via a volume mount (`./data:/app/data`).
-* **Rationale:** Risk mitigation. By swapping the language (PHP to Python) *before* swapping the datastore (JSON to MariaDB), variables are isolated. If the frontend fails to load, it is definitively a CORS issue, a network routing issue, or a JSON parsing issue in FastAPI, rather than a malformed SQL query. 
-
-### Decision 5: Strict Git Hygiene
-* **What:** A `.gitignore` file enforces the exclusion of the `mysql_data/` directory and Python `__pycache__/` directories.
-* **Rationale:** Prevents catastrophic repository bloat. Relational databases constantly mutate binary files; committing these would rapidly bloat the Git history with gigabytes of unmergeable noise.
-
-### Decision 6: Thick Client / Thin Server Architecture
-* **What:** The `index.html` frontend handles all heavy compute logic—including parsing the massive Clash of Clans JSON snapshots, timer math, sorting, and UI state management. The FastAPI backend remains deliberately "dumb," acting primarily as a lightweight router to shuffle data in and out of the database.
-* **Rationale:** The target Droplet is severely resource-constrained (0.5 vCPU, 1GB RAM). By offloading the compute-heavy tasks to the user's browser, we protect the server from CPU spikes and memory exhaustion, ensuring the API remains fast, stable, and highly concurrent under load.
-
-### Decision 7: Client-Side JSON Compression
-* **What:** Before sending the in-game Clash of Clans snapshot payloads to the API, the browser frontend will compress the JSON data. The MariaDB database will store these payloads in their compressed format rather than as raw, uncompressed text.
-* **Rationale:** Raw JSON is incredibly verbose. Sending and storing uncompressed text would unnecessarily consume network bandwidth, aggressively bloat the database, and waste the Droplet's limited disk space and memory buffer pool. Compressing it client-side drastically reduces infrastructure costs and disk I/O.
-
-### Decision 8: Multi-Tenant Architecture
-* **What:** The end-state application will be a multi-tenant SaaS. The database schema and backend queries will be designed to strictly isolate data by a `user_id` foreign key. Global unique constraints (e.g., account names) will be converted to tenant-scoped compound constraints (e.g., `user_id` + `account_name`).
-* **Rationale:** To transition the project from a personal, single-user utility into a scalable SaaS product. Building tenant isolation directly into the foundational SQL schema and API routing now prevents a massive, high-risk refactor later in the development lifecycle.
-
-### Decision 9: Day-1 Automated Testing
-* **What:** Automated testing will be integrated across both tracks from the very beginning. We will use `pytest` for the Python backend, and an End-to-End (E2E) framework like **Playwright** for the frontend, eventually introducing **Vitest/Jest** as the UI becomes modular.
-* **Rationale:** Retrofitting tests into a complex application is difficult and often gets skipped. By mandating a test-driven foundation from day 1, we establish a continuous safety net. For the frontend monolith, E2E tests act as a "black box" verifying exact user flows *before* refactoring begins. As we modularize `index.html` and build the multi-tenant backend, this combined testing suite guarantees that new features and structural changes do not silently break existing architecture.
-
-### Decision 10: Security & Authentication Posture
-* **What:** Authentication will be handled via OAuth (Discord and Google) to offload password liability. Session management will use stateless JSON Web Tokens (JWTs) stored in the thick client. The API will be protected by strict IP and user-based Rate Limiting (e.g., `slowapi`).
-* **Rationale:** Building and maintaining password reset flows is a liability and time sink. OAuth provides frictionless login. JWTs eliminate the need for the database to verify sessions on every request, saving compute and memory. Rate limiting ensures the constrained $12 Droplet cannot be taken down by abuse or infinite loops.
-
-### Decision 11: Data Migration Strategy (The Clean Slate)
-* **What:** We will not migrate the legacy `timers.json` flat file. On launch, the database will start empty. Users will rebuild their active timers organically using the application's existing in-game JSON snapshot parsing feature.
-* **Rationale:** Writing, testing, and debugging one-off ETL (Extract, Transform, Load) scripts to migrate legacy personal data into a multi-tenant schema is a low-ROI effort. Since users can rebuild their state in ~20 minutes via the snapshot tool, a "Clean Slate" approach saves hours of engineering time and keeps the new backend 100% free of legacy tech debt.
-
-### Decision 12: Deployment Strategy (Manual First)
-* **What:** Initial deployments to the DigitalOcean Droplet will be executed manually via SSH, running `git pull` followed by `docker compose up -d --build`. Automated CI/CD (e.g., GitHub Actions) is explicitly deferred.
-* **Rationale:** Introducing automated deployment pipelines introduces finicky DevOps variables (SSH keys, YAML formatting, known_hosts bypassing). By deploying manually, we eliminate deployment orchestration as a point of failure while the new architecture stabilizes. CI/CD will be implemented only after the core application is stable and manual deployments become a bottleneck.
-
-### Decision 13: Disaster Recovery & Backups
-* **What:** Database backups will be handled via a nightly cron job running `mysqldump` to export the MariaDB data, compress it, and push it to secure offsite object storage (e.g., DigitalOcean Spaces or AWS S3).
-* **Rationale:** Full infrastructure-level snapshots are "all-or-nothing" and make restoring a single tenant's data impossible. Nightly SQL dumps provide surgical recovery flexibility, protect against accidental table drops, and are extremely cost-effective.
-
-### Decision 14: Configuration & Secrets Management
-* **What:** All sensitive data (database credentials, OAuth secrets, JWT signing keys) will be managed via local `.env` files injected into the Docker containers at runtime. The `.env` files are strictly added to `.gitignore`.
-* **Rationale:** Managed secret vaults are premature optimization for a single Droplet. A `.env` file paired with standard Linux Droplet hardening (key-based SSH, UFW firewall) provides robust security with zero added latency or cost.
-
-### Decision 15: Observability & Error Tracking
-* **What:** Sentry (Free Tier) will be integrated into both the Python API and the Javascript frontend to catch unhandled exceptions.
-* **Rationale:** Basic Docker logs are reactive and blind. Sentry provides proactive, instant alerts with full stack traces. Because delivery is asynchronous and UI errors are offloaded to the user's browser, the performance hit on the $12 Droplet is negligible.
-
-### Decision 16: API Versioning Contract
-* **What:** The initial release (v1) will use simple routing without strict versioning overhead. The documented end-state goal is to migrate to Header-Based Versioning (e.g., `Accept-Version: v2`) as the API matures.
-* **Rationale:** A pragmatic MVP approach. The early adopter user base is small enough to tolerate simple URL updates. Transitioning to header-based versioning later ensures API URLs remain clean forever while protecting older thick clients from breaking response payload changes.
+### Non-Goals (Out of Scope)
+* **Automated CI/CD:** We are explicitly deferring GitHub Actions or automated pipelines for Day 1. Deployments will be handled manually to reduce DevOps variables during early stabilization.
+* **Legacy Data Migration:** We are not building ETL scripts to migrate the existing `timers.json`. We will use a "Clean Slate" approach where users rebuild state via the app's JSON snapshot parsing feature.
+* **Enterprise Secrets Vault:** We are not integrating HashiCorp Vault or AWS Secrets Manager. Standard `.env` files and Droplet hardening provide sufficient security.
 
 ---
 
-## 4. Execution Strategy: Parallel Tracks
-To efficiently execute the Strangler Fig migration moving forward, the project is structurally divided into two high-level, concurrent tracks of work:
-* **Track 1: Backend Infrastructure:** Establishing the containerized environment, implementing the multi-tenant MariaDB database, and building the Python/FastAPI backend to replace the temporary Imposter API.
-* **Track 2: Frontend Refactoring:** Deconstructing and modernizing the 7,000-line monolithic `index.html` file into maintainable, modular components while preserving its "thick client" responsibilities.
+## 3. System Architecture
+* **Thick Client / Thin Server:** To protect the 0.5 vCPU Droplet from CPU spikes, the `index.html` frontend will handle all heavy compute logic (JSON snapshot parsing, timer math, sorting). The Python/FastAPI backend will act strictly as a lightweight data router.
+* **Local Containerized Simulation:** The local Windows development environment (via Docker Desktop/WSL2) will strictly simulate production constraints by enforcing `cpus: '0.5'` and `memory: 1G` in the `docker-compose.yaml`.
+* **API Versioning Contract:** The initial release will utilize simple URL routing (v1). As the user base grows and the API stabilizes, the system will migrate to Header-Based Versioning (e.g., `Accept-Version: v2`) to keep URLs clean and protect older thick clients.
 
 ---
 
-## 5. Current State (End of Stage 1)
-* The legacy `api.php` file has been fully deprecated and deleted.
-* The monolithic `index.html` frontend has been successfully rewired to route `fetch()` calls to `localhost:8000` (FastAPI).
-* The system is fully stable, with Python acting as a 1-to-1 proxy for the flat JSON file datastore.
-* **Next Phase:** Database Integration. Modifying the draft MariaDB schema for multi-tenancy, then rewiring the internal logic of the Python API endpoints to read/write from the running database container instead of the flat `timers.json` file.
+## 4. Data Strategy
+* **Relational Multi-Tenancy:** The backend will utilize MariaDB 10.11. All database schemas and queries will strictly isolate data using a `user_id` foreign key, converting global unique constraints into tenant-scoped compound constraints.
+* **Client-Side JSON Compression:** To minimize network bandwidth, API latency, and database storage overhead, massive in-game JSON payloads will be compressed by the browser *before* being transmitted to the backend.
+* **Disaster Recovery:** A nightly cron job will execute `mysqldump` to export the MariaDB data, compress it, and push it to secure offsite object storage (e.g., DigitalOcean Spaces or S3) to ensure surgical data recovery options.
+
+---
+
+## 5. Security & Authentication Posture
+* **Authentication (OAuth):** Login will be handled exclusively via Discord and Google OAuth. This provides frictionless onboarding while entirely offloading the liability of password management and reset flows.
+* **Session Management (JWT):** The API will remain stateless. Authentication will be verified via JSON Web Tokens (JWTs) stored in the thick client, saving the database from querying sessions on every request.
+* **Droplet Protection (Rate Limiting):** The application will implement strict IP and user-based rate limiting (via `slowapi`) to ensure the server cannot be exhausted by malicious bots or infinite UI loops.
+
+---
+
+## 6. Operations & Observability
+* **Deployment Pipeline:** Initial deployments will execute manually via SSH (`git pull` -> `docker compose up -d --build`). 
+* **Secrets Management:** All sensitive credentials will be injected into Docker containers at runtime via `.env` files, which are strictly managed by `.gitignore` rules.
+* **Error Tracking:** Sentry (Free Tier) will be integrated into both the JS frontend and Python backend. Its asynchronous delivery mechanisms ensure instant Slack/Discord alerts for unhandled exceptions with zero performance penalty to the host Droplet.
+
+---
+
+## 7. Testing Strategy
+* **Day-1 Enforcement:** Automated testing is a foundational requirement, not an afterthought, establishing a safety net before structural refactoring begins.
+* **Frontend (E2E):** An End-to-End framework (Playwright) will treat the legacy `index.html` monolith as a "black box," verifying human user flows remain intact as the DOM is refactored. Component testing (Vitest/Jest) will be introduced as the UI becomes modular.
+* **Backend:** The Python API will be continuously tested using `pytest` to ensure database reads/writes and multi-tenant scoping function as expected.
