@@ -1,4 +1,4 @@
-# Architecture & Migration Design Doc: Clash Fleet Manager v6
+# Architecture & Migration Design Doc: Clash Fleet Manager v7
 
 ## 1. Project Overview
 **Goal:** Migrate a legacy monolithic Clash of Clans fleet management tool (HTML/JS frontend, `api.php` backend, `timers.json` flat-file datastore) to a modern, containerized stack (Python/FastAPI backend, MariaDB relational database).
@@ -50,6 +50,18 @@
 ### Decision 9: Day-1 Automated Testing
 * **What:** Automated testing will be integrated across both tracks from the very beginning. We will use `pytest` for the Python backend, and an End-to-End (E2E) framework like **Playwright** for the frontend, eventually introducing **Vitest/Jest** as the UI becomes modular.
 * **Rationale:** Retrofitting tests into a complex application is difficult and often gets skipped. By mandating a test-driven foundation from day 1, we establish a continuous safety net. For the frontend monolith, E2E tests act as a "black box" verifying exact user flows *before* refactoring begins. As we modularize `index.html` and build the multi-tenant backend, this combined testing suite guarantees that new features and structural changes do not silently break existing architecture.
+
+### Decision 10: Security & Authentication Posture
+* **What:** Authentication will be handled via OAuth (Discord and Google) to offload password liability. Session management will use stateless JSON Web Tokens (JWTs) stored in the thick client. The API will be protected by strict IP and user-based Rate Limiting (e.g., `slowapi`).
+* **Rationale:** Building and maintaining password reset flows is a liability and time sink. OAuth provides frictionless login. JWTs eliminate the need for the database to verify sessions on every request, saving compute and memory. Rate limiting ensures the constrained $12 Droplet cannot be taken down by abuse or infinite loops.
+
+### Decision 11: Data Migration Strategy (The Clean Slate)
+* **What:** We will not migrate the legacy `timers.json` flat file. On launch, the database will start empty. Users will rebuild their active timers organically using the application's existing in-game JSON snapshot parsing feature.
+* **Rationale:** Writing, testing, and debugging one-off ETL (Extract, Transform, Load) scripts to migrate legacy personal data into a multi-tenant schema is a low-ROI effort. Since users can rebuild their state in ~20 minutes via the snapshot tool, a "Clean Slate" approach saves hours of engineering time and keeps the new backend 100% free of legacy tech debt.
+
+### Decision 12: Deployment Strategy (Manual First)
+* **What:** Initial deployments to the DigitalOcean Droplet will be executed manually via SSH, running `git pull` followed by `docker compose up -d --build`. Automated CI/CD (e.g., GitHub Actions) is explicitly deferred.
+* **Rationale:** Introducing automated deployment pipelines introduces finicky DevOps variables (SSH keys, YAML formatting, known_hosts bypassing). By deploying manually, we eliminate deployment orchestration as a point of failure while the new architecture stabilizes. CI/CD will be implemented only after the core application is stable and manual deployments become a bottleneck.
 
 ---
 
