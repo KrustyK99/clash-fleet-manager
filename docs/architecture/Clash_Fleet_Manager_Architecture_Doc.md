@@ -1,18 +1,101 @@
 # Technical Design Document: Clash Fleet Manager
 
-**Version:** 10.1 (Refactored TDD with Implementation Appendices)  
+**Version:** 10.3
 **Status:** Draft for Review  
-**Source:** Refactored from v10.0
+**Note:** Prefaced by Section 0 (Strategy & Telos). The body below was reconciled in v10.3 so its framing no longer contradicts the gate; engineering content is unchanged. Read Section 0 first.
 
 ---
 
+# Section 0: Strategy & Telos (Reframing Note)
+
+**Version:** Strategy overlay for TDD v10.1
+**Status:** Adopted — supersedes the implied "droplet is the destination" framing throughout the rest of this document.
+**Purpose:** Reset what this project *is* before reading the phases, scope, and non-goals that follow.
+
+---
+
+## 0.1 What this project actually is
+
+This is a **personal application, built well.** That is the whole goal, and it is a complete goal on its own.
+
+The earlier version of this document carried an unstated assumption: that the end state is a multi-tenant, hardened, internet-exposed SaaS application running on a DigitalOcean Droplet, and that personal use was a waypoint on the road there. That assumption is now retired.
+
+The reframing is this:
+
+> **Phase one is making the app genuinely good for one user — me. That is allowed to be the final state.**
+>
+> The multi-tenant, internet-exposed future sits **behind a gate.** Going through the gate is an optional, deliberate decision made *after* the personal app exists — not a default the project drifts into.
+
+Everything downstream in this document should be re-read through that lens. Where the original text justifies a decision "for the SaaS target," the real justification is now "because it is good architecture for my app, and conveniently also a cheap seam toward an optional future."
+
+## 0.2 Why the gate, given this is not commercial
+
+This is not a commercial product. It will not generate meaningful revenue. The realistic best case for a public deployment is that donations or Patreon roughly cover the server bill. That single fact is what makes the gate correct rather than counterintuitive.
+
+In a commercial project, putting a gate before production would be backwards — you would want to minimize time-to-market because there is a payoff waiting at the end. Here there is no such payoff. Going through the gate buys the *privilege of paying for, securing, and operating a public service that other people use for free,* with all the operational and security liability that entails.
+
+So the rational structure is to **protect the thing with certain value (a tool I use and maintain easily) and place a deliberate decision in front of the thing with speculative, possibly-negative value (running a hardened multi-tenant service at a loss).**
+
+## 0.3 The gate
+
+The gate cleanly separates two different disciplines that the original document blurred into one continuous ramp:
+
+* **Before the gate — Software Engineering.** Making the application well-built, modular, correct, testable, and pleasant to maintain. All of this has immediate value to a fleet of one. None of it is throwaway, because "well-built for me" and "well-built as a foundation" are very nearly the same set of moves.
+
+* **After the gate — Operations & Security.** Running a service for other people on the hostile internet: authentication, exposure hardening, rate limiting, disaster recovery, error tracking, uptime ownership. This work has **no payoff for a local single-user app** and is justified *only* by deciding to go multi-tenant.
+
+The gate is a real decision to be answered from the far side of a working app, when the questions can be answered with evidence instead of assumption:
+
+* Do I actually want to operate an internet-exposed service?
+* Is there a second user who genuinely matters?
+* Am I willing to own the security and uptime burden indefinitely?
+* Does anything (donations, demand) justify the recurring cost and risk?
+
+If the answer is yes, the post-gate work begins. If the answer is no — or never — the app stays personal and local, and **nothing has been lost.**
+
+## 0.4 The one rule that keeps "eye on scalability" honest
+
+The risk of this strategy is gold-plating the personal app with "scalability" features that are really the droplet wearing a disguise. The discipline that prevents it is a single test applied to every pre-gate decision:
+
+> **Keep cheap seams. Defer expensive builds.**
+
+A **seam** is a boundary left in place so a future bolt-on is a fill-in rather than a retrofit. Seams are cheap now, cheap to carry, and make future-me's life easy. **Pre-gate, a thing is allowed if it is either (a) better for my app right now, or (b) a cheap seam that costs ~nothing to leave in.** A thing is *not* allowed pre-gate if its only justification is the droplet.
+
+Worked examples of the line:
+
+| Item | Verdict | Why |
+| --- | --- | --- |
+| `owner_id` on user-owned tables | **Seam — keep** | Free on empty tables; brutal to retrofit later. Improves nothing today but costs nothing. |
+| Per-record version tokens | **Better now — keep** | Directly fixes the current overwrite/data-loss bug. Pays off immediately. |
+| `origin` discriminator on timers | **Seam — keep** | Cheap column; clarifies the model even for one user. |
+| `get_current_owner()` identity seam | **Seam — keep** | One attachment point for future auth; also just cleaner than a global "current user." |
+| Tenant-scoped queries (`WHERE owner_id = :current`) | **Seam — keep** | A no-op filter today; means isolation is already enforced everywhere if the gate opens. |
+| Breaking up the 7000-line monolith | **Better now — keep** | Maintainability and testability win for a fleet of one, independent of any future. |
+| OAuth / Google / Discord login | **Defer — post-gate** | No value to a local single user; pure operations work. |
+| Rate limiting, reverse proxy, exposure hardening | **Defer — post-gate** | Only meaningful against the hostile internet. |
+| Offsite backups, Sentry, structured ops logging | **Defer — post-gate** | Production operations, not personal-app engineering. |
+| Second-user permissions / roles UI | **Defer — post-gate** | Built for a user who is still hypothetical. |
+
+When something is ambiguous, the question is simply: *does this make my app better for me right now, or am I building it for a user who is still hypothetical?* If it's the latter, it lives behind the gate.
+
+---
+
+## 0.5 How this changes the rest of the document
+
+The phases, scope tables, and non-goals below remain largely valid as *engineering* guidance, but their framing shifts:
+
+* **Phases 0–3 and 5** (baseline tests, API contract, FastAPI + MariaDB schema, frontend modularization) are now the **pre-gate personal-app program.** They are the destination of phase one, not steps toward the droplet.
+* **Phase 4 (auth) and Phase 6 (production hardening)** are now explicitly **post-gate.** They move behind the decision and are not assumed.
+* Wherever the text reads "for the SaaS target" or "for production," substitute "because it is good architecture, and conveniently also a seam." The work is the same; the *reason* is now self-justifying rather than conditional on a future that may never arrive.
+* The schema-first decision (merging the original Phases 2–3 into a single schema-first cutover, with the API contract as the fixed invariant and the legacy JSON path retained as a hot fallback) stands, because the schema is what fixes the present overwrite pain — not merely what enables a future.
+
 ## 1. Context & Scope
 
-**Overview:** The project is a migration of a legacy, monolithic Clash of Clans fleet management tool into a modern, multi-tenant SaaS application. The current legacy implementation consists of an HTML/JavaScript frontend, a lightweight PHP backend, and JSON flat-file persistence.
+**Overview:** The project is a migration of a legacy, monolithic Clash of Clans fleet management tool into a modern, well-architected **personal application** — modular, testable, and pleasant to maintain — with the data model and seams left in place so that a multi-tenant future is an *optional* path behind the gate rather than an assumed destination (see Section 0). The current legacy implementation consists of an HTML/JavaScript frontend, a lightweight PHP backend, and JSON flat-file persistence.
 
 **Migration Strategy:** The migration will use the Strangler Fig pattern. The system will be migrated iteratively to preserve stability, isolate variables, and avoid cascading debugging failures. The guiding principle is to change one major system concern at a time.
 
-**Target Environment:** The target production environment is a constrained DigitalOcean Droplet using Docker Compose. The initial architecture assumes a low-cost host with limited CPU, memory, and storage.
+**Runtime Environment:** The primary runtime is the local/NAS environment where the personal app actually lives. A constrained DigitalOcean Droplet using Docker Compose is the *post-gate* production target should the multi-tenant path ever be taken; designing against a low-cost host with limited CPU, memory, and storage remains a useful efficiency discipline either way.
 
 **Primary Architectural Bias:** Preserve the hard-won behavior of the existing tool while gradually replacing implementation details. Regression risk is treated as more important than architectural purity.
 
@@ -22,9 +105,9 @@
 
 The following assumptions shape the initial architecture and migration plan. If any of these assumptions change, the affected architecture decisions should be reviewed before implementation continues.
 
-* **Small Initial User Base:** The initial SaaS version is expected to support a small number of users, not a large public launch. The architecture should be production-minded but not over-engineered for scale that does not yet exist.
+* **Small User Base:** The app serves one user today and, even post-gate, would expect only a small number. The architecture should be sound but not over-engineered for scale that does not yet exist.
 
-* **Constrained Hosting Environment:** The target production environment is a low-cost DigitalOcean Droplet with limited CPU, memory, and storage. Resource efficiency is therefore a first-class design constraint.
+* **Constrained Hosting Environment (post-gate target):** Should the multi-tenant path be taken, the production target is a low-cost DigitalOcean Droplet with limited CPU, memory, and storage. Treating resource efficiency as a first-class constraint is a useful discipline even for the personal app, and keeps the post-gate option cheap.
 
 * **Thick Client Remains Acceptable:** The browser can continue to perform timer calculations, sorting, filtering, snapshot parsing, and other client-side logic. The backend does not need to own every piece of application intelligence on Day 1.
 
@@ -34,7 +117,7 @@ The following assumptions shape the initial architecture and migration plan. If 
 
 * **Configuration Has More Long-Term Value Than Timers:** Saved views, account tag mappings, snapshot freshness settings, and similar configuration data are more durable than timer state. These should either be manually seedable, importable, or migrated separately from timer data.
 
-* **Multi-Tenancy Is Required for the SaaS Target:** The future system must isolate user/fleet data from the beginning of the database design. Even if the first production user is the original owner, the schema and API should not assume a single global user.
+* **Tenant-Ownership Seam Kept From Day One:** The schema and API are designed so user-owned data is scoped to an ownership boundary (`owner_id`) from the start, even though the only user today is me. This is a cheap seam (see Section 0.4), not a commitment to launch: it costs ~nothing on empty tables, is brutal to retrofit later, and means multi-tenant isolation is already enforced everywhere if the gate is ever opened.
 
 * **Co-Management Is a Likely Use Case:** The model should allow for more than one person to access the same fleet or account group in the future, even if advanced roles and permissions are deferred.
 
@@ -50,21 +133,21 @@ The following assumptions shape the initial architecture and migration plan. If 
 
 ## 1.2 Day-1 Implementation Scope
 
-This section defines what is included in the initial SaaS migration and what is intentionally deferred. The purpose is to keep the first implementation focused, testable, and deployable on the constrained target environment.
+This section defines what is included in the initial build and what is intentionally deferred. The purpose is to keep the first implementation focused, testable, and runnable in the local/NAS environment. "Day-1" here means the pre-gate personal-app program (see Section 0); items justified only by the post-gate multi-tenant path are called out as deferred.
 
 ### In Scope
 
 The Day-1 implementation includes the following:
 
-* **Single SaaS Application Instance:** A production-deployable web application hosted on a constrained DigitalOcean Droplet using Docker Compose.
+* **Single Personal Application Instance:** A runnable web application hosted in the local/NAS environment using Docker Compose. (The same compose setup is what a post-gate droplet deployment would build on, but production hosting is not a Day-1 item.)
 
 * **FastAPI Backend:** A Python/FastAPI backend replacing the legacy PHP API while preserving the essential load/save behavior needed by the frontend.
 
 * **MariaDB Persistence:** Relational persistence for users, fleets, accounts, timers, saved views, account tag mappings, snapshot metadata, and game object mappings.
 
-* **Tenant-Scoped Data Model:** All user-owned data must be scoped to a tenant, fleet, or user ownership boundary so that future users cannot access each other’s data.
+* **Owner-Scoped Data Model (seam):** All user-owned data is scoped to an `owner_id` ownership boundary from the start. Today this is a no-op filter with one owner; it is kept as a cheap seam so isolation is already in place if the gate opens.
 
-* **OAuth Authentication:** Login through Google and/or Discord OAuth, avoiding local password storage and password reset flows.
+* **Identity Seam (not auth):** Every "who is this" question routes through a single `get_current_owner()` abstraction, which pre-gate simply returns the local owner (e.g. via a hardcoded ID or a Tailscale header). Real OAuth login is deferred post-gate (see Out of Scope); this seam is the one attachment point it will later plug into.
 
 * **Core Timer Management:** Users must be able to create, edit, delete, view, filter, sort, pin, and manage timers.
 
@@ -78,9 +161,9 @@ The Day-1 implementation includes the following:
 
 * **Stale Save Protection:** The system must reject stale writes from old browser tabs or devices rather than silently overwriting newer data.
 
-* **Basic Backup and Restore Procedure:** Database backups must exist, and there must be a documented way to restore from backup.
+* **Basic Backup and Restore Procedure:** A simple, documented way to back up and restore the local database. (Scheduled offsite disaster recovery is post-gate operations work — see Section 0.3 — but a basic local backup is sensible even for personal use.)
 
-* **Baseline Automated Testing:** Playwright tests must cover critical frontend user flows, and backend tests must cover persistence, tenant scoping, and stale-write rejection.
+* **Baseline Automated Testing:** Playwright tests must cover critical frontend user flows, and backend tests must cover persistence, owner-scoped queries, and stale-write rejection (the latter being the actual fix for the present overwrite bug).
 
 * **Manual Deployment:** Deployment may be manual for Day 1, provided the process is documented, repeatable, and reversible.
 
@@ -88,9 +171,13 @@ The Day-1 implementation includes the following:
 
 The Day-1 implementation does not include the following:
 
+* **OAuth Login & Public Authentication (post-gate):** Google/Discord OAuth, session cookies, and any public login flow are deferred behind the gate. Pre-gate, identity is handled by the `get_current_owner()` seam (see In Scope).
+
+* **Internet Exposure & Production Hardening (post-gate):** Reverse proxy, rate limiting, exposure hardening, offsite disaster recovery, and error-tracking/observability tooling are operations work justified only by going multi-tenant (see Section 0.3).
+
 * **Automated CI/CD:** GitHub Actions or other automated deployment pipelines are deferred until the application stabilizes.
 
-* **Full Legacy Timer ETL:** Existing `timers.json` timer records do not need to be migrated into the SaaS database. Timer state may be rebuilt through snapshot imports and manual entry.
+* **Full Legacy Timer ETL:** Existing `timers.json` timer records do not need to be migrated into the new database. Timer state may be rebuilt through snapshot imports and manual entry.
 
 * **Direct Clash of Clans Integration:** The app will not call Supercell APIs, scrape game data, automate account sync, or attempt real-time integration with the game.
 
@@ -118,7 +205,7 @@ The Day-1 implementation does not include the following:
 
 ### Goals
 
-* **Multi-Tenant SaaS:** Transition the tool from a single-user personal utility into a secure, isolated SaaS platform.
+* **Well-Architected Personal App (with seams kept):** Transform the tool from a 7000-line monolith into a modular, testable, maintainable personal application — keeping the ownership and concurrency seams that make an optional multi-tenant future a fill-in rather than a retrofit. The multi-tenant platform itself is a post-gate option, not a goal of this phase (see Section 0).
 
 * **Frictionless Development:** Maintain an inner development loop of under 2 seconds where practical using a monorepo structure, Docker volume mapping, and Uvicorn hot-reloading.
 
@@ -130,9 +217,11 @@ The Day-1 implementation does not include the following:
 
 ### Non-Goals
 
+* **Multi-Tenant Launch / Public Deployment:** Going live as an internet-exposed multi-tenant service is a post-gate decision, not a goal of the pre-gate program (see Section 0.3).
+
 * **Automated CI/CD on Day 1:** Automated deployment pipelines are deferred until the application stabilizes.
 
-* **Full Legacy Timer Data Migration:** The initial SaaS version will not require ETL of existing timer records from `timers.json`.
+* **Full Legacy Timer Data Migration:** The initial build will not require ETL of existing timer records from `timers.json`.
 
 * **Enterprise Secrets Vault:** Enterprise-grade secrets management is not required for Day 1.
 
@@ -162,7 +251,7 @@ The Day-1 implementation does not include the following:
 
 * **Configuration Durability:** Saved views, account tag mappings, snapshot freshness settings, and game object mappings should be treated as durable configuration, not disposable timer state.
 
-* **Timer State as Operational Data:** Timers are time-sensitive operational records. Legacy timer data may be rebuilt rather than fully migrated, but new SaaS timer records should be persisted relationally.
+* **Timer State as Operational Data:** Timers are time-sensitive operational records. Legacy timer data may be rebuilt rather than fully migrated, but new timer records should be persisted relationally.
 
 * **Optimistic Concurrency:** Mutable records must include an `updated_at`, revision number, or equivalent version token. Saves from stale clients must be rejected rather than silently overwriting newer server state.
 
@@ -173,6 +262,8 @@ The Day-1 implementation does not include the following:
 ---
 
 ## 5. Security & Authentication Posture
+
+> **Scope note (v10.3):** This section is largely **post-gate** (see Section 0.3). It specifies how authentication and exposure hardening *would* work if the multi-tenant path is taken. Pre-gate, the only item that applies is the `get_current_owner()` identity seam; the rest is retained as a ready specification, not Day-1 work.
 
 * **Authentication:** Login will be handled through Google and/or Discord OAuth. This avoids local password storage, password reset flows, and unnecessary credential liability.
 
@@ -189,6 +280,8 @@ The Day-1 implementation does not include the following:
 ---
 
 ## 6. Operations & Observability
+
+> **Scope note (v10.3):** This section is largely **post-gate** (see Section 0.3). Production deployment, scheduled offsite backups, error tracking, and structured ops logging are justified by running a service for others. Pre-gate, a basic local backup (Section 1.2) is the only piece that earns its keep; the rest is retained as a ready specification.
 
 * **Deployment Pipeline:** Initial deployments will be manual and executed through documented SSH commands such as `git pull`, `docker compose build`, and `docker compose up -d`. The deployment process must be repeatable and reversible.
 
@@ -223,6 +316,8 @@ The Day-1 implementation does not include the following:
 ## Appendix A: Migration Phases
 
 The migration will follow a staged Strangler Fig approach. Each phase changes only one major variable at a time so that regressions can be isolated quickly and the existing working tool remains available throughout the transition.
+
+> **Gate ordering note (v10.3):** The phase *numbers* are inherited from the original plan and no longer match the pre/post-gate split exactly. Read it this way: **Phases 0–3 and Phase 5 are pre-gate** (the personal-app program — schema-first cutover, the overwrite fix, and frontend modularization), and **Phase 4 and Phase 6 are post-gate** (auth and production hardening). In particular, frontend modularization (Phase 5) is pre-gate work even though it is numbered after the gate; sequence it by what helps the personal app, not by the number. See Section 0.
 
 ### Phase 0: Baseline the Legacy Application
 
@@ -298,7 +393,9 @@ Exit criteria:
 * Stale writes are rejected rather than silently overwriting newer data.
 * Backup and restore procedures are tested.
 
-### Phase 4: Add Authentication and Tenant Isolation
+### Phase 4: Add Authentication and Tenant Isolation — **THE GATE (post-gate work begins here)**
+
+> This phase is where the gate sits (see Section 0.3). Everything before it is the pre-gate personal-app program and is allowed to be the final state. Starting this phase is the deliberate decision to pursue the multi-tenant future. Do not drift into it by inertia.
 
 After the backend and datastore are stable, authentication and multi-tenant access rules will be introduced.
 
@@ -335,7 +432,9 @@ Exit criteria:
 * Playwright tests continue to protect core user flows.
 * Refactoring remains incremental and reversible.
 
-### Phase 6: Production Hardening
+### Phase 6: Production Hardening — **post-gate**
+
+> Post-gate operations work (see Section 0.3). Only relevant once the decision to run a public multi-tenant service has been made.
 
 Once the migrated application is functionally stable, operational hardening will be completed.
 
@@ -359,7 +458,7 @@ Exit criteria:
 
 ## Appendix B: Domain Model
 
-This section captures the initial SaaS domain model. It is not a final database schema, but it defines the core entities that the schema should support.
+This section captures the initial domain model. It is not a final database schema, but it defines the core entities that the schema should support. The ownership entities are present as seams (see Section 0.4) even while there is a single owner.
 
 ### Core Entities
 
@@ -411,7 +510,7 @@ Header-based versioning is deferred. It may be reconsidered only if there is a c
 
 ### Stale Save Protection
 
-The existing app already protects against stale overwrites by sending the client’s last known server update timestamp with save requests. The SaaS version must preserve this behavior.
+The existing app already protects against stale overwrites by sending the client’s last known server update timestamp with save requests. The migrated app must preserve this behavior — it is the actual fix for the present overwrite/data-loss problem, not merely future-proofing.
 
 General rule:
 
