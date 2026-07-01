@@ -310,7 +310,8 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .form-row{margin-bottom:14px}
 .form-row label{font-size:12px;color:var(--text2);display:block;margin-bottom:5px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
-.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.modal-actions .btn{flex:0 0 auto;max-width:100%}
 .modal-wide{width:900px;max-height:90vh;overflow-y:auto}
 .bulk-help{font-size:12px;color:var(--text3);line-height:1.4;margin-top:-6px;margin-bottom:14px}
 .bulk-options{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
@@ -548,7 +549,7 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .bulk-paste-status.ok{color:var(--green)}
 .bulk-paste-status.warning{color:var(--amber)}
 .bulk-paste-status.error{color:var(--red)}
-@media (max-width: 700px){.bulk-paste-actions .btn{flex:1 1 auto;justify-content:center}}
+@media (max-width: 700px){.bulk-paste-actions .btn,.modal-actions .btn{flex:1 1 auto;justify-content:center}}
 
 /* Snapshot account JSON import */
 .snapshot-help{font-size:12px;color:var(--text3);line-height:1.4;margin-top:-6px;margin-bottom:14px}
@@ -946,6 +947,18 @@ body.sidebar-resize-active{cursor:col-resize;user-select:none}
 .main.sidebar-hidden{grid-template-columns:0px 0px minmax(0,1fr)}
 .main.sidebar-hidden .sidebar{overflow:hidden;border-right:none}
 .main.sidebar-hidden .sidebar-resizer{display:none}
+@media (min-width:1025px){
+  body:not(.focus-mode) .main.sidebar-hidden .sidebar-resizer{
+    display:block;
+    width:0;
+    min-width:0;
+    border-right:0;
+    visibility:hidden;
+    pointer-events:none;
+    cursor:default;
+  }
+  body:not(.focus-mode) .main.sidebar-hidden .content{grid-column:3}
+}
 .sidebar-toggle,.focus-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:12px;line-height:1;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap}
 .sidebar-toggle:hover,.focus-toggle-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
 .sidebar-toggle.active,.focus-toggle-btn.active{background:var(--surface2);color:var(--accent);border-color:var(--accent)}
@@ -1740,7 +1753,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
         Play alert sound when expired
       </label>
       <label class="snapshot-option" for="snapshot-include-helper">
-        <input type="checkbox" id="snapshot-include-helper" checked>
+        <input type="checkbox" id="snapshot-include-helper">
         Include helper cooldowns
       </label>
       <label class="snapshot-option" for="snapshot-replace-existing">
@@ -1807,7 +1820,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
         Play alert sound when expired
       </label>
       <label class="batch-snapshot-option" for="batch-snapshot-include-helper">
-        <input type="checkbox" id="batch-snapshot-include-helper" checked>
+        <input type="checkbox" id="batch-snapshot-include-helper">
         Include helper cooldowns
       </label>
       <label class="batch-snapshot-option" for="batch-snapshot-replace-existing">
@@ -6235,7 +6248,7 @@ function openSnapshotModal() {
 
   document.getElementById('snapshot-start').checked = true;
   document.getElementById('snapshot-sound').checked = true;
-  document.getElementById('snapshot-include-helper').checked = true;
+  document.getElementById('snapshot-include-helper').checked = false;
   document.getElementById('snapshot-replace-existing').checked = false;
   document.getElementById('snapshot-preserve-manual-notes').checked = true;
   syncSnapshotReplaceOptions();
@@ -6764,7 +6777,7 @@ function openBatchSnapshotModal() {
   batchSnapshotRows = [];
   document.getElementById('batch-snapshot-start').checked = true;
   document.getElementById('batch-snapshot-sound').checked = true;
-  document.getElementById('batch-snapshot-include-helper').checked = true;
+  document.getElementById('batch-snapshot-include-helper').checked = false;
   document.getElementById('batch-snapshot-replace-existing').checked = true;
   document.getElementById('batch-snapshot-preserve-manual-notes').checked = true;
   syncBatchSnapshotReplaceOptions();
