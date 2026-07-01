@@ -617,7 +617,15 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .batch-snapshot-message.warning{color:var(--amber)}
 .batch-snapshot-message.error{color:var(--red)}
 .batch-snapshot-empty{font-size:12px;color:var(--text3);padding:12px;border:1px dashed var(--border);border-radius:var(--radius)}
-.batch-snapshot-floating-import{display:none;position:fixed;right:18px;bottom:calc(env(safe-area-inset-bottom, 0px) + 18px);z-index:195;box-shadow:0 8px 24px rgba(0,0,0,0.35)}
+.batch-snapshot-floating-import{
+  display:none;
+  position:fixed;
+  right:18px;
+  bottom:calc(env(safe-area-inset-bottom, 0px) + var(--batch-snapshot-keyboard-offset, 0px) + 18px);
+  z-index:195;
+  box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  touch-action:manipulation
+}
 .batch-snapshot-floating-import.visible{display:inline-flex}
 @media (min-width: 701px){.batch-snapshot-floating-import.visible{display:none}}
 @media (max-width: 980px){
@@ -1867,13 +1875,13 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
       <div class="batch-snapshot-empty">Paste a snapshot and click Add Snapshot to stage account imports.</div>
     </div>
 
-    <button id="batch-snapshot-floating-import" class="btn btn-primary batch-snapshot-floating-import" type="button" onclick="saveBatchSnapshotTimers()" title="Import selected staged snapshots">Import Selected</button>
+    <button id="batch-snapshot-floating-import" class="btn btn-primary batch-snapshot-floating-import" type="button" title="Import selected staged snapshots">Import Selected</button>
 
     <div class="modal-actions">
       <button class="btn" onclick="closeBatchSnapshotModal()">Cancel</button>
       <button class="btn btn-sm" onclick="selectBatchSnapshotRows(true)">Select All Valid</button>
       <button class="btn btn-sm" onclick="selectBatchSnapshotRows(false)">Select None</button>
-      <button class="btn btn-primary" onclick="saveBatchSnapshotTimers()">Import Selected Accounts</button>
+      <button id="batch-snapshot-primary-import" class="btn btn-primary" onclick="saveBatchSnapshotTimers()">Import Selected Accounts</button>
     </div>
   </div>
 </div>
@@ -6787,14 +6795,18 @@ function openBatchSnapshotModal() {
   document.getElementById('batch-snapshot-preserve-manual-notes').checked = true;
   syncBatchSnapshotReplaceOptions();
   document.getElementById('batch-snapshot-modal').style.display = 'flex';
+  setupBatchSnapshotFloatingImportButton();
 
   if (!restoreBatchSnapshotCollectorDraft()) {
     clearBatchSnapshotParser(false, false);
   }
 
+  updateBatchSnapshotFloatingImportButton();
+
   setTimeout(() => {
     const pasteText = document.getElementById('batch-snapshot-json-text');
     if (pasteText) pasteText.focus();
+    updateBatchSnapshotFloatingImportButton();
   }, 50);
 }
 
@@ -6810,18 +6822,136 @@ function setBatchSnapshotStatus(message='', state='') {
   el.className = `batch-snapshot-status ${state}`.trim();
 }
 
+let batchSnapshotFloatingImportListenersBound = false;
+let batchSnapshotFloatingImportLastActivation = 0;
+
+function updateBatchSnapshotKeyboardOffset(modalOpen=null) {
+  const modal = document.getElementById('batch-snapshot-modal');
+  const isOpen = modalOpen === null
+    ? !!modal && window.getComputedStyle(modal).display !== 'none'
+    : !!modalOpen;
+
+  if (!isOpen || !window.visualViewport) {
+    document.documentElement.style.setProperty('--batch-snapshot-keyboard-offset', '0px');
+    return 0;
+  }
+
+  const viewport = window.visualViewport;
+  const keyboardOffset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+  const roundedOffset = Math.round(keyboardOffset);
+  document.documentElement.style.setProperty('--batch-snapshot-keyboard-offset', `${roundedOffset}px`);
+  return roundedOffset;
+}
+
+function getBatchSnapshotVisibleViewportBounds() {
+  if (!window.visualViewport) {
+    return { top: 0, bottom: window.innerHeight };
+  }
+
+  return {
+    top: window.visualViewport.offsetTop,
+    bottom: window.visualViewport.offsetTop + window.visualViewport.height
+  };
+}
+
+function isBatchSnapshotPrimaryImportVisible() {
+  const modal = document.getElementById('batch-snapshot-modal');
+  const primaryBtn = document.getElementById('batch-snapshot-primary-import');
+  if (!modal || !primaryBtn || window.getComputedStyle(modal).display === 'none') return false;
+
+  const rect = primaryBtn.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return false;
+
+  const viewport = getBatchSnapshotVisibleViewportBounds();
+  const modalPanel = modal.querySelector('.modal');
+  const panelRect = modalPanel ? modalPanel.getBoundingClientRect() : null;
+  const visibleTop = panelRect ? Math.max(viewport.top, panelRect.top) : viewport.top;
+  const visibleBottom = panelRect ? Math.min(viewport.bottom, panelRect.bottom) : viewport.bottom;
+  const margin = 8;
+
+  return rect.top >= visibleTop + margin && rect.bottom <= visibleBottom - margin;
+}
+
+function activateBatchSnapshotFloatingImportButton(evt=null) {
+  const btn = document.getElementById('batch-snapshot-floating-import');
+  if (!btn || btn.disabled) return;
+
+  if (evt) {
+    evt.preventDefault();
+    evt.stopPropagation();
+  }
+
+  const now = Date.now();
+  if (now - batchSnapshotFloatingImportLastActivation < 700) return;
+  batchSnapshotFloatingImportLastActivation = now;
+
+  saveBatchSnapshotTimers();
+}
+
+function handleBatchSnapshotFloatingImportPointerDown(evt) {
+  // On mobile, the first tap on a fixed button above the soft keyboard can be
+  // consumed by focus/viewport changes before a normal click is dispatched.
+  // Fire on touch/pen pointer-down, while leaving mouse activation to click.
+  if (evt.pointerType && evt.pointerType !== 'mouse') {
+    activateBatchSnapshotFloatingImportButton(evt);
+  }
+}
+
+function handleBatchSnapshotFloatingImportClick(evt) {
+  activateBatchSnapshotFloatingImportButton(evt);
+}
+
+function setupBatchSnapshotFloatingImportButton() {
+  if (batchSnapshotFloatingImportListenersBound) return;
+  batchSnapshotFloatingImportListenersBound = true;
+
+  const refresh = () => updateBatchSnapshotFloatingImportButton();
+  const modal = document.getElementById('batch-snapshot-modal');
+  const modalPanel = modal ? modal.querySelector('.modal') : null;
+  const pasteText = document.getElementById('batch-snapshot-json-text');
+
+  if (modalPanel) modalPanel.addEventListener('scroll', refresh, { passive: true });
+  if (pasteText) {
+    pasteText.addEventListener('focus', refresh);
+    pasteText.addEventListener('blur', refresh);
+  }
+
+  const floatingImportBtn = document.getElementById('batch-snapshot-floating-import');
+  if (floatingImportBtn) {
+    floatingImportBtn.addEventListener('click', handleBatchSnapshotFloatingImportClick);
+    if (window.PointerEvent) {
+      floatingImportBtn.addEventListener('pointerdown', handleBatchSnapshotFloatingImportPointerDown);
+    } else {
+      floatingImportBtn.addEventListener('touchstart', activateBatchSnapshotFloatingImportButton, { passive:false });
+    }
+  }
+
+  window.addEventListener('resize', refresh);
+  window.addEventListener('orientationchange', refresh);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', refresh);
+    window.visualViewport.addEventListener('scroll', refresh);
+  }
+}
+
 function updateBatchSnapshotFloatingImportButton(importableCount=null) {
   const btn = document.getElementById('batch-snapshot-floating-import');
   const modal = document.getElementById('batch-snapshot-modal');
   if (!btn || !modal) return;
 
   const modalOpen = window.getComputedStyle(modal).display !== 'none';
-  const stagedCount = batchSnapshotRows.length;
-  const count = Number.isFinite(Number(importableCount))
-    ? Number(importableCount)
-    : getImportableBatchSnapshotRows(false).length;
+  updateBatchSnapshotKeyboardOffset(modalOpen);
 
-  btn.classList.toggle('visible', modalOpen && stagedCount > 0);
+  const stagedCount = batchSnapshotRows.length;
+  const resolvedImportableCount = importableCount === null || importableCount === undefined
+    ? getImportableBatchSnapshotRows(false).length
+    : Number(importableCount);
+  const count = Number.isFinite(resolvedImportableCount)
+    ? resolvedImportableCount
+    : getImportableBatchSnapshotRows(false).length;
+  const primaryImportVisible = isBatchSnapshotPrimaryImportVisible();
+
+  btn.classList.toggle('visible', modalOpen && stagedCount > 0 && count > 0 && !primaryImportVisible);
   btn.disabled = count === 0;
   btn.textContent = count > 0
     ? `Import ${count} Account${count === 1 ? '' : 's'}`
@@ -7798,6 +7928,7 @@ async function boot() {
   renderTimers();
   setupScrollTopButton();
   setupFleetSummaryFloatingControls();
+  setupBatchSnapshotFloatingImportButton();
   tickInterval = setInterval(tick, 500);
 }
 
