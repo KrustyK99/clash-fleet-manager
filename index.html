@@ -617,6 +617,9 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .batch-snapshot-message.warning{color:var(--amber)}
 .batch-snapshot-message.error{color:var(--red)}
 .batch-snapshot-empty{font-size:12px;color:var(--text3);padding:12px;border:1px dashed var(--border);border-radius:var(--radius)}
+.batch-snapshot-floating-import{display:none;position:fixed;right:18px;bottom:calc(env(safe-area-inset-bottom, 0px) + 18px);z-index:195;box-shadow:0 8px 24px rgba(0,0,0,0.35)}
+.batch-snapshot-floating-import.visible{display:inline-flex}
+@media (min-width: 701px){.batch-snapshot-floating-import.visible{display:none}}
 @media (max-width: 980px){
   .batch-snapshot-header{display:none}
   .batch-snapshot-row{grid-template-columns:1fr 1fr}
@@ -1863,6 +1866,8 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
     <div id="batch-snapshot-rows" class="batch-snapshot-table">
       <div class="batch-snapshot-empty">Paste a snapshot and click Add Snapshot to stage account imports.</div>
     </div>
+
+    <button id="batch-snapshot-floating-import" class="btn btn-primary batch-snapshot-floating-import" type="button" onclick="saveBatchSnapshotTimers()" title="Import selected staged snapshots">Import Selected</button>
 
     <div class="modal-actions">
       <button class="btn" onclick="closeBatchSnapshotModal()">Cancel</button>
@@ -6795,6 +6800,7 @@ function openBatchSnapshotModal() {
 
 function closeBatchSnapshotModal() {
   document.getElementById('batch-snapshot-modal').style.display = 'none';
+  updateBatchSnapshotFloatingImportButton(0);
 }
 
 function setBatchSnapshotStatus(message='', state='') {
@@ -6802,6 +6808,27 @@ function setBatchSnapshotStatus(message='', state='') {
   if (!el) return;
   el.textContent = message;
   el.className = `batch-snapshot-status ${state}`.trim();
+}
+
+function updateBatchSnapshotFloatingImportButton(importableCount=null) {
+  const btn = document.getElementById('batch-snapshot-floating-import');
+  const modal = document.getElementById('batch-snapshot-modal');
+  if (!btn || !modal) return;
+
+  const modalOpen = window.getComputedStyle(modal).display !== 'none';
+  const stagedCount = batchSnapshotRows.length;
+  const count = Number.isFinite(Number(importableCount))
+    ? Number(importableCount)
+    : getImportableBatchSnapshotRows(false).length;
+
+  btn.classList.toggle('visible', modalOpen && stagedCount > 0);
+  btn.disabled = count === 0;
+  btn.textContent = count > 0
+    ? `Import ${count} Account${count === 1 ? '' : 's'}`
+    : 'Import Selected';
+  btn.title = count > 0
+    ? `Import ${count} selected staged account snapshot${count === 1 ? '' : 's'}`
+    : 'Select at least one valid staged snapshot to import';
 }
 
 function getBatchSnapshotCollectorOptionsState() {
@@ -7201,6 +7228,7 @@ function renderBatchSnapshotRows() {
   if (!batchSnapshotRows.length) {
     rowsEl.innerHTML = '<div class="batch-snapshot-empty">Paste a snapshot and click Add Snapshot to stage account imports.</div>';
     summaryEl.innerHTML = '';
+    updateBatchSnapshotFloatingImportButton(0);
     return;
   }
 
@@ -7220,6 +7248,7 @@ function renderBatchSnapshotRows() {
     `<span class="snapshot-pill">${mappedCount} matched by tag</span>`,
     `<span class="snapshot-pill">${labelledCount} labelled fallback</span>`
   ].join('');
+  updateBatchSnapshotFloatingImportButton(importable.length);
 
   rowsEl.innerHTML = batchSnapshotRows.map((row, index) => {
     const hasBlocking = row.error || !row.account || !row.candidates.length;
