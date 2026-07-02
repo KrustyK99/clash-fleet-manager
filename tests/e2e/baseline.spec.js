@@ -1,9 +1,15 @@
 const { test, expect } = require('@playwright/test');
 
+// Pragmatic refactor safety net for the monolithic index.html app.
+// These tests focus on high-value user flows rather than exhaustive UI coverage.
+
+// Escape dynamic fixture labels before using them in regex-based role lookups.
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Mobile starts with the sidebar hidden, so tests that use sidebar controls
+// need to open the menu first. Desktop usually already shows it.
 async function showMenuIfNeeded(page) {
   const savedViewSelect = page.locator('#account-view-select');
 
@@ -20,6 +26,7 @@ test('account filter pill filters the timer list and reset restores all timers',
   const body = await response.json();
   const timers = body.timers;
 
+  // Pick a real account from the fixture so this test survives fixture refreshes.
   const countsByAccount = timers.reduce((counts, timer) => {
     const account = timer.account || timer.group || 'Ungrouped';
     counts[account] = (counts[account] || 0) + 1;
@@ -74,6 +81,7 @@ test('saved account view scopes timers and can return to all accounts', async ({
   const timers = timerBody.timers;
   const views = viewsBody.views;
 
+  // Pick a real Saved View from the fixture instead of hardcoding a view label.
   const candidateViews = views
     .filter((view) => Array.isArray(view.accounts) && view.accounts.length)
     .map((view) => {
@@ -153,6 +161,8 @@ test('search filters timers and clear search restores the full list', async ({ p
     ].some((value) => String(value || '').toLowerCase().includes(search));
   };
 
+  // Pick a real search term from the fixture so this test survives fixture refreshes.
+  // The chosen term must match a subset of timers and appear in every rendered timer name.
   const candidates = new Map();
 
   for (const timer of timers) {
@@ -235,6 +245,7 @@ test('type filter scopes the timer list and reset restores all timers', async ({
     return counts;
   }, {});
 
+  // Pick a real upgrade type from the fixture instead of hardcoding Builder/Lab/etc.
   const [upgradeType, expectedCount] = Object.entries(countsByType)
     .filter(([, count]) => count > 0 && count < timers.length)
     .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0];
@@ -314,6 +325,8 @@ test('fleet summary modal opens', async ({ page }) => {
   await expect(page.getByText(/Active timers/i)).toBeVisible();
 });
 
+// Keep this as a smoke/guard test only. Full Snapshot Collector imports mutate
+// the shared file-backed runtime data, so those should be added deliberately.
 test('snapshot collector opens with safe defaults and validates empty paste', async ({ page }) => {
   await page.goto('/');
 
