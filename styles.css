@@ -515,6 +515,91 @@ textarea {
   font-size: 13px;
 }
 
+
+/* Static markup utilities */
+
+
+.hidden-file-input {
+  display: none;
+}
+
+.file-input-label {
+  cursor: pointer;
+}
+
+.btn-full-center {
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-warning-text {
+  color: var(--amber);
+}
+
+.btn-muted-text {
+  color: var(--text2);
+}
+
+.sort-button-stack,
+.sidebar-action-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.sort-button-stack {
+  gap: 4px;
+}
+
+.sidebar-action-stack {
+  gap: 6px;
+}
+
+.sort-toolbar {
+  padding: 8px 16px;
+}
+
+.toolbar-muted-label {
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.sort-label-text {
+  font-size: 12px;
+  color: var(--accent);
+  margin-left: 4px;
+}
+
+.duration-unit-label {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 3px;
+  text-align: center;
+}
+
+.form-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.form-check-input {
+  width: auto;
+  accent-color: var(--accent);
+}
+
+.form-check-label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.account-view-add-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 12px;
+}
+
 /* Timer card */
 
 .timer-card {
