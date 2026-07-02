@@ -2832,7 +2832,7 @@ function renderCopyDataBar(visibleList) {
     </span>
     <span class="copy-data-help">Tap a target timer or use Paste on a card. Name, type, timing, and status are copied; the target note/comment is kept.</span>
     <button class="btn btn-sm" type="button" onclick="cancelTimerDataCopy()">Cancel</button>
-    <span style="font-size:12px;color:var(--text3)">${targetLabel}</span>
+    <span class="copy-data-target-count">${targetLabel}</span>
   `;
 }
 
@@ -3493,7 +3493,7 @@ function renderAccountSummary() {
 
   if (!rows.length) {
     const emptyText = accountViewRestrictsAccounts() ? 'No accounts in this saved view.' : 'No accounts yet.';
-    el.innerHTML = `<span style="font-size:12px;color:var(--text3)">${emptyText}</span>`;
+    el.innerHTML = `<span class="account-summary-empty-message">${emptyText}</span>`;
     return;
   }
 
@@ -4316,11 +4316,11 @@ function renderTimers() {
     const playBtn = (isStopped||isPaused||isExpired) ?
       `<button class="btn btn-sm btn-success" onclick="startTimer('${t.id}')" title="Start">▶</button>` : '';
     const pauseBtn = isRunning ?
-      `<button class="btn btn-sm" onclick="pauseTimer('${t.id}')" title="Pause" style="color:var(--amber)">⏸</button>` : '';
+      `<button class="btn btn-sm btn-warning-text" onclick="pauseTimer('${t.id}')" title="Pause">⏸</button>` : '';
     const resetBtn = (!isStopped) ?
-      `<button class="btn btn-sm" onclick="resetTimer('${t.id}')" title="Reset" style="color:var(--text2)">↺</button>` : '';
-    const repeatIcon = t.repeat ? `<span title="Repeating" style="font-size:10px;color:var(--text3)">↺</span>` : '';
-    const soundIcon = t.sound ? `<span title="Alert on" style="font-size:10px;color:var(--text3)">🔔</span>` : '';
+      `<button class="btn btn-sm btn-muted-text" onclick="resetTimer('${t.id}')" title="Reset">↺</button>` : '';
+    const repeatIcon = t.repeat ? `<span class="timer-card-state-icon" title="Repeating">↺</span>` : '';
+    const soundIcon = t.sound ? `<span class="timer-card-state-icon" title="Alert on">🔔</span>` : '';
     const due = dueWindow(t);
     const dueLabel = compactMode ? due.key : due.label;
     const upgradeType = getUpgradeType(t);

@@ -540,6 +540,17 @@ textarea {
   color: var(--text2);
 }
 
+.copy-data-target-count,
+.account-summary-empty-message {
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.timer-card-state-icon {
+  font-size: 10px;
+  color: var(--text3);
+}
+
 .sort-button-stack,
 .sidebar-action-stack {
   display: flex;
