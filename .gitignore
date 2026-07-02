@@ -5,3 +5,13 @@ mysql_data/
 __pycache__/
 *.pyc
 *.pyo
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+tests/runtime-app/

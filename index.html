@@ -310,7 +310,8 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .form-row{margin-bottom:14px}
 .form-row label{font-size:12px;color:var(--text2);display:block;margin-bottom:5px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
-.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.modal-actions .btn{flex:0 0 auto;max-width:100%}
 .modal-wide{width:900px;max-height:90vh;overflow-y:auto}
 .bulk-help{font-size:12px;color:var(--text3);line-height:1.4;margin-top:-6px;margin-bottom:14px}
 .bulk-options{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
@@ -548,7 +549,7 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
 .bulk-paste-status.ok{color:var(--green)}
 .bulk-paste-status.warning{color:var(--amber)}
 .bulk-paste-status.error{color:var(--red)}
-@media (max-width: 700px){.bulk-paste-actions .btn{flex:1 1 auto;justify-content:center}}
+@media (max-width: 700px){.bulk-paste-actions .btn,.modal-actions .btn{flex:1 1 auto;justify-content:center}}
 
 /* Snapshot account JSON import */
 .snapshot-help{font-size:12px;color:var(--text3);line-height:1.4;margin-top:-6px;margin-bottom:14px}
@@ -585,6 +586,57 @@ textarea{resize:vertical;min-height:60px;font-size:13px}
   .snapshot-load-actions .btn{flex:1 1 auto;justify-content:center}
   .snapshot-candidate-row{grid-template-columns:1fr}
   .snapshot-candidate-row .snapshot-name{grid-column:auto}
+}
+
+.batch-snapshot-help{font-size:12px;color:var(--text3);line-height:1.4;margin-top:-6px;margin-bottom:14px}
+.batch-snapshot-options{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.batch-snapshot-option{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
+.batch-snapshot-option input{width:auto;accent-color:var(--accent)}
+.batch-snapshot-sub-option{color:var(--text3)}
+.batch-snapshot-sub-option.active{color:var(--text)}
+.batch-snapshot-sub-option input:disabled{opacity:0.55}
+.batch-snapshot-json-text{min-height:130px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.45}
+.batch-snapshot-load-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.batch-snapshot-status{font-size:12px;color:var(--text3);min-height:16px}
+.batch-snapshot-status.ok{color:var(--green)}
+.batch-snapshot-status.warning{color:var(--amber)}
+.batch-snapshot-status.error{color:var(--red)}
+.batch-snapshot-summary{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.batch-snapshot-table{display:flex;flex-direction:column;gap:0;max-height:44vh;overflow-y:auto;padding-right:4px}
+.batch-snapshot-header,.batch-snapshot-row{display:grid;grid-template-columns:54px 82px minmax(112px,0.8fr) minmax(112px,0.8fr) minmax(150px,1fr) 70px minmax(180px,1.2fr);gap:6px;align-items:center}
+.batch-snapshot-header{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:6px;padding-right:4px}
+.batch-snapshot-row{border:1px solid rgba(255,255,255,0.04);border-radius:var(--radius);padding:7px 6px;background:rgba(255,255,255,0.018);font-size:12px;color:var(--text2);margin-bottom:6px}
+.batch-snapshot-row.warning{border-color:rgba(245,166,35,0.24);background:var(--amber-bg)}
+.batch-snapshot-row.error{border-color:rgba(255,92,92,0.24);background:var(--red-bg)}
+.batch-snapshot-use{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.batch-snapshot-use input{width:auto;accent-color:var(--accent)}
+.batch-snapshot-captured,.batch-snapshot-tag,.batch-snapshot-game-name,.batch-snapshot-count{font-family:'JetBrains Mono',monospace;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.batch-snapshot-captured-age{display:block;color:var(--text3);font-size:9px;margin-top:2px}
+.batch-snapshot-account{font-size:12px;padding:6px 7px}
+.batch-snapshot-message{font-size:11px;color:var(--text3);line-height:1.25;overflow-wrap:anywhere}
+.batch-snapshot-message.warning{color:var(--amber)}
+.batch-snapshot-message.error{color:var(--red)}
+.batch-snapshot-empty{font-size:12px;color:var(--text3);padding:12px;border:1px dashed var(--border);border-radius:var(--radius)}
+.batch-snapshot-floating-import{
+  display:none;
+  position:fixed;
+  right:18px;
+  bottom:calc(env(safe-area-inset-bottom, 0px) + var(--batch-snapshot-keyboard-offset, 0px) + 18px);
+  z-index:195;
+  box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  touch-action:manipulation
+}
+.batch-snapshot-floating-import.visible{display:inline-flex}
+@media (min-width: 701px){.batch-snapshot-floating-import.visible{display:none}}
+@media (max-width: 980px){
+  .batch-snapshot-header{display:none}
+  .batch-snapshot-row{grid-template-columns:1fr 1fr}
+  .batch-snapshot-message{grid-column:1/-1}
+}
+@media (max-width: 700px){
+  .batch-snapshot-load-actions .btn{flex:1 1 auto;justify-content:center}
+  .batch-snapshot-row{grid-template-columns:1fr}
+  .batch-snapshot-message{grid-column:auto}
 }
 
 /* Group filter */
@@ -906,6 +958,18 @@ body.sidebar-resize-active{cursor:col-resize;user-select:none}
 .main.sidebar-hidden{grid-template-columns:0px 0px minmax(0,1fr)}
 .main.sidebar-hidden .sidebar{overflow:hidden;border-right:none}
 .main.sidebar-hidden .sidebar-resizer{display:none}
+@media (min-width:1025px){
+  body:not(.focus-mode) .main.sidebar-hidden .sidebar-resizer{
+    display:block;
+    width:0;
+    min-width:0;
+    border-right:0;
+    visibility:hidden;
+    pointer-events:none;
+    cursor:default;
+  }
+  body:not(.focus-mode) .main.sidebar-hidden .content{grid-column:3}
+}
 .sidebar-toggle,.focus-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:12px;line-height:1;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap}
 .sidebar-toggle:hover,.focus-toggle-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
 .sidebar-toggle.active,.focus-toggle-btn.active{background:var(--surface2);color:var(--accent);border-color:var(--accent)}
@@ -1411,6 +1475,10 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
       Snapshot Add
     </button>
+    <button class="btn btn-sm" onclick="openBatchSnapshotModal()" title="Collect game snapshots one paste at a time, timestamp them, and import selected accounts">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M10 6h4"/><path d="M6 10v4"/><path d="M17.5 10v4"/><path d="M10 17.5h4"/></svg>
+      Snapshot Collector
+    </button>
     <button class="btn btn-sm" onclick="toggleDeleteSelectionMode()" id="delete-mode-btn" title="Select timers to delete" aria-pressed="false">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
       <span id="delete-mode-label">Delete</span>
@@ -1696,7 +1764,7 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
         Play alert sound when expired
       </label>
       <label class="snapshot-option" for="snapshot-include-helper">
-        <input type="checkbox" id="snapshot-include-helper" checked>
+        <input type="checkbox" id="snapshot-include-helper">
         Include helper cooldowns
       </label>
       <label class="snapshot-option" for="snapshot-replace-existing">
@@ -1742,6 +1810,78 @@ body.compact-mode .timer-adjust-chip{font-size:10px;padding:4px 7px}
       <button class="btn btn-sm" onclick="selectSnapshotCandidates(true)">Select All</button>
       <button class="btn btn-sm" onclick="selectSnapshotCandidates(false)">Select None</button>
       <button class="btn btn-primary" onclick="saveSnapshotTimers()">Add Selected Timers</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Snapshot Collector Modal -->
+<div class="modal-bg" id="batch-snapshot-modal" style="display:none" onclick="if(event.target===this)closeBatchSnapshotModal()">
+  <div class="modal modal-wide">
+    <h2>Snapshot Collector</h2>
+    <div class="batch-snapshot-help">Paste one in-game account export at a time. The collector timestamps each paste immediately, resolves the account by player tag, and keeps a browser recovery draft until a successful import. Existing batch JSON files still work as a fallback.</div>
+
+    <div class="form-row batch-snapshot-options">
+      <label class="batch-snapshot-option" for="batch-snapshot-start">
+        <input type="checkbox" id="batch-snapshot-start" checked>
+        Start timers immediately
+      </label>
+      <label class="batch-snapshot-option" for="batch-snapshot-sound">
+        <input type="checkbox" id="batch-snapshot-sound" checked>
+        Play alert sound when expired
+      </label>
+      <label class="batch-snapshot-option" for="batch-snapshot-include-helper">
+        <input type="checkbox" id="batch-snapshot-include-helper">
+        Include helper cooldowns
+      </label>
+      <label class="batch-snapshot-option" for="batch-snapshot-replace-existing">
+        <input type="checkbox" id="batch-snapshot-replace-existing" checked onchange="syncBatchSnapshotReplaceOptions()">
+        Replace existing timers for imported accounts
+      </label>
+      <label class="batch-snapshot-option batch-snapshot-sub-option active" for="batch-snapshot-preserve-manual-notes" id="batch-snapshot-preserve-manual-notes-wrap">
+        <input type="checkbox" id="batch-snapshot-preserve-manual-notes" checked>
+        Preserve manually noted timers
+      </label>
+    </div>
+
+    <div class="bulk-paste-panel">
+      <div class="bulk-paste-title">Paste one snapshot</div>
+      <div class="bulk-paste-help">Copy the JSON from one Clash account, paste it here, then click <strong>Add Snapshot</strong>. Repeat for each account. The captured time is recorded when you add each snapshot, so timer end times are based on when the game export was taken rather than when the final import runs.</div>
+      <textarea id="batch-snapshot-json-text" class="batch-snapshot-json-text" placeholder="Paste one raw game snapshot JSON here…" onkeydown="if((event.ctrlKey||event.metaKey)&amp;&amp;event.key==='Enter'){event.preventDefault();event.stopPropagation();addSnapshotCollectorPaste();}"></textarea>
+      <div class="batch-snapshot-load-actions">
+        <button class="btn btn-sm btn-primary" type="button" onclick="addSnapshotCollectorPaste()">Add Snapshot</button>
+        <button class="btn btn-sm" type="button" onclick="readBatchSnapshotClipboard()">Paste from Clipboard</button>
+        <button class="btn btn-sm" type="button" onclick="clearBatchSnapshotPaste()">Clear Paste</button>
+        <button class="btn btn-sm" type="button" onclick="clearBatchSnapshotParser()">Clear Staged</button>
+        <label class="btn btn-sm" style="cursor:pointer" title="Optional fallback for an already assembled batch JSON file">
+          Load Batch JSON File
+          <input id="batch-snapshot-file-input" type="file" accept=".json,application/json" onchange="loadBatchSnapshotJsonFile(event)" style="display:none">
+        </label>
+        <span id="batch-snapshot-status" class="batch-snapshot-status"></span>
+      </div>
+    </div>
+
+    <div class="batch-snapshot-summary" id="batch-snapshot-summary"></div>
+    <div class="batch-snapshot-header" aria-hidden="true">
+      <span>Use</span>
+      <span>Captured</span>
+      <span>Tag</span>
+      <span>Game name</span>
+      <span>App account</span>
+      <span>Timers</span>
+      <span>Status</span>
+    </div>
+    <div id="batch-snapshot-rows" class="batch-snapshot-table">
+      <div class="batch-snapshot-empty">Paste a snapshot and click Add Snapshot to stage account imports.</div>
+    </div>
+
+    <button id="batch-snapshot-floating-import" class="btn btn-primary batch-snapshot-floating-import" type="button" title="Import selected staged snapshots">Import Selected</button>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeBatchSnapshotModal()">Cancel</button>
+      <button class="btn btn-sm" onclick="selectBatchSnapshotRows(true)">Select All Valid</button>
+      <button class="btn btn-sm" onclick="selectBatchSnapshotRows(false)">Select None</button>
+      <button id="batch-snapshot-primary-import" class="btn btn-primary" onclick="saveBatchSnapshotTimers()">Import Selected Accounts</button>
     </div>
   </div>
 </div>
@@ -1852,6 +1992,7 @@ let accountViewControlsSignature = '';
 let accountViewEditorDrafts = [];
 let accountSnapshotMeta = {};
 let snapshotFreshnessSettings = { freshHours: 24, agingHours: 72 };
+let accountTagMap = {};
 let expandedAccount = null;
 let expandedGapType = null;
 let editingId = null;
@@ -1875,6 +2016,8 @@ let nativeSelectActive = false;
 let renderQueuedUntilSelectCloses = false;
 let snapshotLastSnapshot = null;
 let snapshotCandidates = [];
+let batchSnapshotRows = [];
+let batchSnapshotDraftWarningShown = false;
 let deleteSelectionMode = false;
 let selectedTimerIds = new Set();
 let timerCopySourceId = null;
@@ -1887,6 +2030,7 @@ const COMPACT_MODE_KEY = STORAGE_KEY + '_compact_mode';
 const ACCOUNT_PILL_BUILDERS_KEY = STORAGE_KEY + '_account_pill_builders';
 const ACCOUNT_VIEW_KEY = STORAGE_KEY + '_account_view';
 const SIDEBAR_WIDTH_KEY = STORAGE_KEY + '_sidebar_width';
+const SNAPSHOT_COLLECTOR_DRAFT_KEY = STORAGE_KEY + '_snapshot_collector_draft';
 const SIDEBAR_DEFAULT_WIDTH = 280;
 const SIDEBAR_MIN_WIDTH = 230;
 const SIDEBAR_MAX_WIDTH = 520;
@@ -2102,6 +2246,8 @@ const DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS = {
   agingHours: 72
 };
 
+const DEFAULT_ACCOUNT_TAG_MAP = {};
+
 const HOME_BUILDER_HUT_DATA_ID = '1000015';
 // Home Village markers observed on accounts with B.O.B / the sixth home builder.
 // Some exports include 1000064, some include 1000093, and some include both.
@@ -2189,6 +2335,70 @@ function normalizeAccountSnapshotMeta(raw) {
   });
 
   return normalized;
+}
+
+
+function normalizePlayerTag(tag) {
+  const clean = String(tag || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!clean) return '';
+  return clean.startsWith('#') ? clean : `#${clean}`;
+}
+
+function normalizeAccountNameValue(account) {
+  return String(account || '').trim();
+}
+
+function normalizeAccountTagMap(raw) {
+  const normalized = {};
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : DEFAULT_ACCOUNT_TAG_MAP;
+
+  Object.entries(source || {}).forEach(([rawTag, rawAccount]) => {
+    const tag = normalizePlayerTag(rawTag);
+    const account = normalizeAccountNameValue(rawAccount);
+    if (!tag || !account) return;
+    normalized[tag] = account;
+  });
+
+  return Object.fromEntries(Object.entries(normalized).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric:true, sensitivity:'base' })));
+}
+
+function getSnapshotPlayerTag(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return '';
+  return normalizePlayerTag(snapshot.tag || snapshot.playerTag || snapshot.player_tag || snapshot.accountTag || snapshot.account_tag || '');
+}
+
+function getSnapshotPlayerName(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return '';
+  const fields = ['name', 'playerName', 'player_name', 'accountName', 'account_name', 'villageName', 'village_name'];
+  for (const field of fields) {
+    const value = snapshot[field];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+function learnAccountTagMapping(tagOrSnapshot, account) {
+  const tag = typeof tagOrSnapshot === 'string' ? normalizePlayerTag(tagOrSnapshot) : getSnapshotPlayerTag(tagOrSnapshot);
+  const accountName = normalizeAccountNameValue(account);
+  if (!tag || !accountName) return false;
+
+  const next = normalizeAccountTagMap({ ...accountTagMap, [tag]: accountName });
+  const changed = JSON.stringify(next) !== JSON.stringify(normalizeAccountTagMap(accountTagMap));
+  accountTagMap = next;
+  return changed;
+}
+
+function seedAccountTagMapFromSnapshotMeta() {
+  let changed = false;
+  Object.entries(accountSnapshotMeta || {}).forEach(([account, meta]) => {
+    const tag = meta && meta.tag;
+    if (tag && learnAccountTagMapping(tag, account)) changed = true;
+  });
+  return changed;
+}
+
+async function saveAccountTagMapQuietly() {
+  return saveAccountViews(accountViews, snapshotFreshnessSettings, accountTagMap, { quiet:true });
 }
 
 function snapshotFreshnessAgeLabel(ageMs) {
@@ -2376,14 +2586,15 @@ function snapshotBuilderCapacityStatusText(snapshot) {
   return parts.length ? ` Detected capacity: ${parts.join(', ')}.` : '';
 }
 
-function updateSnapshotMetaFromParsedSnapshot(candidateCount, selectedCount=null, timestampMs=Date.now()) {
+function updateSnapshotMetaFromParsedSnapshot(candidateCount, selectedCount=null, timestampMs=Date.now(), accountOverride='', snapshotOverride=null) {
   const accountEl = document.getElementById('snapshot-account');
-  const account = accountEl ? accountEl.value.trim() : '';
-  if (!account || !snapshotLastSnapshot || typeof snapshotLastSnapshot !== 'object') return null;
+  const account = normalizeAccountNameValue(accountOverride || (accountEl ? accountEl.value : ''));
+  const snapshot = snapshotOverride || snapshotLastSnapshot;
+  if (!account || !snapshot || typeof snapshot !== 'object') return null;
 
   const details = {
     lastLoadedAt: new Date(timestampMs).toISOString(),
-    tag: snapshotLastSnapshot.tag ? snapshotLastSnapshot.tag : '',
+    tag: getSnapshotPlayerTag(snapshot),
     candidateCount: Number.isFinite(Number(candidateCount)) ? Math.max(0, Math.round(Number(candidateCount))) : 0
   };
 
@@ -2391,7 +2602,7 @@ function updateSnapshotMetaFromParsedSnapshot(candidateCount, selectedCount=null
     details.selectedCount = Math.max(0, Math.round(Number(selectedCount)));
   }
 
-  const builderCapacity = deriveBuilderCapacityFromSnapshot(snapshotLastSnapshot);
+  const builderCapacity = deriveBuilderCapacityFromSnapshot(snapshot);
   if (builderCapacity) details.builderCapacity = builderCapacity;
 
   updateAccountSnapshotMeta(account, details);
@@ -2437,6 +2648,22 @@ function getKnownAccounts() {
   timers.forEach(t => {
     const account = getAccount(t);
     if (account) accounts.add(account);
+  });
+  Object.keys(accountSnapshotMeta || {}).forEach(account => {
+    const name = normalizeAccountNameValue(account);
+    if (name) accounts.add(name);
+  });
+  Object.values(accountTagMap || {}).forEach(account => {
+    const name = normalizeAccountNameValue(account);
+    if (name) accounts.add(name);
+  });
+  getAccountViews().forEach(view => {
+    if (Array.isArray(view.accounts)) {
+      view.accounts.forEach(account => {
+        const name = normalizeAccountNameValue(account);
+        if (name) accounts.add(name);
+      });
+    }
   });
   return Array.from(accounts).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 }
@@ -3097,21 +3324,25 @@ async function loadAccountViews() {
     const payload = Array.isArray(data) ? {} : (data || {});
     accountViews = normalizeAccountViews(Array.isArray(data) ? data : data.views);
     snapshotFreshnessSettings = normalizeSnapshotFreshnessSettings(payload.snapshotFreshnessSettings || (payload.settings && payload.settings.snapshotFreshnessSettings));
+    accountTagMap = normalizeAccountTagMap(payload.accountTagMap || (payload.settings && payload.settings.accountTagMap));
     accountViewsLastUpdated = data.lastUpdated || null;
     return true;
   } catch (e) {
     console.error(e);
     accountViews = normalizeAccountViews(DEFAULT_ACCOUNT_VIEWS);
     snapshotFreshnessSettings = normalizeSnapshotFreshnessSettings(DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS);
+    accountTagMap = normalizeAccountTagMap(DEFAULT_ACCOUNT_TAG_MAP);
     accountViewsLastUpdated = null;
     toast('Could not load shared Saved Views. Using defaults in this browser.', 'warning');
     return false;
   }
 }
 
-async function saveAccountViews(nextViews, nextFreshnessSettings=snapshotFreshnessSettings) {
+async function saveAccountViews(nextViews, nextFreshnessSettings=snapshotFreshnessSettings, nextAccountTagMap=accountTagMap, options={}) {
   const normalized = normalizeAccountViews(nextViews);
   const normalizedFreshnessSettings = normalizeSnapshotFreshnessSettings(nextFreshnessSettings);
+  const normalizedAccountTagMap = normalizeAccountTagMap(nextAccountTagMap);
+  const quiet = options && options.quiet === true;
 
   try {
     const res = await fetch(`${API_URL}?action=saveViews`, {
@@ -3119,10 +3350,11 @@ async function saveAccountViews(nextViews, nextFreshnessSettings=snapshotFreshne
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
       body: JSON.stringify({
-        schemaVersion: 2,
+        schemaVersion: 3,
         lastKnownLastUpdated: accountViewsLastUpdated,
         views: normalized,
-        snapshotFreshnessSettings: normalizedFreshnessSettings
+        snapshotFreshnessSettings: normalizedFreshnessSettings,
+        accountTagMap: normalizedAccountTagMap
       })
     });
 
@@ -3135,17 +3367,18 @@ async function saveAccountViews(nextViews, nextFreshnessSettings=snapshotFreshne
 
     accountViews = normalized;
     snapshotFreshnessSettings = normalizedFreshnessSettings;
+    accountTagMap = normalizedAccountTagMap;
     accountViewsLastUpdated = data.lastUpdated || accountViewsLastUpdated;
-    toast('Saved views and settings updated', 'success');
+    if (!quiet) toast('Saved views and settings updated', 'success');
     return true;
   } catch (e) {
     console.error(e);
     if (e.code === 'STALE_VIEWS') {
-      toast('Saved Views changed on another device. Reloaded the latest shared views.', 'warning');
+      if (!quiet) toast('Saved Views changed on another device. Reloaded the latest shared views.', 'warning');
       await loadAccountViews();
       renderAccountViewsEditor();
     } else {
-      toast('Could not save Saved Views.', 'warning');
+      if (!quiet) toast('Could not save Saved Views.', 'warning');
     }
     return false;
   }
@@ -3155,11 +3388,12 @@ async function saveAccountViews(nextViews, nextFreshnessSettings=snapshotFreshne
 async function save() {
   if (saveInFlight) {
     saveQueued = true;
-    return;
+    return false;
   }
 
   saveInFlight = true;
   setSyncStatus('Saving…', 'saving');
+  let ok = false;
 
   try {
     const res = await fetch(`${API_URL}?action=save`, {
@@ -3180,13 +3414,19 @@ async function save() {
     serverLastUpdated = data.lastUpdated || serverLastUpdated;
     const stamp = serverLastUpdated ? new Date(serverLastUpdated).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : 'now';
     setSyncStatus(`Saved ${stamp}`, 'ok');
+    ok = true;
   } catch (e) {
     console.error(e);
-    localStorage.setItem(EMERGENCY_BACKUP_KEY, JSON.stringify({
-      savedAt: new Date().toISOString(),
-      timers,
-      accountSnapshotMeta
-    }));
+    try {
+      localStorage.setItem(EMERGENCY_BACKUP_KEY, JSON.stringify({
+        schemaVersion: 2,
+        savedAt: new Date().toISOString(),
+        timers,
+        accountSnapshotMeta
+      }));
+    } catch (backupErr) {
+      console.error(backupErr);
+    }
     setSyncStatus('Save failed', 'error');
     toast('Save failed. Emergency backup saved in this browser.', 'warning');
   } finally {
@@ -3196,6 +3436,8 @@ async function save() {
       save();
     }
   }
+
+  return ok;
 }
 
 async function load() {
@@ -3209,6 +3451,8 @@ async function load() {
     const payload = Array.isArray(data) ? {} : (data || {});
     timers = Array.isArray(data) ? data : (Array.isArray(data.timers) ? data.timers : []);
     accountSnapshotMeta = normalizeAccountSnapshotMeta(payload.accountSnapshotMeta || payload.snapshotMeta);
+    const seededAccountTagMap = seedAccountTagMapFromSnapshotMeta();
+    if (seededAccountTagMap) saveAccountTagMapQuietly();
     serverLastUpdated = data.lastUpdated || null;
 
     const needsSave = normalizeTimersAfterLoad();
@@ -6017,7 +6261,7 @@ function openSnapshotModal() {
 
   document.getElementById('snapshot-start').checked = true;
   document.getElementById('snapshot-sound').checked = true;
-  document.getElementById('snapshot-include-helper').checked = true;
+  document.getElementById('snapshot-include-helper').checked = false;
   document.getElementById('snapshot-replace-existing').checked = false;
   document.getElementById('snapshot-preserve-manual-notes').checked = true;
   syncSnapshotReplaceOptions();
@@ -6149,8 +6393,9 @@ function snapshotMakeCandidateName(entry) {
   return base;
 }
 
-function parseAccountSnapshot(snapshot) {
-  const includeHelper = document.getElementById('snapshot-include-helper').checked;
+function parseAccountSnapshot(snapshot, options={}) {
+  const helperEl = document.getElementById('snapshot-include-helper');
+  const includeHelper = Object.prototype.hasOwnProperty.call(options || {}, 'includeHelper') ? !!options.includeHelper : !!(helperEl && helperEl.checked);
   const found = [];
 
   function visit(node, path) {
@@ -6208,12 +6453,15 @@ function parseSnapshotJsonText() {
     renderSnapshotCandidates();
 
     const metaUpdate = updateSnapshotMetaFromParsedSnapshot(snapshotCandidates.length);
-    const metaText = metaUpdate ? ` Updated ${metaUpdate.account} snapshot metadata.` : ' Choose an account to update snapshot metadata.';
+    const mapChanged = metaUpdate ? learnAccountTagMapping(snapshotLastSnapshot, metaUpdate.account) : false;
+    const mapText = mapChanged ? ' Tag mapping learned.' : '';
+    const metaText = metaUpdate ? ` Updated ${metaUpdate.account} snapshot metadata.${mapText}` : ' Choose an account to update snapshot metadata.';
     setSnapshotStatus(`Parsed ${snapshotCandidates.length} timer candidate${snapshotCandidates.length === 1 ? '' : 's'}.${snapshotBuilderCapacityStatusText(snapshotLastSnapshot)}${metaText}`, snapshotCandidates.length ? 'ok' : 'warning');
 
     if (metaUpdate) {
       refreshSnapshotMetadataDependentUi();
       save();
+      if (mapChanged) saveAccountTagMapQuietly();
     }
 
     if (snapshotCandidates.length) toast(`Parsed ${snapshotCandidates.length} snapshot candidate${snapshotCandidates.length === 1 ? '' : 's'}`, 'success');
@@ -6261,7 +6509,7 @@ function renderSnapshotCandidates() {
 
   const byType = {};
   snapshotCandidates.forEach(c => byType[c.upgradeType || 'Capital / Other'] = (byType[c.upgradeType || 'Capital / Other'] || 0) + 1);
-  const tag = snapshotLastSnapshot && snapshotLastSnapshot.tag ? snapshotLastSnapshot.tag : 'No account tag';
+  const tag = getSnapshotPlayerTag(snapshotLastSnapshot) || 'No account tag';
   summary.innerHTML = [
     `<span class="snapshot-pill">${esc(tag)}</span>`,
     `<span class="snapshot-pill">${snapshotCandidates.length} candidate${snapshotCandidates.length === 1 ? '' : 's'}</span>`,
@@ -6310,16 +6558,23 @@ function selectedSnapshotCandidatesFromControls() {
   return snapshotCandidates.filter(c => c.include && c.name && c.seconds > 0);
 }
 
-function snapshotCandidateToTimer(c, now, account, shouldStart, sound) {
-  const tag = snapshotLastSnapshot && snapshotLastSnapshot.tag ? snapshotLastSnapshot.tag : '';
+function snapshotCandidateToTimer(c, now, account, shouldStart, sound, snapshot=snapshotLastSnapshot, capturedAtMs=now) {
+  const tag = getSnapshotPlayerTag(snapshot);
   const sourcePath = `${c.path}.${c.timerKey}`;
   const dataPart = c.dataId == null ? 'no data id' : `data ${c.dataId}`;
   const levelPart = Number.isFinite(c.level) ? `L${c.level}` : 'no level';
+  const captureMs = Number.isFinite(Number(capturedAtMs)) ? Number(capturedAtMs) : now;
+  const endAt = captureMs + Number(c.seconds || 0) * 1000;
+  const remainingAtImport = Math.max(0, Math.ceil((endAt - now) / 1000));
+  const initialStatus = shouldStart
+    ? (remainingAtImport > 0 ? 'running' : 'expired')
+    : 'stopped';
+
   return {
     id: newId(),
     name: c.name,
     duration: c.seconds,
-    remaining: c.seconds,
+    remaining: shouldStart ? remainingAtImport : Math.max(0, remainingAtImport),
     account,
     group: account,
     upgradeType: c.upgradeType || 'Capital / Other',
@@ -6330,11 +6585,13 @@ function snapshotCandidateToTimer(c, now, account, shouldStart, sound) {
     snapshotTimerKey: c.timerKey,
     snapshotDataId: c.dataId == null ? null : String(c.dataId),
     snapshotLevel: Number.isFinite(c.level) ? c.level : null,
+    snapshotCapturedAt: new Date(captureMs).toISOString(),
+    snapshotImportedAt: new Date(now).toISOString(),
     repeat: false,
     sound,
-    status: shouldStart ? 'running' : 'stopped',
-    endTime: shouldStart ? now + c.seconds * 1000 : null,
-    expiredAt: null,
+    status: initialStatus,
+    endTime: shouldStart && remainingAtImport > 0 ? endAt : null,
+    expiredAt: shouldStart && remainingAtImport <= 0 ? endAt : null,
     pinned: false,
     created: now
   };
@@ -6412,6 +6669,66 @@ function selectSnapshotCandidates(checked) {
   renderSnapshotCandidates();
 }
 
+
+function getSnapshotImportOptions(prefix='snapshot') {
+  return {
+    shouldStart: !!document.getElementById(`${prefix}-start`)?.checked,
+    sound: !!document.getElementById(`${prefix}-sound`)?.checked,
+    includeHelper: !!document.getElementById(`${prefix}-include-helper`)?.checked,
+    replaceExisting: !!document.getElementById(`${prefix}-replace-existing`)?.checked,
+    preserveManualNotes: !!document.getElementById(`${prefix}-preserve-manual-notes`)?.checked
+  };
+}
+
+function applySnapshotImportForAccount(account, snapshot, candidates, options, now=Date.now(), capturedAtMs=now) {
+  const accountName = normalizeAccountNameValue(account);
+  const captureMs = Number.isFinite(Number(capturedAtMs)) ? Number(capturedAtMs) : now;
+  const selected = (Array.isArray(candidates) ? candidates : []).filter(c => c && c.include !== false && c.name && Number(c.seconds) > 0);
+  const newTimers = selected.map(c => snapshotCandidateToTimer(c, now, accountName, options.shouldStart, options.sound, snapshot, captureMs));
+  const pinnedSnapshotNoteCounts = options.replaceExisting ? buildPinnedSnapshotNoteCounts(accountName) : new Map();
+  let removedCount = 0;
+  let preservedCount = 0;
+  let retainedPinCount = 0;
+
+  if (options.replaceExisting) {
+    const nextTimers = [];
+
+    timers.forEach(timer => {
+      if (getAccount(timer) !== accountName) {
+        nextTimers.push(timer);
+        return;
+      }
+
+      if (options.preserveManualNotes && timerHasManualNote(timer)) {
+        nextTimers.push(timer);
+        preservedCount += 1;
+        return;
+      }
+
+      removedCount += 1;
+    });
+
+    timers = nextTimers;
+    retainedPinCount = retainPinnedSnapshotTimers(newTimers, pinnedSnapshotNoteCounts);
+  }
+
+  timers.push(...newTimers);
+  updateSnapshotMetaFromParsedSnapshot(candidates.length, selected.length, captureMs, accountName, snapshot);
+  const mapChanged = learnAccountTagMapping(snapshot, accountName);
+
+  return {
+    account: accountName,
+    addedCount: newTimers.length,
+    candidateCount: candidates.length,
+    selectedCount: selected.length,
+    removedCount,
+    preservedCount,
+    retainedPinCount,
+    mapChanged,
+    capturedAtMs: captureMs
+  };
+}
+
 function saveSnapshotTimers() {
   const account = document.getElementById('snapshot-account').value.trim();
   if (!account) {
@@ -6433,51 +6750,20 @@ function saveSnapshotTimers() {
   }
 
   const now = Date.now();
-  const shouldStart = document.getElementById('snapshot-start').checked;
-  const sound = document.getElementById('snapshot-sound').checked;
-  const replaceExisting = document.getElementById('snapshot-replace-existing').checked;
-  const preserveManualNotes = document.getElementById('snapshot-preserve-manual-notes').checked;
-  const newTimers = selected.map(c => snapshotCandidateToTimer(c, now, account, shouldStart, sound));
-  const pinnedSnapshotNoteCounts = replaceExisting ? buildPinnedSnapshotNoteCounts(account) : new Map();
-  let removedCount = 0;
-  let preservedCount = 0;
-  let retainedPinCount = 0;
-
-  if (replaceExisting) {
-    const nextTimers = [];
-
-    timers.forEach(timer => {
-      if (getAccount(timer) !== account) {
-        nextTimers.push(timer);
-        return;
-      }
-
-      if (preserveManualNotes && timerHasManualNote(timer)) {
-        nextTimers.push(timer);
-        preservedCount += 1;
-        return;
-      }
-
-      removedCount += 1;
-    });
-
-    timers = nextTimers;
-    retainedPinCount = retainPinnedSnapshotTimers(newTimers, pinnedSnapshotNoteCounts);
-  }
-
-  timers.push(...newTimers);
-  updateSnapshotMetaFromParsedSnapshot(snapshotCandidates.length, selected.length, now);
+  const options = getSnapshotImportOptions('snapshot');
+  const result = applySnapshotImportForAccount(account, snapshotLastSnapshot, snapshotCandidates, options, now);
   filterGroup = account;
   save();
+  if (result.mapChanged) saveAccountTagMapQuietly();
   closeSnapshotModal();
   renderTimers();
 
-  if (replaceExisting) {
-    const preservedText = preservedCount ? `; ${preservedCount} manually noted timer${preservedCount === 1 ? '' : 's'} preserved` : '';
-    const retainedPinText = retainedPinCount ? `; ${retainedPinCount} pin${retainedPinCount === 1 ? '' : 's'} retained` : '';
-    toast(`${newTimers.length} snapshot timer${newTimers.length === 1 ? '' : 's'} added for ${account}; ${removedCount} existing timer${removedCount === 1 ? '' : 's'} replaced${preservedText}${retainedPinText}`, 'success');
+  if (options.replaceExisting) {
+    const preservedText = result.preservedCount ? `; ${result.preservedCount} manually noted timer${result.preservedCount === 1 ? '' : 's'} preserved` : '';
+    const retainedPinText = result.retainedPinCount ? `; ${result.retainedPinCount} pin${result.retainedPinCount === 1 ? '' : 's'} retained` : '';
+    toast(`${result.addedCount} snapshot timer${result.addedCount === 1 ? '' : 's'} added for ${account}; ${result.removedCount} existing timer${result.removedCount === 1 ? '' : 's'} replaced${preservedText}${retainedPinText}`, 'success');
   } else {
-    toast(`${newTimers.length} snapshot timer${newTimers.length === 1 ? '' : 's'} added for ${account}`, 'success');
+    toast(`${result.addedCount} snapshot timer${result.addedCount === 1 ? '' : 's'} added for ${account}`, 'success');
   }
 }
 
@@ -6487,12 +6773,768 @@ document.getElementById('snapshot-include-helper').addEventListener('change', ()
   snapshotCandidates = parseAccountSnapshot(snapshotLastSnapshot);
   renderSnapshotCandidates();
   const metaUpdate = updateSnapshotMetaFromParsedSnapshot(snapshotCandidates.length);
-  const metaText = metaUpdate ? ` Updated ${metaUpdate.account} snapshot metadata.` : ' Choose an account to update snapshot metadata.';
+  const mapChanged = metaUpdate ? learnAccountTagMapping(snapshotLastSnapshot, metaUpdate.account) : false;
+  const mapText = mapChanged ? ' Tag mapping learned.' : '';
+  const metaText = metaUpdate ? ` Updated ${metaUpdate.account} snapshot metadata.${mapText}` : ' Choose an account to update snapshot metadata.';
   setSnapshotStatus(`Parsed ${snapshotCandidates.length} timer candidate${snapshotCandidates.length === 1 ? '' : 's'}.${snapshotBuilderCapacityStatusText(snapshotLastSnapshot)}${metaText}`, snapshotCandidates.length ? 'ok' : 'warning');
   if (metaUpdate) {
     refreshSnapshotMetadataDependentUi();
     save();
+    if (mapChanged) saveAccountTagMapQuietly();
   }
+});
+
+
+// ── Snapshot Collector ─────────────────────────────────────────────────────
+function openBatchSnapshotModal() {
+  batchSnapshotRows = [];
+  document.getElementById('batch-snapshot-start').checked = true;
+  document.getElementById('batch-snapshot-sound').checked = true;
+  document.getElementById('batch-snapshot-include-helper').checked = false;
+  document.getElementById('batch-snapshot-replace-existing').checked = true;
+  document.getElementById('batch-snapshot-preserve-manual-notes').checked = true;
+  syncBatchSnapshotReplaceOptions();
+  document.getElementById('batch-snapshot-modal').style.display = 'flex';
+  setupBatchSnapshotFloatingImportButton();
+
+  if (!restoreBatchSnapshotCollectorDraft()) {
+    clearBatchSnapshotParser(false, false);
+  }
+
+  updateBatchSnapshotFloatingImportButton();
+
+  setTimeout(() => {
+    const pasteText = document.getElementById('batch-snapshot-json-text');
+    if (pasteText) pasteText.focus();
+    updateBatchSnapshotFloatingImportButton();
+  }, 50);
+}
+
+function closeBatchSnapshotModal() {
+  document.getElementById('batch-snapshot-modal').style.display = 'none';
+  updateBatchSnapshotFloatingImportButton(0);
+}
+
+function setBatchSnapshotStatus(message='', state='') {
+  const el = document.getElementById('batch-snapshot-status');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `batch-snapshot-status ${state}`.trim();
+}
+
+let batchSnapshotFloatingImportListenersBound = false;
+let batchSnapshotFloatingImportLastActivation = 0;
+
+function updateBatchSnapshotKeyboardOffset(modalOpen=null) {
+  const modal = document.getElementById('batch-snapshot-modal');
+  const isOpen = modalOpen === null
+    ? !!modal && window.getComputedStyle(modal).display !== 'none'
+    : !!modalOpen;
+
+  if (!isOpen || !window.visualViewport) {
+    document.documentElement.style.setProperty('--batch-snapshot-keyboard-offset', '0px');
+    return 0;
+  }
+
+  const viewport = window.visualViewport;
+  const keyboardOffset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+  const roundedOffset = Math.round(keyboardOffset);
+  document.documentElement.style.setProperty('--batch-snapshot-keyboard-offset', `${roundedOffset}px`);
+  return roundedOffset;
+}
+
+function getBatchSnapshotVisibleViewportBounds() {
+  if (!window.visualViewport) {
+    return { top: 0, bottom: window.innerHeight };
+  }
+
+  return {
+    top: window.visualViewport.offsetTop,
+    bottom: window.visualViewport.offsetTop + window.visualViewport.height
+  };
+}
+
+function isBatchSnapshotPrimaryImportVisible() {
+  const modal = document.getElementById('batch-snapshot-modal');
+  const primaryBtn = document.getElementById('batch-snapshot-primary-import');
+  if (!modal || !primaryBtn || window.getComputedStyle(modal).display === 'none') return false;
+
+  const rect = primaryBtn.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return false;
+
+  const viewport = getBatchSnapshotVisibleViewportBounds();
+  const modalPanel = modal.querySelector('.modal');
+  const panelRect = modalPanel ? modalPanel.getBoundingClientRect() : null;
+  const visibleTop = panelRect ? Math.max(viewport.top, panelRect.top) : viewport.top;
+  const visibleBottom = panelRect ? Math.min(viewport.bottom, panelRect.bottom) : viewport.bottom;
+  const margin = 8;
+
+  return rect.top >= visibleTop + margin && rect.bottom <= visibleBottom - margin;
+}
+
+function activateBatchSnapshotFloatingImportButton(evt=null) {
+  const btn = document.getElementById('batch-snapshot-floating-import');
+  if (!btn || btn.disabled) return;
+
+  if (evt) {
+    evt.preventDefault();
+    evt.stopPropagation();
+  }
+
+  const now = Date.now();
+  if (now - batchSnapshotFloatingImportLastActivation < 700) return;
+  batchSnapshotFloatingImportLastActivation = now;
+
+  saveBatchSnapshotTimers();
+}
+
+function handleBatchSnapshotFloatingImportPointerDown(evt) {
+  // On mobile, the first tap on a fixed button above the soft keyboard can be
+  // consumed by focus/viewport changes before a normal click is dispatched.
+  // Fire on touch/pen pointer-down, while leaving mouse activation to click.
+  if (evt.pointerType && evt.pointerType !== 'mouse') {
+    activateBatchSnapshotFloatingImportButton(evt);
+  }
+}
+
+function handleBatchSnapshotFloatingImportClick(evt) {
+  activateBatchSnapshotFloatingImportButton(evt);
+}
+
+function setupBatchSnapshotFloatingImportButton() {
+  if (batchSnapshotFloatingImportListenersBound) return;
+  batchSnapshotFloatingImportListenersBound = true;
+
+  const refresh = () => updateBatchSnapshotFloatingImportButton();
+  const modal = document.getElementById('batch-snapshot-modal');
+  const modalPanel = modal ? modal.querySelector('.modal') : null;
+  const pasteText = document.getElementById('batch-snapshot-json-text');
+
+  if (modalPanel) modalPanel.addEventListener('scroll', refresh, { passive: true });
+  if (pasteText) {
+    pasteText.addEventListener('focus', refresh);
+    pasteText.addEventListener('blur', refresh);
+  }
+
+  const floatingImportBtn = document.getElementById('batch-snapshot-floating-import');
+  if (floatingImportBtn) {
+    floatingImportBtn.addEventListener('click', handleBatchSnapshotFloatingImportClick);
+    if (window.PointerEvent) {
+      floatingImportBtn.addEventListener('pointerdown', handleBatchSnapshotFloatingImportPointerDown);
+    } else {
+      floatingImportBtn.addEventListener('touchstart', activateBatchSnapshotFloatingImportButton, { passive:false });
+    }
+  }
+
+  window.addEventListener('resize', refresh);
+  window.addEventListener('orientationchange', refresh);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', refresh);
+    window.visualViewport.addEventListener('scroll', refresh);
+  }
+}
+
+function updateBatchSnapshotFloatingImportButton(importableCount=null) {
+  const btn = document.getElementById('batch-snapshot-floating-import');
+  const modal = document.getElementById('batch-snapshot-modal');
+  if (!btn || !modal) return;
+
+  const modalOpen = window.getComputedStyle(modal).display !== 'none';
+  updateBatchSnapshotKeyboardOffset(modalOpen);
+
+  const stagedCount = batchSnapshotRows.length;
+  const resolvedImportableCount = importableCount === null || importableCount === undefined
+    ? getImportableBatchSnapshotRows(false).length
+    : Number(importableCount);
+  const count = Number.isFinite(resolvedImportableCount)
+    ? resolvedImportableCount
+    : getImportableBatchSnapshotRows(false).length;
+  const primaryImportVisible = isBatchSnapshotPrimaryImportVisible();
+
+  btn.classList.toggle('visible', modalOpen && stagedCount > 0 && count > 0 && !primaryImportVisible);
+  btn.disabled = count === 0;
+  btn.textContent = count > 0
+    ? `Import ${count} Account${count === 1 ? '' : 's'}`
+    : 'Import Selected';
+  btn.title = count > 0
+    ? `Import ${count} selected staged account snapshot${count === 1 ? '' : 's'}`
+    : 'Select at least one valid staged snapshot to import';
+}
+
+function getBatchSnapshotCollectorOptionsState() {
+  return {
+    start: !!document.getElementById('batch-snapshot-start')?.checked,
+    sound: !!document.getElementById('batch-snapshot-sound')?.checked,
+    includeHelper: !!document.getElementById('batch-snapshot-include-helper')?.checked,
+    replaceExisting: !!document.getElementById('batch-snapshot-replace-existing')?.checked,
+    preserveManualNotes: !!document.getElementById('batch-snapshot-preserve-manual-notes')?.checked
+  };
+}
+
+function applyBatchSnapshotCollectorOptionsState(options={}) {
+  const setChecked = (id, value) => {
+    const el = document.getElementById(id);
+    if (el && typeof value === 'boolean') el.checked = value;
+  };
+
+  setChecked('batch-snapshot-start', options.start);
+  setChecked('batch-snapshot-sound', options.sound);
+  setChecked('batch-snapshot-include-helper', options.includeHelper);
+  setChecked('batch-snapshot-replace-existing', options.replaceExisting);
+  setChecked('batch-snapshot-preserve-manual-notes', options.preserveManualNotes);
+  syncBatchSnapshotReplaceOptions();
+}
+
+function serializeBatchSnapshotRowsForStorage(rows=batchSnapshotRows) {
+  return rows
+    .filter(row => row && row.snapshot && typeof row.snapshot === 'object')
+    .map(row => ({
+      snapshot: row.snapshot,
+      capturedAtMs: normalizeSnapshotCaptureMs(row.capturedAtMs, Date.now()),
+      capturedAt: row.capturedAt || new Date(normalizeSnapshotCaptureMs(row.capturedAtMs, Date.now())).toISOString(),
+      providedAccount: row.providedAccount || '',
+      account: row.account || '',
+      include: !!row.include
+    }));
+}
+
+function saveBatchSnapshotCollectorDraft() {
+  if (!batchSnapshotRows.length) {
+    clearBatchSnapshotCollectorDraft();
+    return true;
+  }
+
+  const draftRows = serializeBatchSnapshotRowsForStorage(batchSnapshotRows);
+  if (!draftRows.length) {
+    clearBatchSnapshotCollectorDraft();
+    return true;
+  }
+
+  try {
+    localStorage.setItem(SNAPSHOT_COLLECTOR_DRAFT_KEY, JSON.stringify({
+      schemaVersion: 1,
+      savedAt: new Date().toISOString(),
+      options: getBatchSnapshotCollectorOptionsState(),
+      rows: draftRows
+    }));
+    batchSnapshotDraftWarningShown = false;
+    return true;
+  } catch (err) {
+    console.error(err);
+    if (!batchSnapshotDraftWarningShown) {
+      batchSnapshotDraftWarningShown = true;
+      setBatchSnapshotStatus('Could not save collector recovery draft in this browser. Local storage may be full.', 'warning');
+      toast('Snapshot Collector draft could not be saved locally.', 'warning');
+    }
+    return false;
+  }
+}
+
+function clearBatchSnapshotCollectorDraft() {
+  try {
+    localStorage.removeItem(SNAPSHOT_COLLECTOR_DRAFT_KEY);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function restoreBatchSnapshotCollectorDraft() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(SNAPSHOT_COLLECTOR_DRAFT_KEY);
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
+
+  if (!raw) return false;
+
+  try {
+    const draft = JSON.parse(raw);
+    const rows = Array.isArray(draft.rows) ? draft.rows : [];
+    if (!rows.length) {
+      clearBatchSnapshotCollectorDraft();
+      return false;
+    }
+
+    applyBatchSnapshotCollectorOptionsState(draft.options || {});
+    const includeHelper = !!document.getElementById('batch-snapshot-include-helper')?.checked;
+    batchSnapshotRows = rows.map((row, index) => {
+      const preferredAccount = normalizeAccountNameValue(row.account || row.providedAccount || '');
+      const entry = {
+        index,
+        snapshot: row.snapshot,
+        providedAccount: preferredAccount,
+        capturedAtMs: normalizeSnapshotCaptureMs(row.capturedAtMs || row.capturedAt, Date.now()),
+        error: ''
+      };
+      const restored = buildBatchSnapshotRow(entry, index, includeHelper);
+      if (preferredAccount) {
+        restored.account = preferredAccount;
+        const mapped = restored.tag ? normalizeAccountNameValue(accountTagMap[restored.tag]) : '';
+        restored.resolvedBy = mapped === preferredAccount ? 'tag-map' : 'recovered';
+        restored.warning = mapped && mapped !== preferredAccount
+          ? `Recovered account ${preferredAccount}, but tag map currently resolves to ${mapped}.`
+          : (restored.tag && !mapped ? 'Recovered manual mapping; tag mapping will be learned on import.' : restored.warning);
+      }
+      restored.include = row.include !== false && !restored.error && !!restored.account && restored.candidates.length > 0;
+      return restored;
+    });
+
+    renderBatchSnapshotRows();
+    const savedAt = draft.savedAt ? new Date(draft.savedAt).toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+    setBatchSnapshotStatus(`Recovered ${batchSnapshotRows.length} staged snapshot${batchSnapshotRows.length === 1 ? '' : 's'} from this browser${savedAt ? ` (${savedAt})` : ''}.`, 'warning');
+    return true;
+  } catch (err) {
+    console.error(err);
+    clearBatchSnapshotCollectorDraft();
+    setBatchSnapshotStatus('Discarded an unreadable Snapshot Collector recovery draft.', 'warning');
+    return false;
+  }
+}
+
+function clearBatchSnapshotPaste(showStatus=true) {
+  const textEl = document.getElementById('batch-snapshot-json-text');
+  if (textEl) {
+    textEl.value = '';
+    textEl.focus();
+  }
+  if (showStatus) setBatchSnapshotStatus('Paste box cleared. Staged snapshots were kept.', 'ok');
+}
+
+function clearBatchSnapshotParser(showStatus=true, clearDraft=true) {
+  const textEl = document.getElementById('batch-snapshot-json-text');
+  if (textEl) textEl.value = '';
+  batchSnapshotRows = [];
+  if (clearDraft) clearBatchSnapshotCollectorDraft();
+  renderBatchSnapshotRows();
+  setBatchSnapshotStatus(showStatus ? 'Staged snapshots cleared.' : '', showStatus ? 'ok' : '');
+}
+
+function normalizeSnapshotCaptureMs(value, fallback=Date.now()) {
+  if (Number.isFinite(Number(value))) {
+    const n = Number(value);
+    // Treat small numeric values as Unix seconds, large values as JavaScript ms.
+    return n < 100000000000 ? n * 1000 : n;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Date.parse(value.trim());
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return Number.isFinite(Number(fallback)) ? Number(fallback) : Date.now();
+}
+
+function batchSnapshotCapturedLabel(capturedAtMs, now=Date.now()) {
+  const captureMs = normalizeSnapshotCaptureMs(capturedAtMs, now);
+  const capturedTime = new Date(captureMs).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  const ageMs = Math.max(0, now - captureMs);
+  return {
+    time: capturedTime,
+    age: `${snapshotCompactAgeLabel(ageMs)} old`,
+    title: `Captured ${new Date(captureMs).toLocaleString()} (${snapshotFreshnessAgeLabel(ageMs)})`
+  };
+}
+
+async function readBatchSnapshotClipboard() {
+  const textEl = document.getElementById('batch-snapshot-json-text');
+
+  if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
+    setBatchSnapshotStatus('Clipboard read is not available here. Paste manually, then click Add Snapshot.', 'warning');
+    if (textEl) textEl.focus();
+    return;
+  }
+
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!String(text || '').trim()) {
+      setBatchSnapshotStatus('Clipboard is empty.', 'warning');
+      return;
+    }
+    textEl.value = text;
+    addSnapshotCollectorPaste();
+  } catch (err) {
+    setBatchSnapshotStatus('Clipboard read was blocked. Paste manually, then click Add Snapshot.', 'warning');
+    if (textEl) textEl.focus();
+  }
+}
+
+function loadBatchSnapshotJsonFile(evt) {
+  const file = evt.target.files && evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('batch-snapshot-json-text').value = String(e.target.result || '');
+    parseBatchSnapshotJsonText({ append:false, clearAfter:true, sourceLabel:'Loaded file' });
+  };
+  reader.onerror = () => setBatchSnapshotStatus('Could not read snapshot JSON file.', 'error');
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+function syncBatchSnapshotReplaceOptions() {
+  const replaceEl = document.getElementById('batch-snapshot-replace-existing');
+  const preserveEl = document.getElementById('batch-snapshot-preserve-manual-notes');
+  const preserveWrap = document.getElementById('batch-snapshot-preserve-manual-notes-wrap');
+  if (!replaceEl || !preserveEl) return;
+
+  preserveEl.disabled = !replaceEl.checked;
+  if (preserveWrap) preserveWrap.classList.toggle('active', replaceEl.checked);
+}
+
+function extractBatchSnapshotEntries(parsed, fallbackCapturedAtMs=Date.now()) {
+  let source;
+
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Array.isArray(parsed.snapshots)) {
+    source = parsed.snapshots;
+  } else if (Array.isArray(parsed)) {
+    source = parsed;
+  } else if (parsed && typeof parsed === 'object') {
+    source = [parsed];
+  } else {
+    throw new Error('Snapshot data must be a JSON object, array, or object with a snapshots array.');
+  }
+
+  return source.map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return { index, snapshot: null, providedAccount: '', capturedAtMs: fallbackCapturedAtMs, error: 'Row is not a JSON object.' };
+    }
+
+    const capturedAtMs = normalizeSnapshotCaptureMs(
+      item.capturedAt ?? item.captured_at ?? item.snapshotCapturedAt ?? item.snapshot_captured_at,
+      fallbackCapturedAtMs
+    );
+
+    if (item.snapshot && typeof item.snapshot === 'object' && !Array.isArray(item.snapshot)) {
+      return {
+        index,
+        snapshot: item.snapshot,
+        providedAccount: normalizeAccountNameValue(item.account || item.accountName || item.account_name || ''),
+        capturedAtMs,
+        error: ''
+      };
+    }
+
+    // Also allow a bare raw game export object. This is the main Snapshot Collector workflow.
+    return {
+      index,
+      snapshot: item,
+      providedAccount: normalizeAccountNameValue(item.account || item.accountName || item.account_name || ''),
+      capturedAtMs,
+      error: ''
+    };
+  });
+}
+
+function resolveBatchSnapshotAccount(tag, providedAccount='') {
+  const normalizedTag = normalizePlayerTag(tag);
+  const provided = normalizeAccountNameValue(providedAccount);
+  const mapped = normalizedTag ? normalizeAccountNameValue(accountTagMap[normalizedTag]) : '';
+
+  if (mapped) {
+    return {
+      account: mapped,
+      source: 'tag-map',
+      warning: provided && provided !== mapped ? `File says ${provided}, but tag map resolves to ${mapped}.` : ''
+    };
+  }
+
+  if (provided) {
+    return { account: provided, source: 'file-account', warning: normalizedTag ? 'New tag mapping will be learned from this labelled row.' : 'No player tag found; using file account only.' };
+  }
+
+  return { account: '', source: 'unmapped', warning: normalizedTag ? 'Choose an account to map this player tag.' : 'No player tag found; choose an account manually.' };
+}
+
+function buildBatchSnapshotRow(entry, index, includeHelper) {
+  const snapshot = entry.snapshot;
+  const tag = getSnapshotPlayerTag(snapshot);
+  const gameName = getSnapshotPlayerName(snapshot);
+  const resolved = entry.error ? { account:'', source:'error', warning:entry.error } : resolveBatchSnapshotAccount(tag, entry.providedAccount);
+  const candidates = snapshot && !entry.error ? parseAccountSnapshot(snapshot, { includeHelper }) : [];
+  const builderCapacity = snapshot && !entry.error ? deriveBuilderCapacityFromSnapshot(snapshot) : null;
+  const capturedAtMs = normalizeSnapshotCaptureMs(entry.capturedAtMs, Date.now());
+
+  return {
+    id: `collector-${capturedAtMs.toString(36)}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+    index,
+    snapshot,
+    capturedAtMs,
+    capturedAt: new Date(capturedAtMs).toISOString(),
+    tag,
+    gameName,
+    providedAccount: entry.providedAccount,
+    account: resolved.account,
+    resolvedBy: resolved.source,
+    warning: resolved.warning,
+    error: entry.error || (!snapshot ? 'Missing snapshot object.' : ''),
+    candidates,
+    builderCapacity,
+    include: !entry.error && !!snapshot && !!resolved.account && candidates.length > 0
+  };
+}
+
+function addSnapshotCollectorPaste() {
+  parseBatchSnapshotJsonText({ append:true, clearAfter:true, sourceLabel:'Added' });
+}
+
+function parseBatchSnapshotJsonText({ append=true, clearAfter=false, sourceLabel='Parsed' }={}) {
+  const source = document.getElementById('batch-snapshot-json-text');
+  const raw = source.value.trim();
+  if (!raw) {
+    setBatchSnapshotStatus('Paste one game snapshot first.', 'warning');
+    source.focus();
+    return;
+  }
+
+  const capturedAtMs = Date.now();
+
+  try {
+    const parsed = JSON.parse(raw);
+    const entries = extractBatchSnapshotEntries(parsed, capturedAtMs);
+    const includeHelper = !!document.getElementById('batch-snapshot-include-helper')?.checked;
+    const newRows = entries.map((entry, index) => buildBatchSnapshotRow(entry, batchSnapshotRows.length + index, includeHelper));
+
+    batchSnapshotRows = append ? [...batchSnapshotRows, ...newRows] : newRows;
+    saveBatchSnapshotCollectorDraft();
+    renderBatchSnapshotRows();
+
+    const validCount = getImportableBatchSnapshotRows().length;
+    const warningCount = batchSnapshotRows.filter(row => row.warning || row.error || !row.account || !row.candidates.length).length;
+    setBatchSnapshotStatus(`${sourceLabel} ${newRows.length} snapshot${newRows.length === 1 ? '' : 's'}; ${batchSnapshotRows.length} staged; ${validCount} ready to import${warningCount ? `; ${warningCount} need attention` : ''}.`, validCount ? 'ok' : 'warning');
+
+    if (clearAfter) clearBatchSnapshotPaste(false);
+  } catch (err) {
+    setBatchSnapshotStatus(`Invalid snapshot JSON: ${err.message}`, 'error');
+    toast('Snapshot JSON is invalid.', 'warning');
+  }
+}
+
+function batchSnapshotAccountOptionsHtml(selected='') {
+  const accounts = getKnownAccounts();
+  const current = normalizeAccountNameValue(selected);
+  const options = [`<option value="">— Choose account —</option>`];
+
+  accounts.forEach(account => {
+    options.push(`<option value="${esc(account)}"${account === current ? ' selected' : ''}>${esc(account)}</option>`);
+  });
+
+  if (current && !accounts.includes(current)) {
+    options.push(`<option value="${esc(current)}" selected>${esc(current)} (custom)</option>`);
+  }
+
+  return options.join('');
+}
+
+function refreshBatchSnapshotRowValidation() {
+  const selectedRows = batchSnapshotRows.filter(row => row.include && !row.error && row.account);
+  const accountCounts = new Map();
+  const tagCounts = new Map();
+
+  selectedRows.forEach(row => {
+    accountCounts.set(row.account, (accountCounts.get(row.account) || 0) + 1);
+    if (row.tag) tagCounts.set(row.tag, (tagCounts.get(row.tag) || 0) + 1);
+  });
+
+  batchSnapshotRows.forEach(row => {
+    row.validationMessages = [];
+    if (row.error) row.validationMessages.push(row.error);
+    if (!Number.isFinite(Number(row.capturedAtMs))) row.validationMessages.push('Invalid captured timestamp.');
+    if (!row.error && !row.tag) row.validationMessages.push('No player tag found; mapping cannot be learned automatically.');
+    if (!row.error && !row.account) row.validationMessages.push('Choose an app account.');
+    if (!row.error && row.include && row.account && accountCounts.get(row.account) > 1) row.validationMessages.push('Duplicate selected app account in this collection.');
+    if (!row.error && row.include && row.tag && tagCounts.get(row.tag) > 1) row.validationMessages.push('Duplicate selected player tag in this collection.');
+    if (!row.error && !row.candidates.length) row.validationMessages.push('No active timers found in this snapshot.');
+    if (!row.error && row.warning) row.validationMessages.push(row.warning);
+  });
+}
+
+function renderBatchSnapshotRows() {
+  const rowsEl = document.getElementById('batch-snapshot-rows');
+  const summaryEl = document.getElementById('batch-snapshot-summary');
+  if (!rowsEl || !summaryEl) return;
+
+  if (!batchSnapshotRows.length) {
+    rowsEl.innerHTML = '<div class="batch-snapshot-empty">Paste a snapshot and click Add Snapshot to stage account imports.</div>';
+    summaryEl.innerHTML = '';
+    updateBatchSnapshotFloatingImportButton(0);
+    return;
+  }
+
+  refreshBatchSnapshotRowValidation();
+  const renderNow = Date.now();
+  const importable = getImportableBatchSnapshotRows(false);
+  const mappedCount = batchSnapshotRows.filter(row => row.resolvedBy === 'tag-map').length;
+  const labelledCount = batchSnapshotRows.filter(row => row.resolvedBy === 'file-account').length;
+  const candidateCount = batchSnapshotRows.reduce((total, row) => total + row.candidates.length, 0);
+  const oldestCapturedAt = Math.min(...batchSnapshotRows.map(row => normalizeSnapshotCaptureMs(row.capturedAtMs, renderNow)));
+  const oldestAge = Number.isFinite(oldestCapturedAt) ? snapshotCompactAgeLabel(Math.max(0, renderNow - oldestCapturedAt)) : 'now';
+  summaryEl.innerHTML = [
+    `<span class="snapshot-pill">${batchSnapshotRows.length} staged snapshot${batchSnapshotRows.length === 1 ? '' : 's'}</span>`,
+    `<span class="snapshot-pill">${importable.length} selected/importable</span>`,
+    `<span class="snapshot-pill">${candidateCount} timer candidate${candidateCount === 1 ? '' : 's'}</span>`,
+    `<span class="snapshot-pill">oldest ${oldestAge} old</span>`,
+    `<span class="snapshot-pill">${mappedCount} matched by tag</span>`,
+    `<span class="snapshot-pill">${labelledCount} labelled fallback</span>`
+  ].join('');
+  updateBatchSnapshotFloatingImportButton(importable.length);
+
+  rowsEl.innerHTML = batchSnapshotRows.map((row, index) => {
+    const hasBlocking = row.error || !row.account || !row.candidates.length;
+    const hasWarnings = row.validationMessages && row.validationMessages.length;
+    const rowClass = hasBlocking ? 'error' : (hasWarnings ? 'warning' : '');
+    const messageClass = hasBlocking ? 'error' : (hasWarnings ? 'warning' : '');
+    const messages = hasWarnings ? row.validationMessages.join(' ') : (row.resolvedBy === 'tag-map' ? 'Ready — matched by player tag.' : 'Ready — labelled/manual row will teach this tag mapping.');
+    const capacityText = row.builderCapacity ? snapshotBuilderCapacityStatusText(row.snapshot).replace(/^\s*Detected capacity:\s*/i, '').replace(/\.$/, '') : '';
+    const countTitle = capacityText ? `${row.candidates.length} candidates · ${capacityText}` : `${row.candidates.length} candidates`;
+    const captured = batchSnapshotCapturedLabel(row.capturedAtMs, renderNow);
+
+    return `
+      <div class="batch-snapshot-row ${rowClass}">
+        <label class="batch-snapshot-use"><input type="checkbox" class="batch-snapshot-include" data-index="${index}" ${row.include ? 'checked' : ''} ${hasBlocking ? 'disabled' : ''}> Use</label>
+        <span class="batch-snapshot-captured" title="${esc(captured.title)}">${esc(captured.time)}<span class="batch-snapshot-captured-age">${esc(captured.age)}</span></span>
+        <span class="batch-snapshot-tag" title="${esc(row.tag || 'No tag')}">${esc(row.tag || 'No tag')}</span>
+        <span class="batch-snapshot-game-name" title="${esc(row.gameName || 'Unknown')}">${esc(row.gameName || 'Unknown')}</span>
+        <select class="batch-snapshot-account" data-index="${index}" title="App account">${batchSnapshotAccountOptionsHtml(row.account)}</select>
+        <span class="batch-snapshot-count" title="${esc(countTitle)}">${row.candidates.length}</span>
+        <span class="batch-snapshot-message ${messageClass}">${esc(messages)}</span>
+      </div>
+    `;
+  }).join('');
+
+  rowsEl.querySelectorAll('input,select').forEach(el => {
+    el.addEventListener('input', syncBatchSnapshotRowFromControl);
+    el.addEventListener('change', syncBatchSnapshotRowFromControl);
+  });
+}
+
+function syncBatchSnapshotRowFromControl(evt) {
+  const el = evt.target;
+  const index = Number(el.dataset.index);
+  if (!Number.isInteger(index) || !batchSnapshotRows[index]) return;
+  const row = batchSnapshotRows[index];
+
+  if (el.classList.contains('batch-snapshot-include')) {
+    row.include = el.checked;
+  } else if (el.classList.contains('batch-snapshot-account')) {
+    row.account = normalizeAccountNameValue(el.value);
+    row.include = !!row.account && !row.error && row.candidates.length > 0;
+    const mapped = row.tag ? normalizeAccountNameValue(accountTagMap[row.tag]) : '';
+    if (!row.account) {
+      row.resolvedBy = 'unmapped';
+      row.warning = row.tag ? 'Choose an account to map this player tag.' : 'No player tag found; choose an account manually.';
+    } else if (mapped && mapped === row.account) {
+      row.resolvedBy = 'tag-map';
+      row.warning = '';
+    } else {
+      row.resolvedBy = 'manual';
+      row.warning = row.tag ? 'New tag mapping will be learned from this manual selection.' : 'No player tag found; using manual account only.';
+    }
+  }
+
+  saveBatchSnapshotCollectorDraft();
+  renderBatchSnapshotRows();
+}
+
+function getImportableBatchSnapshotRows(readControls=true) {
+  if (readControls) {
+    document.querySelectorAll('.batch-snapshot-include').forEach(el => {
+      const index = Number(el.dataset.index);
+      if (batchSnapshotRows[index]) batchSnapshotRows[index].include = el.checked;
+    });
+    document.querySelectorAll('.batch-snapshot-account').forEach(el => {
+      const index = Number(el.dataset.index);
+      if (batchSnapshotRows[index]) batchSnapshotRows[index].account = normalizeAccountNameValue(el.value);
+    });
+  }
+
+  refreshBatchSnapshotRowValidation();
+  return batchSnapshotRows.filter(row => row.include && !row.error && row.account && row.candidates.length && !(row.validationMessages || []).some(msg => /Duplicate selected|Invalid captured/i.test(msg)));
+}
+
+function selectBatchSnapshotRows(checked) {
+  batchSnapshotRows.forEach(row => {
+    row.include = !!checked && !row.error && !!row.account && row.candidates.length > 0;
+  });
+  saveBatchSnapshotCollectorDraft();
+  renderBatchSnapshotRows();
+}
+
+async function saveBatchSnapshotTimers() {
+  if (!batchSnapshotRows.length) {
+    toast('Add at least one snapshot first.', 'warning');
+    document.getElementById('batch-snapshot-json-text').focus();
+    return;
+  }
+
+  const selectedRows = getImportableBatchSnapshotRows(true);
+  const selectedCount = batchSnapshotRows.filter(row => row.include).length;
+  if (!selectedRows.length) {
+    toast(selectedCount ? 'Fix duplicate or unmapped rows before importing.' : 'Select at least one valid account snapshot.', 'warning');
+    renderBatchSnapshotRows();
+    return;
+  }
+
+  if (selectedRows.length !== selectedCount) {
+    toast('Some selected rows need attention before import.', 'warning');
+    renderBatchSnapshotRows();
+    return;
+  }
+
+  const importNow = Date.now();
+  const options = getSnapshotImportOptions('batch-snapshot');
+  let totalAdded = 0;
+  let totalRemoved = 0;
+  let totalPreserved = 0;
+  let totalPins = 0;
+  let mapChanged = false;
+  const importedAccounts = [];
+
+  selectedRows.forEach(row => {
+    const capturedAtMs = normalizeSnapshotCaptureMs(row.capturedAtMs, importNow);
+    const result = applySnapshotImportForAccount(row.account, row.snapshot, row.candidates, options, importNow, capturedAtMs);
+    totalAdded += result.addedCount;
+    totalRemoved += result.removedCount;
+    totalPreserved += result.preservedCount;
+    totalPins += result.retainedPinCount;
+    mapChanged = mapChanged || result.mapChanged;
+    importedAccounts.push(result.account);
+  });
+
+  filterGroup = importedAccounts.length === 1 ? importedAccounts[0] : 'All';
+  const saveOk = await save();
+  if (mapChanged) await saveAccountTagMapQuietly();
+  renderTimers();
+
+  if (!saveOk) {
+    saveBatchSnapshotCollectorDraft();
+    setBatchSnapshotStatus('Server save failed. Snapshot Collector recovery draft was kept in this browser.', 'error');
+    toast('Import was applied in this browser, but the server save failed. Collector draft was kept for recovery.', 'warning');
+    return;
+  }
+
+  clearBatchSnapshotCollectorDraft();
+  closeBatchSnapshotModal();
+
+  const replaceText = options.replaceExisting ? `; ${totalRemoved} existing replaced` : '';
+  const preservedText = totalPreserved ? `; ${totalPreserved} manually noted preserved` : '';
+  const pinText = totalPins ? `; ${totalPins} pin${totalPins === 1 ? '' : 's'} retained` : '';
+  const mapText = mapChanged ? '; tag map updated' : '';
+  toast(`${totalAdded} snapshot timer${totalAdded === 1 ? '' : 's'} imported for ${importedAccounts.length} account${importedAccounts.length === 1 ? '' : 's'}${replaceText}${preservedText}${pinText}${mapText}`, 'success');
+}
+
+// Re-parse staged rows if helper cooldown inclusion changes after snapshots are already collected.
+document.getElementById('batch-snapshot-include-helper').addEventListener('change', () => {
+  if (!batchSnapshotRows.length) return;
+  const includeHelper = !!document.getElementById('batch-snapshot-include-helper')?.checked;
+  batchSnapshotRows.forEach(row => {
+    if (!row.snapshot || row.error) return;
+    row.candidates = parseAccountSnapshot(row.snapshot, { includeHelper });
+    row.include = !!row.account && row.candidates.length > 0;
+  });
+  saveBatchSnapshotCollectorDraft();
+  renderBatchSnapshotRows();
 });
 
 // ── Import / Export ───────────────────────────────────────────────────────
@@ -6503,7 +7545,8 @@ function exportTimers() {
     source: 'clash-timers-nas',
     timers,
     accountSnapshotMeta,
-    snapshotFreshnessSettings
+    snapshotFreshnessSettings,
+    accountTagMap
   }, null, 2);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([data],{type:'application/json'}));
@@ -6521,6 +7564,7 @@ function importTimers(evt) {
       const imported = Array.isArray(parsed) ? parsed : parsed.timers;
       if (!Array.isArray(imported)) throw new Error();
       const importedSnapshotMeta = Array.isArray(parsed) ? {} : normalizeAccountSnapshotMeta(parsed.accountSnapshotMeta || parsed.snapshotMeta);
+      const importedAccountTagMap = Array.isArray(parsed) ? {} : normalizeAccountTagMap(parsed.accountTagMap || (parsed.settings && parsed.settings.accountTagMap));
 
       const validStatuses = new Set(['running','paused','stopped','expired']);
       const valid = imported.filter(t => t && t.name && Number(t.duration) > 0).map(t => ({...t}));
@@ -6554,8 +7598,13 @@ function importTimers(evt) {
       const newOnes = valid.filter(t=>!existingIds.has(t.id));
       timers.push(...newOnes);
       accountSnapshotMeta = normalizeAccountSnapshotMeta({ ...accountSnapshotMeta, ...importedSnapshotMeta });
+      const mergedAccountTagMap = normalizeAccountTagMap({ ...accountTagMap, ...importedAccountTagMap });
+      const accountTagMapChanged = JSON.stringify(mergedAccountTagMap) !== JSON.stringify(normalizeAccountTagMap(accountTagMap));
+      accountTagMap = mergedAccountTagMap;
       normalizeTimersAfterLoad();
-      save(); renderTimers();
+      save();
+      if (accountTagMapChanged) saveAccountTagMapQuietly();
+      renderTimers();
       toast(`Imported ${newOnes.length} timer(s)`, 'success');
     } catch(e) { toast('Invalid file', 'warning'); }
   };
@@ -6577,11 +7626,13 @@ document.addEventListener('keydown', e => {
   const regularModalOpen = document.getElementById('modal').style.display !== 'none';
   const bulkModalOpen = document.getElementById('bulk-modal').style.display !== 'none';
   const snapshotModalOpen = document.getElementById('snapshot-modal').style.display !== 'none';
+  const batchSnapshotModalOpen = document.getElementById('batch-snapshot-modal').style.display !== 'none';
   const accountViewsModalOpen = document.getElementById('account-views-modal').style.display !== 'none';
-  const anyModalOpen = regularModalOpen || bulkModalOpen || snapshotModalOpen || accountViewsModalOpen;
+  const anyModalOpen = regularModalOpen || bulkModalOpen || snapshotModalOpen || batchSnapshotModalOpen || accountViewsModalOpen;
 
   if (e.key === 'Escape') {
     if (accountViewsModalOpen) closeAccountViewsModal();
+    else if (batchSnapshotModalOpen) closeBatchSnapshotModal();
     else if (snapshotModalOpen) closeSnapshotModal();
     else if (bulkModalOpen) closeBulkModal();
     else if (regularModalOpen) closeModal();
@@ -6590,6 +7641,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && regularModalOpen) saveTimer();
   if (e.key === 'Enter' && bulkModalOpen && (e.ctrlKey || e.metaKey)) saveBulkTimers();
   if (e.key === 'Enter' && accountViewsModalOpen && (e.ctrlKey || e.metaKey)) saveManagedAccountViews();
+  if (e.key === 'Enter' && batchSnapshotModalOpen && (e.ctrlKey || e.metaKey)) saveBatchSnapshotTimers();
   if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !anyModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') openAddModal();
   if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !anyModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleFocusMode();
   if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !anyModalOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT') toggleCompactMode();
@@ -6876,6 +7928,7 @@ async function boot() {
   renderTimers();
   setupScrollTopButton();
   setupFleetSummaryFloatingControls();
+  setupBatchSnapshotFloatingImportButton();
   tickInterval = setInterval(tick, 500);
 }
 
