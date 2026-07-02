@@ -1,12 +1,11 @@
 # Technical Design Document: Clash Fleet Manager
 
-**Version:** 10.3
+**Version:** 10.4
 **Status:** Draft for Review  
-**Note:** Prefaced by Section 0 (Strategy & Telos). The body below was reconciled in v10.3 so its framing no longer contradicts the gate; engineering content is unchanged. Read Section 0 first.
 
 ---
 
-# Section 0: Strategy & Telos (Reframing Note)
+## Section 0: Strategy & Telos (Reframing Note)
 
 **Version:** Strategy overlay for TDD v10.1
 **Status:** Adopted — supersedes the implied "droplet is the destination" framing throughout the rest of this document.
@@ -14,7 +13,7 @@
 
 ---
 
-## 0.1 What this project actually is
+### 0.1 What this project actually is
 
 This is a **personal application, built well.** That is the whole goal, and it is a complete goal on its own.
 
@@ -28,7 +27,7 @@ The reframing is this:
 
 Everything downstream in this document should be re-read through that lens. Where the original text justifies a decision "for the SaaS target," the real justification is now "because it is good architecture for my app, and conveniently also a cheap seam toward an optional future."
 
-## 0.2 Why the gate, given this is not commercial
+### 0.2 Why the gate, given this is not commercial
 
 This is not a commercial product. It will not generate meaningful revenue. The realistic best case for a public deployment is that donations or Patreon roughly cover the server bill. That single fact is what makes the gate correct rather than counterintuitive.
 
@@ -36,7 +35,7 @@ In a commercial project, putting a gate before production would be backwards —
 
 So the rational structure is to **protect the thing with certain value (a tool I use and maintain easily) and place a deliberate decision in front of the thing with speculative, possibly-negative value (running a hardened multi-tenant service at a loss).**
 
-## 0.3 The gate
+### 0.3 The gate
 
 The gate cleanly separates two different disciplines that the original document blurred into one continuous ramp:
 
@@ -53,7 +52,7 @@ The gate is a real decision to be answered from the far side of a working app, w
 
 If the answer is yes, the post-gate work begins. If the answer is no — or never — the app stays personal and local, and **nothing has been lost.**
 
-## 0.4 The one rule that keeps "eye on scalability" honest
+### 0.4 The one rule that keeps "eye on scalability" honest
 
 The risk of this strategy is gold-plating the personal app with "scalability" features that are really the droplet wearing a disguise. The discipline that prevents it is a single test applied to every pre-gate decision:
 
@@ -63,24 +62,24 @@ A **seam** is a boundary left in place so a future bolt-on is a fill-in rather t
 
 Worked examples of the line:
 
-| Item | Verdict | Why |
-| --- | --- | --- |
-| `owner_id` on user-owned tables | **Seam — keep** | Free on empty tables; brutal to retrofit later. Improves nothing today but costs nothing. |
-| Per-record version tokens | **Better now — keep** | Directly fixes the current overwrite/data-loss bug. Pays off immediately. |
-| `origin` discriminator on timers | **Seam — keep** | Cheap column; clarifies the model even for one user. |
-| `get_current_owner()` identity seam | **Seam — keep** | One attachment point for future auth; also just cleaner than a global "current user." |
-| Tenant-scoped queries (`WHERE owner_id = :current`) | **Seam — keep** | A no-op filter today; means isolation is already enforced everywhere if the gate opens. |
-| Breaking up the 7000-line monolith | **Better now — keep** | Maintainability and testability win for a fleet of one, independent of any future. |
-| OAuth / Google / Discord login | **Defer — post-gate** | No value to a local single user; pure operations work. |
-| Rate limiting, reverse proxy, exposure hardening | **Defer — post-gate** | Only meaningful against the hostile internet. |
-| Offsite backups, Sentry, structured ops logging | **Defer — post-gate** | Production operations, not personal-app engineering. |
-| Second-user permissions / roles UI | **Defer — post-gate** | Built for a user who is still hypothetical. |
+| Item                                                | Verdict               | Why                                                                                       |
+| --------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------- |
+| `owner_id` on user-owned tables                     | **Seam — keep**       | Free on empty tables; brutal to retrofit later. Improves nothing today but costs nothing. |
+| Per-record version tokens                           | **Better now — keep** | Directly fixes the current overwrite/data-loss bug. Pays off immediately.                 |
+| `origin` discriminator on timers                    | **Seam — keep**       | Cheap column; clarifies the model even for one user.                                      |
+| `get_current_owner()` identity seam                 | **Seam — keep**       | One attachment point for future auth; also just cleaner than a global "current user."     |
+| Tenant-scoped queries (`WHERE owner_id = :current`) | **Seam — keep**       | A no-op filter today; means isolation is already enforced everywhere if the gate opens.   |
+| Breaking up the 7000-line monolith                  | **Better now — keep** | Maintainability and testability win for a fleet of one, independent of any future.        |
+| OAuth / Google / Discord login                      | **Defer — post-gate** | No value to a local single user; pure operations work.                                    |
+| Rate limiting, reverse proxy, exposure hardening    | **Defer — post-gate** | Only meaningful against the hostile internet.                                             |
+| Offsite backups, Sentry, structured ops logging     | **Defer — post-gate** | Production operations, not personal-app engineering.                                      |
+| Second-user permissions / roles UI                  | **Defer — post-gate** | Built for a user who is still hypothetical.                                               |
 
 When something is ambiguous, the question is simply: *does this make my app better for me right now, or am I building it for a user who is still hypothetical?* If it's the latter, it lives behind the gate.
 
 ---
 
-## 0.5 How this changes the rest of the document
+### 0.5 How this changes the rest of the document
 
 The phases, scope tables, and non-goals below remain largely valid as *engineering* guidance, but their framing shifts:
 
@@ -101,7 +100,7 @@ The phases, scope tables, and non-goals below remain largely valid as *engineeri
 
 ---
 
-## 1.1 Assumptions
+### 1.1 Assumptions
 
 The following assumptions shape the initial architecture and migration plan. If any of these assumptions change, the affected architecture decisions should be reviewed before implementation continues.
 
@@ -130,8 +129,7 @@ The following assumptions shape the initial architecture and migration plan. If 
 * **Operational Simplicity Beats Theoretical Elegance:** When two designs are technically valid, the simpler design should be preferred unless the more complex option directly reduces a known risk.
 
 ---
-
-## 1.2 Day-1 Implementation Scope
+### 1.2 Day-1 Implementation Scope
 
 This section defines what is included in the initial build and what is intentionally deferred. The purpose is to keep the first implementation focused, testable, and runnable in the local/NAS environment. "Day-1" here means the pre-gate personal-app program (see Section 0); items justified only by the post-gate multi-tenant path are called out as deferred.
 
@@ -677,3 +675,416 @@ These items are intentionally not part of Day 1 but may be considered later.
 * Historical analytics based on snapshot history.
 * Automated import helpers beyond paste/upload snapshot workflows.
 * Full visual redesign.
+
+## Appendix H: AI-Assisted Development Governance
+
+This appendix defines how AI should be used during the development of Clash Fleet Manager.
+
+The purpose is not to slow development down. The purpose is to keep AI-generated work small, reviewable, testable, and aligned with the architecture described in this document.
+
+AI is useful on this project because it can generate code, explain unfamiliar implementation details, propose edge cases, create tests, and help reason through tradeoffs. The risk is that AI can also produce too much plausible code too quickly. That risk is managed through scope control, branch discipline, acceptance criteria, regression tests, and human review.
+
+The operating model is:
+
+> **AI generates. The user governs. AI explains. The user challenges. AI tests. The user accepts or rejects.**
+
+### H.1 Roles and responsibilities
+
+The user remains the Product Owner, Architect, Project Manager, and Lead Tester.
+
+AI may act as:
+
+* Implementation assistant.
+* Code reviewer.
+* Test writer.
+* Checklist generator.
+* Debugging partner.
+* Architecture challenger.
+* Documentation assistant.
+
+AI does **not** own the architecture, scope, merge decision, deployment decision, or acceptance decision.
+
+The user is responsible for:
+
+* Defining the actual problem.
+* Keeping the project aligned to the personal-app-first strategy.
+* Deciding whether a change belongs before or after the gate.
+* Approving scope.
+* Reviewing diffs.
+* Running or reviewing tests.
+* Deciding whether a branch is safe to merge.
+* Tagging known-good milestones before risky work.
+
+### H.2 Core governance principle
+
+Every AI-assisted change must obey the same rule used throughout the architecture:
+
+> **Keep cheap seams. Defer expensive builds.**
+
+For AI development work, this means:
+
+* Small, well-scoped changes are preferred over broad rewrites.
+* Refactors must preserve behavior unless behavior change is explicitly requested.
+* Feature work and cleanup work should not be mixed in the same change.
+* Production-only concerns should not be introduced before the gate unless they are cheap seams or directly improve the personal app.
+* The current working behavior of the app is more important than architectural elegance.
+
+When in doubt, choose the change that is easier to review, easier to test, and easier to roll back.
+
+### H.3 Standard session packet
+
+Each coding session should begin with a clear packet of context.
+
+A good AI request should include:
+
+* Current branch name.
+* Current goal.
+* File or files allowed to change.
+* Files that must not change.
+* Behavior that must remain unchanged.
+* Whether the task is a feature, bug fix, refactor, test addition, or documentation update.
+* Relevant acceptance criteria.
+* Relevant screenshots, test output, or current behavior notes.
+* Whether the change is pre-gate or post-gate.
+* Whether the change touches timer logic, freshness logic, snapshot logic, saved-view logic, API behavior, persistence, or mobile layout.
+
+For complex work, ask for the intended approach before code is changed.
+
+For small surgical fixes, AI may go directly to the patch, but the final explanation must still describe what changed and why.
+
+### H.4 Scope control rules
+
+AI must be explicitly constrained.
+
+A standard instruction for code changes is:
+
+```text
+This is a scoped change. Do not rewrite unrelated code. Do not optimize unrelated areas. Do not change timer logic unless explicitly required. Keep the diff small and explain exactly which functions changed and why. Provide manual test steps and edge cases before I merge this.
+```
+
+Additional scope rules:
+
+* Do not perform opportunistic cleanup.
+* Do not rename functions, files, or variables unless required by the task.
+* Do not change formatting across a large file just because nearby code is being edited.
+* Do not combine feature work with refactoring.
+* Do not combine backend changes with frontend changes unless the task requires both.
+* Do not change API contracts without explicitly calling that out.
+* Do not change data shape, persistence behavior, or concurrency behavior without explicit approval.
+* Do not remove legacy fallback behavior unless the replacement path is already tested.
+* Do not introduce a new dependency without explaining why it is necessary.
+
+The preferred unit of work is:
+
+> **One branch, one coherent idea, one reviewable diff.**
+
+### H.5 Change categories
+
+AI-assisted work should be classified before implementation.
+
+#### Feature change
+
+A feature change adds or changes user-visible behavior.
+
+Required before implementation:
+
+* User problem statement.
+* Acceptance criteria.
+* Expected UI behavior.
+* Impacted workflows.
+* Manual test steps.
+
+Feature changes must not include unrelated refactoring.
+
+#### Bug fix
+
+A bug fix corrects behavior that is currently wrong.
+
+Required before implementation:
+
+* Current behavior.
+* Expected behavior.
+* Likely cause, if known.
+* Smallest safe change.
+* Regression test or manual test.
+
+Bug fixes should preserve unrelated behavior, even if the nearby code could be improved.
+
+#### Refactor
+
+A refactor changes structure without intentional behavior change.
+
+Required before implementation:
+
+* Known-good baseline.
+* Tests or manual checklist covering the affected behavior.
+* Clear extraction target.
+* Confirmation that no user-visible behavior is intended to change.
+
+Refactor rules:
+
+* Move code before improving code.
+* Extract one concern at a time.
+* Keep diffs dominated by moved code, not rewritten logic.
+* Avoid refactoring timer rendering, snapshot parsing, saved views, and freshness logic in the same commit.
+* Stop and reassess if the diff becomes hard to explain.
+
+#### Test addition
+
+A test addition improves confidence without changing product behavior.
+
+Required before implementation:
+
+* Behavior being protected.
+* User flow or edge case being tested.
+* Whether the test is Playwright, backend, unit, or manual checklist coverage.
+
+Tests should focus first on behavior the user actually relies on, not implementation details likely to change during migration.
+
+#### Documentation change
+
+A documentation change updates architecture, design rationale, usage notes, or commit/session guidance.
+
+Required before implementation:
+
+* Target document or section.
+* Whether the change reflects an accepted decision or a proposed idea.
+* Whether the wording should be prescriptive, advisory, or historical.
+
+Documentation should not silently change scope.
+
+### H.6 High-risk areas
+
+The following areas require extra caution because regressions are easy to miss:
+
+* Timer creation, editing, deletion, pinning, sorting, and filtering.
+* Snapshot import and staged timer creation.
+* Replacement of account timers while preserving manually noted timers.
+* Saved views and account focus filtering.
+* Snapshot freshness thresholds and age indicators.
+* Account tag mapping.
+* Builder, lab, pet, equipment, builder base, helper, and guardian timer classification.
+* Stale-save protection and overwrite prevention.
+* API payload shapes.
+* MariaDB persistence and schema migration behavior.
+* Owner or tenant scoping.
+* Mobile layout, modal scrolling, and floating action buttons.
+
+Any AI-generated change touching one of these areas must explicitly say so in the final explanation.
+
+### H.7 Diff review checklist
+
+Before merging AI-generated code, review the diff using this checklist:
+
+* Does the diff only touch the files expected?
+* Does the change match the stated goal?
+* Is there unrelated cleanup?
+* Did AI modify timer logic?
+* Did AI modify freshness logic?
+* Did AI modify snapshot parsing or import behavior?
+* Did AI modify saved-view filtering?
+* Did AI modify API payload shape or persistence behavior?
+* Did AI modify stale-save or concurrency logic?
+* Did AI modify mobile layout or modal behavior?
+* Are the changes explainable in plain English?
+* Are edge cases addressed?
+* Are tests or manual verification steps provided?
+* Is the change small enough to roll back safely?
+
+If the answer to any of these questions is unclear, the change should not be merged until clarified.
+
+### H.8 Testing expectations
+
+Testing is part of the change, not a separate afterthought.
+
+For frontend behavior, Playwright should protect the core user flows before major refactoring continues.
+
+Priority Playwright coverage includes:
+
+* Loading the timer list.
+* Creating a manual timer.
+* Editing a timer.
+* Deleting a timer.
+* Pinning and unpinning a timer.
+* Filtering by account.
+* Using a saved view.
+* Opening the fleet summary.
+* Parsing account snapshot JSON.
+* Reviewing snapshot candidates.
+* Adding selected snapshot timers.
+* Replacing existing account timers while preserving manually noted timers.
+* Handling stale-save conflicts.
+
+For backend behavior, tests should protect:
+
+* Persistence.
+* Owner-scoped queries.
+* Stale-write rejection.
+* Input validation.
+* Malformed payload handling.
+* Backup-sensitive operations.
+* Cross-owner or cross-tenant access prevention where applicable.
+
+Manual testing remains acceptable for areas not yet automated, but manual test steps should be written down before merge.
+
+### H.9 Branch, commit, and tag discipline
+
+Development should use Git as the source of truth.
+
+Preferred workflow:
+
+1. Start from a clean `main`.
+2. Create a focused branch for the work package.
+3. Make the smallest coherent change.
+4. Run the relevant tests.
+5. Review the diff carefully.
+6. Commit one coherent idea.
+7. Merge only after the behavior is accepted.
+8. Tag known-good states before risky refactors, migrations, or squash merges.
+
+Commit messages should explain:
+
+* What changed.
+* Why it changed.
+* What behavior was preserved.
+* Any important testing performed.
+* Any known limitations or follow-up work.
+
+For risky branches, preserve a tag or backup reference before rewriting history, squashing, or deleting the branch.
+
+### H.10 Acceptance criteria and Definition of Done
+
+Every non-trivial work item should have acceptance criteria before code is changed.
+
+Acceptance criteria should describe observable behavior, not implementation preference.
+
+Example:
+
+```text
+Acceptance criteria:
+- Existing timers still load.
+- Saved views still filter the timer list, account pills, and summary areas.
+- Snapshot import still stages candidate timers for review.
+- Replacing account timers still preserves manually noted timers.
+- Stale saves are rejected with a clear user-facing message.
+- Mobile layout remains usable in a narrow viewport.
+```
+
+A standard Definition of Done for AI-assisted changes:
+
+* Scope stayed within the requested change.
+* Diff was reviewed.
+* Relevant tests passed.
+* Manual test steps were completed where automated coverage does not exist.
+* No unrelated behavior changed.
+* No sensitive data was logged.
+* No new dependency was added without approval.
+* Documentation or comments were updated only where useful.
+* Commit message accurately describes the change.
+
+### H.11 Prompt templates
+
+#### Small bug fix
+
+```text
+Please make a surgical fix for this bug.
+
+Current behavior:
+[describe current behavior]
+
+Expected behavior:
+[describe expected behavior]
+
+Allowed files:
+[list files]
+
+Do not change:
+[list protected behavior]
+
+Please keep the diff small, explain the exact cause, and provide manual test steps.
+```
+
+#### Feature change
+
+```text
+Please implement this feature as a scoped change.
+
+Goal:
+[describe user-facing goal]
+
+Acceptance criteria:
+[list criteria]
+
+Allowed files:
+[list files]
+
+Do not change:
+[list protected behavior]
+
+Please identify whether this touches timer logic, freshness logic, snapshot logic, saved-view logic, API behavior, persistence, or mobile layout.
+```
+
+#### Refactor
+
+```text
+Please refactor this one concern only.
+
+Goal:
+[describe extraction or restructuring goal]
+
+Behavior must remain unchanged.
+
+Allowed files:
+[list files]
+
+Do not:
+- Add features
+- Change API contracts
+- Change data shape
+- Change timer behavior
+- Change snapshot behavior
+- Change saved-view behavior
+- Change freshness behavior
+
+Please explain how the diff preserves behavior and provide regression test steps.
+```
+
+#### Test addition
+
+```text
+Please add test coverage for this behavior.
+
+Behavior to protect:
+[describe behavior]
+
+Test type:
+[Playwright/backend/unit/manual checklist]
+
+Do not change product behavior.
+
+Please keep test comments light but useful, focusing on intent rather than obvious mechanics.
+```
+
+### H.12 When to stop and reassess
+
+An AI-assisted change should pause for reassessment when:
+
+* The diff becomes larger than expected.
+* More files are touched than expected.
+* AI proposes a new dependency.
+* A feature change turns into a refactor.
+* A refactor requires behavior changes.
+* The API contract needs to change.
+* The data model needs to change.
+* A test failure reveals unclear expected behavior.
+* The implementation starts solving a future post-gate problem instead of the current personal-app problem.
+
+Stopping is not failure. It is the mechanism that keeps the project from drifting into unmanaged code generation.
+
+### H.13 Final rule
+
+The project succeeds by remaining understandable.
+
+The best AI-assisted change is not the cleverest change. It is the change that solves the real problem, preserves known behavior, produces a reviewable diff, and leaves the app easier to trust than before.
+
+> **Keep the stack boring. Keep the changes small. Keep the AI constrained. Keep the tests explicit. Refactor for reviewability before hardening for production.**
