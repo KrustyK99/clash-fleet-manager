@@ -9,6 +9,7 @@ rmSync(runtime, { recursive: true, force: true });
 mkdirSync(join(runtime, 'data'), { recursive: true });
 
 copyFileSync(join(root, 'index.html'), join(runtime, 'index.html'));
+copyFileSync(join(root, 'styles.css'), join(runtime, 'styles.css'));
 copyFileSync(join(root, 'api.php'), join(runtime, 'api.php'));
 
 copyFileSync(
@@ -25,6 +26,10 @@ console.log(`Prepared disposable test app at ${runtime}`);
 
 if (!existsSync(join(runtime, 'index.html'))) {
   throw new Error('Runtime index.html was not created.');
+}
+
+if (!existsSync(join(runtime, 'styles.css'))) {
+  throw new Error('Runtime styles.css was not created.');
 }
 
 if (!existsSync(join(runtime, 'api.php'))) {
