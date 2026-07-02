@@ -1,0 +1,77 @@
+{
+    "schemaVersion": 3,
+    "lastUpdated": "2026-06-25T17:19:13.505290Z",
+    "views": [
+        {
+            "id": "all",
+            "label": "All Accounts",
+            "accounts": null,
+            "system": true
+        },
+        {
+            "id": "view-1",
+            "label": "Linc",
+            "accounts": [
+                "Bart",
+                "bruh",
+                "Dark Lord",
+                "Heisenberg",
+                "Isabella",
+                "Jesse Pinkman",
+                "KrustyK",
+                "Lady Scarlett",
+                "Saitama",
+                "Terry"
+            ]
+        },
+        {
+            "id": "view-mq43hn77-2kkk",
+            "label": "Anita Nap",
+            "accounts": [
+                "Boob",
+                "Dark Warrior",
+                "Felicity",
+                "Isabella",
+                "Jesse Pinkman"
+            ]
+        },
+        {
+            "id": "view-mq4lofrh-idmp",
+            "label": "Main Accounts",
+            "accounts": [
+                "Dark Lord",
+                "Dark Warrior",
+                "Heisenberg",
+                "Isabella",
+                "Jesse Pinkman",
+                "KrustyK",
+                "Lady Scarlett",
+                "Saitama"
+            ]
+        }
+    ],
+    "snapshotFreshnessSettings": {
+        "freshHours": 8,
+        "agingHours": 12
+    },
+    "accountTagMap": {
+        "#2G0QJY8Y0": "Dark Lord",
+        "#8CQCRQPJ0": "Lady Scarlett",
+        "#8YY902V9J": "Boob",
+        "#88V8LGRYR": "Lord J",
+        "#89UPGGPVG": "Jesse Pinkman",
+        "#G9JRPCUC": "Isabella",
+        "#G982L8Q9R": "Bart",
+        "#LY0VQRYVL": "Zylink",
+        "#PG0G8P8R2": "Tortuga",
+        "#PG9VYULQL": "Saitama",
+        "#PLCVCC2RG": "Felicity",
+        "#PQU00LP9U": "KrustyK",
+        "#PU80QJCUU": "Nigou",
+        "#R0LQJ0UUC": "Terry",
+        "#V2VLJPL9": "Dark Warrior",
+        "#Y088JGRG": "Heisenberg",
+        "#YPRYR2CVY": "bro",
+        "#YQQ0JLV9L": "bruh"
+    }
+}

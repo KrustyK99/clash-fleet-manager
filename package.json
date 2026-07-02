@@ -1,0 +1,29 @@
+{
+  "name": "clash-fleet-manager",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "prepare:test-app": "node tests/support/prepare-test-app.mjs",
+    "serve:test:docker": "docker run --rm -p 8011:8011 -v \"%cd%\\tests\\runtime-app:/app\" -w /app php:8.3-cli php -S 0.0.0.0:8011",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KrustyK99/clash-fleet-manager.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/KrustyK99/clash-fleet-manager/issues"
+  },
+  "homepage": "https://github.com/KrustyK99/clash-fleet-manager#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.0"
+  }
+}
