@@ -19,6 +19,126 @@ async function showMenuIfNeeded(page) {
   }
 }
 
+test('extracted CSS and script files load successfully', async ({ page }) => {
+  const assetResponses = new Map();
+
+  page.on('response', response => {
+    const url = response.url();
+
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js)(\?|$)/.test(url)) {
+      assetResponses.set(url.split('/').pop().split('?')[0], response.status());
+    }
+  });
+
+  await page.goto('/');
+
+  // This test is about extracted file loading, not app save/load status.
+  // The sync badge may legitimately say Loaded, Saved, Saving, or Save failed
+  // depending on fixture normalization and parallel test timing.
+  await expect(page.getByText('CLASH TIMERS')).toBeVisible();
+
+  expect(assetResponses.get('styles.css')).toBe(200);
+  expect(assetResponses.get('coc-data-map.js')).toBe(200);
+  expect(assetResponses.get('app-config.js')).toBe(200);
+  expect(assetResponses.get('app-utils.js')).toBe(200);
+
+  const assets = await page.evaluate(() => ({
+    stylesheets: Array.from(document.styleSheets).map(sheet => sheet.href || ''),
+    scripts: Array.from(document.scripts).map(script => script.src || '')
+  }));
+
+  expect(assets.stylesheets.some(href => href.endsWith('/styles.css'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/coc-data-map.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-config.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-utils.js'))).toBeTruthy();
+
+  const globalsLoaded = await page.evaluate(() => ({
+    hasUpgradeTypes: Array.isArray(window.UPGRADE_TYPES),
+    hasDataMap: !!window.COC_DATA_ID_MAP,
+    hasUtilityFunction: typeof window.fmt === 'function'
+  }));
+
+  expect(globalsLoaded).toEqual({
+    hasUpgradeTypes: true,
+    hasDataMap: true,
+    hasUtilityFunction: true
+  });
+});
+
+test('extracted app configuration is available to the browser app', async ({ page }) => {
+  await page.goto('/');
+
+  const config = await page.evaluate(() => ({
+    upgradeTypes: window.UPGRADE_TYPES,
+    noteTemplates: window.NOTE_TEMPLATES,
+    accountPresets: window.ACCOUNT_PRESETS,
+    defaultViews: window.DEFAULT_ACCOUNT_VIEWS,
+    freshnessSettings: window.DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS
+  }));
+
+  expect(Array.isArray(config.upgradeTypes)).toBeTruthy();
+  expect(config.upgradeTypes).toContain('Builder');
+  expect(config.upgradeTypes).toContain('Lab');
+
+  expect(Array.isArray(config.noteTemplates)).toBeTruthy();
+  expect(config.noteTemplates).toContain('Check lab');
+
+  expect(Array.isArray(config.accountPresets)).toBeTruthy();
+  expect(config.accountPresets.length).toBeGreaterThan(0);
+
+  expect(Array.isArray(config.defaultViews)).toBeTruthy();
+  expect(config.defaultViews.some(view => view.id === 'all')).toBeTruthy();
+
+  expect(config.freshnessSettings.freshHours).toBeGreaterThan(0);
+  expect(config.freshnessSettings.agingHours).toBeGreaterThan(
+    config.freshnessSettings.freshHours
+  );
+});
+
+test('extracted utility helpers preserve expected behavior', async ({ page }) => {
+  await page.goto('/');
+
+  const result = await page.evaluate(() => ({
+    splitSeconds: splitSeconds(90061),
+    clampNegative: clampNonNegativeSeconds(-12),
+    clampDecimal: clampNonNegativeSeconds(12.9),
+    fmtShort: fmt(65),
+    fmtHour: fmt(3661),
+    fmtDay: fmt(90061),
+    fmtDurationZero: fmtDuration(0),
+    fmtDurationMixed: fmtDuration(90061),
+    escaped: esc('<tag attr="x">&'),
+    timerArg: timerIdArg('abc"123'),
+    normalizedTag: normalizePlayerTag('  abc 123 '),
+    dueReady: dueWindow({ status: 'expired', remaining: 999 }),
+    dueSoon: dueWindow({ status: 'running', remaining: 3600 }),
+    dueToday: dueWindow({ status: 'running', remaining: 86400 }),
+    dueLater: dueWindow({ status: 'running', remaining: 86401 })
+  }));
+
+  expect(result.splitSeconds).toEqual({ d: 1, h: 1, m: 1, s: 1 });
+
+  expect(result.clampNegative).toBe(0);
+  expect(result.clampDecimal).toBe(12);
+
+  expect(result.fmtShort).toBe('01:05');
+  expect(result.fmtHour).toBe('1:01:01');
+  expect(result.fmtDay).toBe('1d 01:01:01');
+
+  expect(result.fmtDurationZero).toBe('0s');
+  expect(result.fmtDurationMixed).toBe('1d 1h 1m 1s');
+
+  expect(result.escaped).toBe('&lt;tag attr=&quot;x&quot;&gt;&amp;');
+  expect(result.timerArg).toBe('&quot;abc\\&quot;123&quot;');
+
+  expect(result.normalizedTag).toBe('#ABC123');
+
+  expect(result.dueReady).toMatchObject({ key: 'Ready', cls: 'ready', order: 0 });
+  expect(result.dueSoon).toMatchObject({ key: 'Soon', cls: 'soon', order: 1 });
+  expect(result.dueToday).toMatchObject({ key: 'Today', cls: 'today', order: 2 });
+  expect(result.dueLater).toMatchObject({ key: 'Later', cls: 'later', order: 3 });
+});
+
 test('account filter pill filters the timer list and reset restores all timers', async ({ page, request }) => {
   const response = await request.get('/api.php?action=load');
   expect(response.ok()).toBeTruthy();
