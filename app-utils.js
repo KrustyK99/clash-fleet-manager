@@ -76,3 +76,71 @@ function esc(s) {
 function timerIdArg(id) {
   return esc(JSON.stringify(String(id || '')));
 }
+
+// Account/view normalization helpers extracted from the main inline script.
+function normalizeOptionalNonNegativeInt(value) {
+  if (!Number.isFinite(Number(value))) return null;
+  return Math.max(0, Math.round(Number(value)));
+}
+
+function normalizePlayerTag(tag) {
+  const clean = String(tag || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!clean) return '';
+  return clean.startsWith('#') ? clean : `#${clean}`;
+}
+
+function normalizeAccountNameValue(account) {
+  return String(account || '').trim();
+}
+
+function compactUpgradeTypeLabel(type) {
+  const labels = {
+    'Capital / Other': 'Capital',
+    'Equipment': 'Equip'
+  };
+  return labels[type] || type;
+}
+
+function dueWindow(t) {
+  if (t.status === 'expired' || Number(t.remaining) <= 0) return { key:'Ready', label:'Ready now', cls:'ready', order:0 };
+  if (Number(t.remaining) <= 3600) return { key:'Soon', label:'Soon', cls:'soon', order:1 };
+  if (Number(t.remaining) <= 86400) return { key:'Today', label:'Today', cls:'today', order:2 };
+  return { key:'Later', label:'Later', cls:'later', order:3 };
+}
+
+function sortAccountNames(accounts) {
+  return Array.from(new Set((accounts || []).map(a => String(a || '').trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric:true, sensitivity:'base' }));
+}
+
+function normalizeAccountViewId(id, fallbackLabel='view') {
+  const clean = String(id || '').trim();
+  if (clean) return clean;
+  return `view-${String(fallbackLabel || 'view').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 28) || 'custom'}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function normalizeAccountView(view, index=0) {
+  const source = view && typeof view === 'object' ? view : {};
+  const system = source.system === true || source.id === 'all';
+  const id = system ? 'all' : normalizeAccountViewId(source.id, source.label || `view-${index + 1}`);
+  const label = system ? 'All Accounts' : String(source.label || '').trim();
+  const accounts = source.accounts === null
+    ? null
+    : sortAccountNames(Array.isArray(source.accounts) ? source.accounts : []);
+
+  return {
+    id,
+    label: label || (system ? 'All Accounts' : `View ${index + 1}`),
+    accounts: system ? null : accounts,
+    ...(system ? { system: true } : {})
+  };
+}
+
+function cloneAccountView(view) {
+  return {
+    id: view.id,
+    label: view.label,
+    accounts: view.accounts === null ? null : [...(view.accounts || [])],
+    ...(view.system ? { system: true } : {})
+  };
+}
