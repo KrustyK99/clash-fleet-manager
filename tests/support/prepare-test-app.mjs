@@ -11,6 +11,7 @@ mkdirSync(join(runtime, 'data'), { recursive: true });
 copyFileSync(join(root, 'index.html'), join(runtime, 'index.html'));
 copyFileSync(join(root, 'styles.css'), join(runtime, 'styles.css'));
 copyFileSync(join(root, 'coc-data-map.js'), join(runtime, 'coc-data-map.js'));
+copyFileSync(join(root, 'app-config.js'), join(runtime, 'app-config.js'));
 copyFileSync(join(root, 'api.php'), join(runtime, 'api.php'));
 
 copyFileSync(
@@ -35,6 +36,10 @@ if (!existsSync(join(runtime, 'styles.css'))) {
 
 if (!existsSync(join(runtime, 'coc-data-map.js'))) {
   throw new Error('Runtime coc-data-map.js was not created.');
+}
+
+if (!existsSync(join(runtime, 'app-config.js'))) {
+  throw new Error('Runtime app-config.js was not created.');
 }
 
 if (!existsSync(join(runtime, 'api.php'))) {

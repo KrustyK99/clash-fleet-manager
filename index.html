@@ -539,6 +539,7 @@
 <div class="toast-container" id="toasts"></div>
 
 <script src="coc-data-map.js"></script>
+<script src="app-config.js"></script>
 <script>
 // ── State ─────────────────────────────────────────────────────────────────
 let timers = [];
@@ -602,27 +603,9 @@ const SIDEBAR_MIN_WIDTH = 230;
 const SIDEBAR_MAX_WIDTH = 520;
 const SIDEBAR_MIN_CONTENT_WIDTH = 440;
 
-const UPGRADE_TYPES = [
-  '',
-  'Builder',
-  'Builder Base',
-  'Lab',
-  'Hero',
-  'Pet',
-  'Equipment',
-  'Capital / Other'
-];
-
-const NOTE_TEMPLATES = [
-  '',
-  'Start next builder upgrade',
-  'Check lab',
-  'Collect resources first',
-  'Wait for builder potion',
-  'Use book/hammer?',
-  'Coordinate with family member',
-  'No action needed yet'
-];
+// Static app configuration is loaded from app-config.js.
+const UPGRADE_TYPES = window.UPGRADE_TYPES || [];
+const NOTE_TEMPLATES = window.NOTE_TEMPLATES || [];
 
 // Static Clash object ID lookup is loaded from coc-data-map.js.
 const COC_DATA_ID_MAP = window.COC_DATA_ID_MAP || {};
@@ -631,58 +614,10 @@ function upgradeTypeOptionsHtml(selected='') {
   return UPGRADE_TYPES.map(v => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${v || '— Select type —'}</option>`).join('');
 }
 
-// Default account list for quick entry.
-// Edit these labels later if you want names like A01 Main, A02 Rush, etc.
-const ACCOUNT_PRESETS = [
-  'Bart',
-  'bro',
-  'bruh',
-  'Boob',
-  'Dark Lord',
-  'Dark Warrior',
-  'Felicity',
-  'Heisenberg',
-  'Isabella',
-  'Jesse Pinkman',
-  'KrustyK',
-  'Lady Scarlett',
-  'Lord J',
-  'Nigou',
-  'RDP Account',
-  'Saitama',
-  'Terry',
-  'Tortuga',
-  'Zylink'
-];
-
-// Default Saved Views are bootstrap/fallback shared configuration.
-// The live shared source is /data/account_views.json through api.php?action=loadViews/saveViews.
-// Use accounts: null for a view that includes every known account.
-const DEFAULT_ACCOUNT_VIEWS = [
-  {
-    id: 'all',
-    label: 'All Accounts',
-    accounts: null,
-    system: true
-  },
-  {
-    id: 'view-1',
-    label: 'View 1',
-    accounts: ['Heisenberg', 'Jesse Pinkman', 'Dark Lord']
-  },
-  {
-    id: 'view-2',
-    label: 'View 2',
-    accounts: ['Felicity', 'Isabella', 'Lady Scarlett']
-  }
-];
-
-const DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS = {
-  freshHours: 24,
-  agingHours: 72
-};
-
-const DEFAULT_ACCOUNT_TAG_MAP = {};
+const ACCOUNT_PRESETS = window.ACCOUNT_PRESETS || [];
+const DEFAULT_ACCOUNT_VIEWS = window.DEFAULT_ACCOUNT_VIEWS || [];
+const DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS = window.DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS || { freshHours: 24, agingHours: 72 };
+const DEFAULT_ACCOUNT_TAG_MAP = window.DEFAULT_ACCOUNT_TAG_MAP || {};
 
 const HOME_BUILDER_HUT_DATA_ID = '1000015';
 // Home Village markers observed on accounts with B.O.B / the sixth home builder.
