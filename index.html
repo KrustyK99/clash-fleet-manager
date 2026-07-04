@@ -1473,13 +1473,6 @@ async function saveManagedAccountViews() {
 }
 
 // ── Persistence ──────────────────────────────────────────────────────────
-function setSyncStatus(text, state='') {
-  const el = document.getElementById('sync-status');
-  if (!el) return;
-  el.textContent = text;
-  el.className = `sync-status ${state}`.trim();
-}
-
 function normalizeTimersAfterLoad() {
   let needsSave = false;
   const now = Date.now();
@@ -1741,15 +1734,6 @@ function restoreViewState(state) {
   if (searchEl) searchEl.value = state.search || '';
 
   updateSortControls();
-}
-
-function setReloadButtonBusy(isBusy) {
-  ['reload-timers-btn', 'fleet-reload-btn'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    btn.disabled = !!isBusy;
-    btn.setAttribute('aria-busy', isBusy ? 'true' : 'false');
-  });
 }
 
 async function reloadTimerFile() {
@@ -5727,15 +5711,6 @@ function importTimers(evt) {
   };
   reader.readAsText(file);
   evt.target.value = '';
-}
-
-// ── Toast ─────────────────────────────────────────────────────────────────
-function toast(msg, type='') {
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = msg;
-  document.getElementById('toasts').appendChild(el);
-  setTimeout(()=>el.remove(), 3500);
 }
 
 // ── Keyboard ──────────────────────────────────────────────────────────────

@@ -271,6 +271,31 @@ function updateSearchFilterIndicators() {
   }
 }
 
+// ── UI feedback helpers ───────────────────────────────────────────────────
+function setSyncStatus(text, state='') {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  el.textContent = text;
+  el.className = `sync-status ${state}`.trim();
+}
+
+function setReloadButtonBusy(isBusy) {
+  ['reload-timers-btn', 'fleet-reload-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = !!isBusy;
+    btn.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+  });
+}
+
+function toast(msg, type='') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+
 function toggleSidebar() {
   sidebarVisible = !sidebarVisible;
   applySidebarToggleState();
