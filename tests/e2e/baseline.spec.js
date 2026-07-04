@@ -632,6 +632,28 @@ test('fleet summary modal opens', async ({ page }) => {
   await expect(page.locator('.fleet-matrix-sort-btn.account')).toBeVisible();
 });
 
+test('fleet summary matrix sorting remains interactive', async ({ page }) => {
+  await page.goto('/');
+
+  await page.locator('#fleet-summary-btn').click();
+
+  const matrixSection = page.locator('#fleet-section-matrix');
+  await expect(matrixSection).toBeVisible();
+
+  const matrix = matrixSection.locator('.fleet-matrix');
+  await expect(matrix).toBeVisible();
+  await expect(matrix.locator('.fleet-matrix-row').first()).toBeVisible();
+
+  await matrix.getByRole('button', { name: /sort home ascending/i }).click();
+
+  await expect(matrixSection).toBeVisible();
+  await expect(matrixSection.locator('.fleet-matrix')).toBeVisible();
+  await expect(
+    matrixSection.locator('.fleet-matrix-sort-btn.active .fleet-matrix-sort-label').filter({ hasText: /^Home$/ })
+  ).toBeVisible();
+  await expect(matrixSection.locator('.fleet-matrix-row').first()).toBeVisible();
+});
+
 // Keep this as a smoke/guard test only. Full Snapshot Collector imports mutate
 // the shared file-backed runtime data, so those should be added deliberately.
 test('snapshot collector opens with safe defaults and validates empty paste', async ({ page }) => {
