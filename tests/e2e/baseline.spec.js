@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-ui-layout\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-ui-layout\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -47,6 +47,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-timer-filters.js')).toBe(200);
   expect(assetResponses.get('app-account-summary.js')).toBe(200);
   expect(assetResponses.get('app-account-summary-ui.js')).toBe(200);
+  expect(assetResponses.get('app-fleet-summary-ui.js')).toBe(200);
 
   const assets = await page.evaluate(() => ({
     stylesheets: Array.from(document.styleSheets).map(sheet => sheet.href || ''),
@@ -63,6 +64,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-timer-filters.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-fleet-summary-ui.js'))).toBeTruthy();
 
   const globalsLoaded = await page.evaluate(() => ({
     hasUpgradeTypes: Array.isArray(window.UPGRADE_TYPES),
@@ -73,7 +75,8 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasLayoutFunction: typeof window.setupScrollTopButton === 'function',
     hasTimerFiltersFunction: typeof window.getVisibleTimerList === 'function',
     hasAccountSummaryFunction: typeof window.buildAccountSummaryRows === 'function',
-    hasAccountSummaryUiFunction: typeof window.renderAccountSummary === 'function'
+    hasAccountSummaryUiFunction: typeof window.renderAccountSummary === 'function',
+    hasFleetSummaryUiFunction: typeof window.renderFleetSummaryModal === 'function'
   }));
 
   expect(globalsLoaded).toEqual({
@@ -85,7 +88,8 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasLayoutFunction: true,
     hasTimerFiltersFunction: true,
     hasAccountSummaryFunction: true,
-    hasAccountSummaryUiFunction: true
+    hasAccountSummaryUiFunction: true,
+    hasFleetSummaryUiFunction: true
   });
 });
 
@@ -622,6 +626,10 @@ test('fleet summary modal opens', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: /fleet summary/i })).toBeVisible();
   await expect(page.getByText(/Active timers/i)).toBeVisible();
+  const matrixSection = page.locator('#fleet-section-matrix');
+  await expect(matrixSection).toBeVisible();
+  await expect(matrixSection.locator('.fleet-panel-title').getByText(/Queue coverage matrix/i)).toBeVisible();
+  await expect(page.locator('.fleet-matrix-sort-btn.account')).toBeVisible();
 });
 
 // Keep this as a smoke/guard test only. Full Snapshot Collector imports mutate
