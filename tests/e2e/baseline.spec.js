@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -53,6 +53,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-account-summary-ui.js')).toBe(200);
   expect(assetResponses.get('app-timer-filter-ui.js')).toBe(200);
   expect(assetResponses.get('app-timer-list-actions-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-card-ui.js')).toBe(200);
   expect(assetResponses.get('app-fleet-summary-ui.js')).toBe(200);
 
   const assets = await page.evaluate(() => ({
@@ -76,6 +77,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-filter-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-list-actions-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-card-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-fleet-summary-ui.js'))).toBeTruthy();
 
   const globalsLoaded = await page.evaluate(() => ({
@@ -94,6 +96,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasAccountSummaryUiFunction: typeof window.renderAccountSummary === 'function',
     hasTimerFilterUiFunction: typeof window.renderGroupBar === 'function' && typeof window.renderStats === 'function' && typeof window.resetFilters === 'function',
     hasTimerListActionsUiFunction: typeof window.toggleDeleteSelectionMode === 'function' && typeof window.renderDeleteSelectionBar === 'function' && typeof window.toggleTimerActions === 'function',
+    hasTimerCardUiFunction: typeof window.renderTimerCard === 'function',
     hasFleetSummaryUiFunction: typeof window.renderFleetSummaryModal === 'function'
   }));
 
@@ -113,6 +116,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasAccountSummaryUiFunction: true,
     hasTimerFilterUiFunction: true,
     hasTimerListActionsUiFunction: true,
+    hasTimerCardUiFunction: true,
     hasFleetSummaryUiFunction: true
   });
 });
@@ -209,6 +213,21 @@ test('timer card secondary display toggles between elapsed and end time', async 
   await secondary.click();
 
   await expect(secondary).toContainText(/elapsed/i);
+});
+
+test('timer cards render stable core presentation elements', async ({ page }) => {
+  await page.goto('/');
+
+  const firstCard = page.locator('#timer-list .timer-card').first();
+
+  await expect(firstCard).toBeVisible();
+  await expect(firstCard.locator('.timer-name')).toBeVisible();
+  await expect(firstCard.locator('.timer-display')).toBeVisible();
+  await expect(firstCard.locator('.timer-meta')).toBeVisible();
+  await expect(firstCard.locator('.timer-due-badge')).toBeVisible();
+  await expect(firstCard.locator('.progress-bar .progress-fill')).toHaveCount(1);
+  await expect(firstCard.locator('.card-actions button[title="Adjust time"]')).toHaveCount(1);
+  await expect(firstCard.locator('.card-actions button[title="Edit full timer"]')).toHaveCount(1);
 });
 
 test('bulk add modal opens with default rows and row controls work', async ({ page }) => {
