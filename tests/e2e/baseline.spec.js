@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -45,6 +45,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-account-views.js')).toBe(200);
   expect(assetResponses.get('app-saved-views-ui.js')).toBe(200);
   expect(assetResponses.get('app-timer-entry-ui.js')).toBe(200);
+  expect(assetResponses.get('app-account-controls-ui.js')).toBe(200);
   expect(assetResponses.get('app-ui-layout.js')).toBe(200);
   expect(assetResponses.get('app-snapshot-import-ui.js')).toBe(200);
   expect(assetResponses.get('app-snapshot-collector-ui.js')).toBe(200);
@@ -69,6 +70,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-account-views.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-saved-views-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-entry-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-account-controls-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-ui-layout.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-snapshot-import-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-snapshot-collector-ui.js'))).toBeTruthy();
@@ -88,6 +90,12 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasAccountViewsFunction: typeof window.getSelectedAccountView === 'function',
     hasSavedViewsUiFunction: typeof window.renderAccountViewsEditor === 'function',
     hasTimerEntryUiFunction: typeof window.openBulkModal === 'function' && typeof window.parseBulkTimerText === 'function',
+    hasAccountControlsUiFunction: typeof window.renderAccountViewPicker === 'function'
+      && typeof window.setAccountView === 'function'
+      && typeof window.applySavedAccountView === 'function'
+      && typeof window.applyAccountViewChangesAfterSave === 'function'
+      && typeof window.populateAccountControls === 'function'
+      && typeof window.setupNativeSelectRenderGuard === 'function',
     hasLayoutFunction: typeof window.setupScrollTopButton === 'function',
     hasSnapshotImportUiFunction: typeof window.openSnapshotModal === 'function' && typeof window.renderSnapshotCandidates === 'function',
     hasSnapshotCollectorUiFunction: typeof window.openBatchSnapshotModal === 'function' && typeof window.renderBatchSnapshotRows === 'function',
@@ -108,6 +116,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasAccountViewsFunction: true,
     hasSavedViewsUiFunction: true,
     hasTimerEntryUiFunction: true,
+    hasAccountControlsUiFunction: true,
     hasLayoutFunction: true,
     hasSnapshotImportUiFunction: true,
     hasSnapshotCollectorUiFunction: true,
@@ -373,6 +382,30 @@ test('extracted snapshot metadata helpers preserve expected behavior', async ({ 
   expect(result.capacityText).toBe(' Detected capacity: 6 home builders, 2 Builder Base builders.');
 });
 
+
+test('account control bridge populates saved view and account selects', async ({ page }) => {
+  await page.goto('/');
+
+  await showMenuIfNeeded(page);
+
+  const accountViewOptions = await page.locator('#account-view-select option').allTextContents();
+  expect(accountViewOptions.length).toBeGreaterThan(0);
+  expect(accountViewOptions).toContain('All Accounts');
+
+  const quickAccountOptions = await page.locator('#q-account option').allTextContents();
+  expect(quickAccountOptions[0]).toBe('— Select account —');
+  expect(quickAccountOptions.length).toBeGreaterThan(1);
+
+  const bulkAccountOptions = await page.locator('#bulk-account option').allTextContents();
+  expect(bulkAccountOptions[0]).toBe('— Select account or scope —');
+  expect(bulkAccountOptions.some((label) => /^All Accounts \(/.test(label))).toBeTruthy();
+
+  const snapshotAccountOptions = await page.locator('#snapshot-account option').allTextContents();
+  expect(snapshotAccountOptions[0]).toBe('— Select account —');
+  expect(snapshotAccountOptions.length).toBeGreaterThan(1);
+
+  await expect(page.locator('#account-suggestions option').first()).toHaveCount(1);
+});
 
 test('timer filter/status bars render baseline controls after app load', async ({ page }) => {
   await page.goto('/');
