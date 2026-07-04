@@ -214,6 +214,7 @@ test('extracted utility helpers preserve expected behavior', async ({ page }) =>
     fmtDurationMixed: fmtDuration(90061),
     escaped: esc('<tag attr="x">&'),
     timerArg: timerIdArg('abc"123'),
+    bulkTimerLine: parseBulkTimerLine('1. X-Bow 3h 57m'),
     normalizedTag: normalizePlayerTag('  abc 123 '),
     dueReady: dueWindow({ status: 'expired', remaining: 999 }),
     dueSoon: dueWindow({ status: 'running', remaining: 3600 }),
@@ -235,6 +236,13 @@ test('extracted utility helpers preserve expected behavior', async ({ page }) =>
 
   expect(result.escaped).toBe('&lt;tag attr=&quot;x&quot;&gt;&amp;');
   expect(result.timerArg).toBe('&quot;abc\\&quot;123&quot;');
+  expect(result.bulkTimerLine).toEqual({
+    name: 'X-Bow',
+    days: 0,
+    hours: 3,
+    minutes: 57,
+    seconds: 0
+  });
 
   expect(result.normalizedTag).toBe('#ABC123');
 

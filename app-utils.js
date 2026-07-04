@@ -77,6 +77,44 @@ function timerIdArg(id) {
   return esc(JSON.stringify(String(id || '')));
 }
 
+function parseBulkTimerLine(rawLine) {
+  let line = String(rawLine || '').trim();
+  if (!line) return null;
+
+  // Allow copied lists with bullets or numbering, such as "1. X-Bow 3h 57m".
+  line = line.replace(/^[-*•]+\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
+
+  const durationPattern = /(\d+)\s*(days?|d|hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)\b/gi;
+  const matches = [...line.matchAll(durationPattern)];
+  if (!matches.length) return null;
+
+  let days = 0;
+  let hours = 0;
+  let minutes = 0;
+  let seconds = 0;
+
+  matches.forEach(match => {
+    const value = parseInt(match[1], 10) || 0;
+    const unit = match[2].toLowerCase();
+    if (unit.startsWith('d')) days += value;
+    else if (unit.startsWith('h')) hours += value;
+    else if (unit.startsWith('m')) minutes += value;
+    else if (unit.startsWith('s')) seconds += value;
+  });
+
+  const firstDurationAt = matches[0].index ?? line.length;
+  const name = line.slice(0, firstDurationAt).replace(/[\s:|,\-–—]+$/g, '').trim();
+  if (!name) return null;
+
+  // Normalize overflow in case a pasted value says something like 90m.
+  hours += Math.floor(minutes / 60);
+  minutes = minutes % 60;
+  days += Math.floor(hours / 24);
+  hours = hours % 24;
+
+  return { name, days, hours, minutes, seconds };
+}
+
 // Account/view normalization helpers extracted from the main inline script.
 function normalizeOptionalNonNegativeInt(value) {
   if (!Number.isFinite(Number(value))) return null;
