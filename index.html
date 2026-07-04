@@ -612,10 +612,6 @@ const NOTE_TEMPLATES = window.NOTE_TEMPLATES || [];
 // Static Clash object ID lookup is loaded from coc-data-map.js.
 const COC_DATA_ID_MAP = window.COC_DATA_ID_MAP || {};
 
-function upgradeTypeOptionsHtml(selected='') {
-  return UPGRADE_TYPES.map(v => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${v || '— Select type —'}</option>`).join('');
-}
-
 const ACCOUNT_PRESETS = window.ACCOUNT_PRESETS || [];
 const DEFAULT_ACCOUNT_VIEWS = window.DEFAULT_ACCOUNT_VIEWS || [];
 const DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS = window.DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS || { freshHours: 24, agingHours: 72 };
@@ -956,21 +952,6 @@ function refreshSnapshotMetadataDependentUi() {
 }
 
 
-function populateStaticSelects() {
-  const typeOptions = upgradeTypeOptionsHtml();
-  ['f-upgrade-type','q-upgrade-type'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = typeOptions;
-  });
-
-  const noteOptions = NOTE_TEMPLATES.map(v => `<option value="${esc(v)}">${v || '— Choose a quick note —'}</option>`).join('');
-  const noteEl = document.getElementById('f-note-template');
-  if (noteEl) noteEl.innerHTML = noteOptions;
-
-  renderAccountViewPicker(true);
-  populateAccountControls();
-}
-
 function getKnownAccounts() {
   const accounts = new Set(ACCOUNT_PRESETS);
   timers.forEach(t => {
@@ -1273,15 +1254,6 @@ function renderTimersSafely() {
     return;
   }
   renderTimers();
-}
-
-function applyNoteTemplate() {
-  const tpl = document.getElementById('f-note-template').value;
-  if (!tpl) return;
-  const note = document.getElementById('f-note');
-  note.value = note.value ? `${note.value} ${tpl}` : tpl;
-  document.getElementById('f-note-template').value = '';
-  note.focus();
 }
 
 // ── Saved View management ─────────────────────────────────────────────────

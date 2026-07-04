@@ -99,6 +99,33 @@ test('extracted app configuration is available to the browser app', async ({ pag
   );
 });
 
+test('new timer modal static selects are populated and note template fills note field', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /new timer/i }).click();
+
+  const modal = page.locator('#modal');
+  await expect(modal).toBeVisible();
+
+  const typeOptions = await page.locator('#f-upgrade-type option').allTextContents();
+  expect(typeOptions[0]).toBe('— Select type —');
+  expect(typeOptions).toContain('Builder');
+  expect(typeOptions).toContain('Lab');
+
+  const noteOptions = await page.locator('#f-note-template option').allTextContents();
+  expect(noteOptions[0]).toBe('— Choose a quick note —');
+  expect(noteOptions).toContain('Check lab');
+
+  await page.locator('#f-note-template').selectOption({ label: 'Check lab' });
+
+  await expect(page.locator('#f-note')).toHaveValue('Check lab');
+  await expect(page.locator('#f-note-template')).toHaveValue('');
+
+  await modal.getByRole('button', { name: /^Cancel$/ }).click();
+
+  await expect(modal).toBeHidden();
+});
+
 test('extracted utility helpers preserve expected behavior', async ({ page }) => {
   await page.goto('/');
 

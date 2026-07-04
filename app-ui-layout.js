@@ -2,6 +2,35 @@
 // Loaded as a classic non-module script after app-utils.js and before the main inline app script.
 // These functions intentionally use globals declared by the main inline script.
 
+// ── Static form controls ───────────────────────────────────────────────────
+function upgradeTypeOptionsHtml(selected='') {
+  return UPGRADE_TYPES.map(v => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${v || '— Select type —'}</option>`).join('');
+}
+
+function populateStaticSelects() {
+  const typeOptions = upgradeTypeOptionsHtml();
+  ['f-upgrade-type','q-upgrade-type'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = typeOptions;
+  });
+
+  const noteOptions = NOTE_TEMPLATES.map(v => `<option value="${esc(v)}">${v || '— Choose a quick note —'}</option>`).join('');
+  const noteEl = document.getElementById('f-note-template');
+  if (noteEl) noteEl.innerHTML = noteOptions;
+
+  renderAccountViewPicker(true);
+  populateAccountControls();
+}
+
+function applyNoteTemplate() {
+  const tpl = document.getElementById('f-note-template').value;
+  if (!tpl) return;
+  const note = document.getElementById('f-note');
+  note.value = note.value ? `${note.value} ${tpl}` : tpl;
+  document.getElementById('f-note-template').value = '';
+  note.focus();
+}
+
 // ── Focus view ─────────────────────────────────────────────────────────────
 function applyFocusMode() {
   const app = document.querySelector('.app');
