@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -51,6 +51,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-timer-filters.js')).toBe(200);
   expect(assetResponses.get('app-account-summary.js')).toBe(200);
   expect(assetResponses.get('app-account-summary-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-filter-ui.js')).toBe(200);
   expect(assetResponses.get('app-fleet-summary-ui.js')).toBe(200);
 
   const assets = await page.evaluate(() => ({
@@ -72,6 +73,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-timer-filters.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-filter-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-fleet-summary-ui.js'))).toBeTruthy();
 
   const globalsLoaded = await page.evaluate(() => ({
@@ -88,6 +90,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasTimerFiltersFunction: typeof window.getVisibleTimerList === 'function',
     hasAccountSummaryFunction: typeof window.buildAccountSummaryRows === 'function',
     hasAccountSummaryUiFunction: typeof window.renderAccountSummary === 'function',
+    hasTimerFilterUiFunction: typeof window.renderGroupBar === 'function' && typeof window.renderStats === 'function' && typeof window.resetFilters === 'function',
     hasFleetSummaryUiFunction: typeof window.renderFleetSummaryModal === 'function'
   }));
 
@@ -105,6 +108,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasTimerFiltersFunction: true,
     hasAccountSummaryFunction: true,
     hasAccountSummaryUiFunction: true,
+    hasTimerFilterUiFunction: true,
     hasFleetSummaryUiFunction: true
   });
 });
@@ -344,6 +348,22 @@ test('extracted snapshot metadata helpers preserve expected behavior', async ({ 
   expect(result.builderCapacity).toEqual({ homeTotal: 6, builderBaseTotal: 2 });
   expect(result.derivedCapacity).toEqual({ homeTotal: 6, builderBaseTotal: 2 });
   expect(result.capacityText).toBe(' Detected capacity: 6 home builders, 2 Builder Base builders.');
+});
+
+
+test('timer filter/status bars render baseline controls after app load', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.locator('#group-bar .filter-bar-label')).toHaveText('Account');
+  await expect(page.locator('#due-bar .filter-bar-label')).toHaveText('Due');
+  await expect(page.locator('#type-bar .filter-bar-label')).toHaveText('Type');
+  await expect(page.locator('#stats-bar .filter-bar-label')).toHaveText('Status');
+
+  await expect(page.locator('#group-bar .account-pill').first()).toBeVisible();
+  await expect(page.locator('#due-bar').getByRole('button', { name: /ready now/i })).toBeVisible();
+  await expect(page.locator('#type-bar').getByRole('button', { name: /^all \(/i })).toBeVisible();
+  await expect(page.locator('#stats-bar').getByRole('button', { name: /reset filters/i })).toBeVisible();
+  await expect(page.locator('#stats-bar').getByRole('button', { name: /pinned/i })).toBeVisible();
 });
 
 test('account filter pill filters the timer list and reset restores all timers', async ({ page, request }) => {
