@@ -5568,11 +5568,6 @@ function quickAdd() {
   toast(`▶ "${name}" started`, 'success');
 }
 
-// ── Card secondary mode toggle ─────────────────────────────────────────────
-function toggleCardMode(id) {
-  cardModes[id] = (cardModes[id] === 'endtime') ? 'elapsed' : 'endtime';
-  renderTimers();
-}
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 async function boot() {

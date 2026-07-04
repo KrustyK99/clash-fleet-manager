@@ -146,6 +146,22 @@ test('edit timer modal opens with the selected timer values', async ({ page }) =
   await expect(modal).toBeHidden();
 });
 
+test('timer card secondary display toggles between elapsed and end time', async ({ page }) => {
+  await page.goto('/');
+
+  const secondary = page.locator('#timer-list .timer-card.running .timer-secondary').first();
+
+  await expect(secondary).toBeVisible();
+  await expect(secondary).toContainText(/elapsed/i);
+
+  await secondary.click();
+
+  await expect(secondary).toContainText(/ends/i);
+
+  await secondary.click();
+
+  await expect(secondary).toContainText(/elapsed/i);
+});
 
 test('bulk add modal opens with default rows and row controls work', async ({ page }) => {
   await page.goto('/');

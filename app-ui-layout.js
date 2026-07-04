@@ -179,6 +179,11 @@ function removeBulkTimerRow(btn) {
   row.remove();
 }
 
+// ── Timer card display helpers ─────────────────────────────────────────────
+function toggleCardMode(id) {
+  cardModes[id] = (cardModes[id] === 'endtime') ? 'elapsed' : 'endtime';
+  renderTimers();
+}
 
 // ── Focus view ─────────────────────────────────────────────────────────────
 function applyFocusMode() {
