@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-ui-layout\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-ui-layout\.js|app-timer-filters\.js|app-account-summary\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -42,7 +42,10 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-config.js')).toBe(200);
   expect(assetResponses.get('app-utils.js')).toBe(200);
   expect(assetResponses.get('app-snapshot-meta.js')).toBe(200);
+  expect(assetResponses.get('app-account-views.js')).toBe(200);
   expect(assetResponses.get('app-ui-layout.js')).toBe(200);
+  expect(assetResponses.get('app-timer-filters.js')).toBe(200);
+  expect(assetResponses.get('app-account-summary.js')).toBe(200);
 
   const assets = await page.evaluate(() => ({
     stylesheets: Array.from(document.styleSheets).map(sheet => sheet.href || ''),
@@ -54,14 +57,20 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-config.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-utils.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-snapshot-meta.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-account-views.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-ui-layout.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-filters.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-account-summary.js'))).toBeTruthy();
 
   const globalsLoaded = await page.evaluate(() => ({
     hasUpgradeTypes: Array.isArray(window.UPGRADE_TYPES),
     hasDataMap: !!window.COC_DATA_ID_MAP,
     hasUtilityFunction: typeof window.fmt === 'function',
     hasSnapshotMetaFunction: typeof window.getSnapshotFreshness === 'function',
-    hasLayoutFunction: typeof window.setupScrollTopButton === 'function'
+    hasAccountViewsFunction: typeof window.getSelectedAccountView === 'function',
+    hasLayoutFunction: typeof window.setupScrollTopButton === 'function',
+    hasTimerFiltersFunction: typeof window.getVisibleTimerList === 'function',
+    hasAccountSummaryFunction: typeof window.buildAccountSummaryRows === 'function'
   }));
 
   expect(globalsLoaded).toEqual({
@@ -69,7 +78,10 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasDataMap: true,
     hasUtilityFunction: true,
     hasSnapshotMetaFunction: true,
-    hasLayoutFunction: true
+    hasAccountViewsFunction: true,
+    hasLayoutFunction: true,
+    hasTimerFiltersFunction: true,
+    hasAccountSummaryFunction: true
   });
 });
 

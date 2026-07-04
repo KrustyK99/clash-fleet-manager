@@ -17,6 +17,7 @@ copyFileSync(join(root, 'app-snapshot-meta.js'), join(runtime, 'app-snapshot-met
 copyFileSync(join(root, 'app-account-views.js'), join(runtime, 'app-account-views.js'));
 copyFileSync(join(root, 'app-ui-layout.js'), join(runtime, 'app-ui-layout.js'));
 copyFileSync(join(root, 'app-timer-filters.js'), join(runtime, 'app-timer-filters.js'));
+copyFileSync(join(root, 'app-account-summary.js'), join(runtime, 'app-account-summary.js'));
 copyFileSync(join(root, 'api.php'), join(runtime, 'api.php'));
 
 copyFileSync(
@@ -65,6 +66,10 @@ if (!existsSync(join(runtime, 'app-ui-layout.js'))) {
 
 if (!existsSync(join(runtime, 'app-timer-filters.js'))) {
   throw new Error('Runtime app-timer-filters.js was not created.');
+}
+
+if (!existsSync(join(runtime, 'app-account-summary.js'))) {
+  throw new Error('Runtime app-account-summary.js was not created.');
 }
 
 if (!existsSync(join(runtime, 'api.php'))) {

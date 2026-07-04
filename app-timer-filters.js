@@ -1,5 +1,40 @@
-// Timer filtering and visibility helpers extracted from index.html.
+// Timer filtering, visibility, pinning, and ordering helpers extracted from index.html.
 // Classic browser script: these functions intentionally read existing global state.
+
+
+// ── Pinning and ordering helpers ───────────────────────────────────────────
+function isTimerPinned(t) {
+  return !!(t && t.pinned === true);
+}
+
+function getPinnedTimerCountForAccount(account) {
+  const name = String(account || '').trim();
+  if (!name || name === 'All') return 0;
+  return getViewScopedTimers().filter(t => getAccount(t) === name && isTimerPinned(t)).length;
+}
+
+function sortedTimers(list) {
+  const statusOrder = {running:0,paused:1,stopped:2,expired:3};
+  return [...list].sort((a,b) => {
+    const pinnedDiff = Number(isTimerPinned(b)) - Number(isTimerPinned(a));
+    if (pinnedDiff) return pinnedDiff;
+
+    let av, bv;
+    switch(sortKey) {
+      case 'name': av=a.name.toLowerCase(); bv=b.name.toLowerCase(); break;
+      case 'remaining': av=a.remaining; bv=b.remaining; break;
+      case 'due': av=dueWindow(a).order; bv=dueWindow(b).order; break;
+      case 'duration': av=a.duration; bv=b.duration; break;
+      case 'status': av=statusOrder[a.status]??9; bv=statusOrder[b.status]??9; break;
+      case 'group': av=getAccount(a).toLowerCase(); bv=getAccount(b).toLowerCase(); break;
+      case 'created': av=a.created; bv=b.created; break;
+      default: av=a.name.toLowerCase(); bv=b.name.toLowerCase();
+    }
+    if (av < bv) return -1 * sortDir;
+    if (av > bv) return 1 * sortDir;
+    return 0;
+  });
+}
 
 function timerMatchesPinned(t) {
   return !filterPinned || isTimerPinned(t);
