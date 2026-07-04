@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-timer-entry-actions-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-lifecycle-actions\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-timer-entry-actions-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-lifecycle-actions\.js|app-timer-runtime\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -56,6 +56,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-timer-filter-ui.js')).toBe(200);
   expect(assetResponses.get('app-timer-list-actions-ui.js')).toBe(200);
   expect(assetResponses.get('app-timer-lifecycle-actions.js')).toBe(200);
+  expect(assetResponses.get('app-timer-runtime.js')).toBe(200);
   expect(assetResponses.get('app-timer-card-ui.js')).toBe(200);
   expect(assetResponses.get('app-fleet-summary-ui.js')).toBe(200);
 
@@ -83,6 +84,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-timer-filter-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-list-actions-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-lifecycle-actions.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-runtime.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-card-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-fleet-summary-ui.js'))).toBeTruthy();
 
@@ -118,6 +120,9 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
       && typeof window.startAll === 'function'
       && typeof window.pauseAll === 'function'
       && typeof window.resetExpired === 'function',
+    hasTimerRuntimeFunction: typeof window.tick === 'function'
+      && typeof window.renderTimersSafely === 'function'
+      && typeof window.playAlert === 'function',
     hasTimerCardUiFunction: typeof window.renderTimerCard === 'function',
     hasFleetSummaryUiFunction: typeof window.renderFleetSummaryModal === 'function'
   }));
@@ -141,6 +146,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasTimerFilterUiFunction: true,
     hasTimerListActionsUiFunction: true,
     hasTimerLifecycleActionsFunction: true,
+    hasTimerRuntimeFunction: true,
     hasTimerCardUiFunction: true,
     hasFleetSummaryUiFunction: true
   });
