@@ -4117,13 +4117,6 @@ function closeBulkModal() {
   document.getElementById('bulk-modal').style.display = 'none';
 }
 
-function setBulkPasteStatus(message='', state='') {
-  const el = document.getElementById('bulk-paste-status');
-  if (!el) return;
-  el.textContent = message;
-  el.className = `bulk-paste-status ${state}`.trim();
-}
-
 function clearBulkTimerText(showStatus=true) {
   const el = document.getElementById('bulk-paste-text');
   if (el) el.value = '';
@@ -4377,13 +4370,6 @@ function openSnapshotModal() {
 
 function closeSnapshotModal() {
   document.getElementById('snapshot-modal').style.display = 'none';
-}
-
-function setSnapshotStatus(message='', state='') {
-  const el = document.getElementById('snapshot-status');
-  if (!el) return;
-  el.textContent = message;
-  el.className = `snapshot-status ${state}`.trim();
 }
 
 function clearSnapshotParser(showStatus=true) {
@@ -4914,13 +4900,6 @@ function openBatchSnapshotModal() {
 function closeBatchSnapshotModal() {
   document.getElementById('batch-snapshot-modal').style.display = 'none';
   updateBatchSnapshotFloatingImportButton(0);
-}
-
-function setBatchSnapshotStatus(message='', state='') {
-  const el = document.getElementById('batch-snapshot-status');
-  if (!el) return;
-  el.textContent = message;
-  el.className = `batch-snapshot-status ${state}`.trim();
 }
 
 let batchSnapshotFloatingImportListenersBound = false;

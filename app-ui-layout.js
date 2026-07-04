@@ -288,6 +288,27 @@ function setReloadButtonBusy(isBusy) {
   });
 }
 
+function setBulkPasteStatus(message='', state='') {
+  const el = document.getElementById('bulk-paste-status');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `bulk-paste-status ${state}`.trim();
+}
+
+function setSnapshotStatus(message='', state='') {
+  const el = document.getElementById('snapshot-status');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `snapshot-status ${state}`.trim();
+}
+
+function setBatchSnapshotStatus(message='', state='') {
+  const el = document.getElementById('batch-snapshot-status');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `batch-snapshot-status ${state}`.trim();
+}
+
 function toast(msg, type='') {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
