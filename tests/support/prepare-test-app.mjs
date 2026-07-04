@@ -17,6 +17,7 @@ copyFileSync(join(root, 'app-snapshot-meta.js'), join(runtime, 'app-snapshot-met
 copyFileSync(join(root, 'app-account-views.js'), join(runtime, 'app-account-views.js'));
 copyFileSync(join(root, 'app-saved-views-ui.js'), join(runtime, 'app-saved-views-ui.js'));
 copyFileSync(join(root, 'app-timer-entry-ui.js'), join(runtime, 'app-timer-entry-ui.js'));
+copyFileSync(join(root, 'app-timer-entry-actions-ui.js'), join(runtime, 'app-timer-entry-actions-ui.js'));
 copyFileSync(join(root, 'app-account-controls-ui.js'), join(runtime, 'app-account-controls-ui.js'));
 copyFileSync(join(root, 'app-ui-layout.js'), join(runtime, 'app-ui-layout.js'));
 copyFileSync(join(root, 'app-snapshot-import-ui.js'), join(runtime, 'app-snapshot-import-ui.js'));
@@ -76,6 +77,10 @@ if (!existsSync(join(runtime, 'app-saved-views-ui.js'))) {
 
 if (!existsSync(join(runtime, 'app-timer-entry-ui.js'))) {
   throw new Error('Runtime app-timer-entry-ui.js was not created.');
+}
+
+if (!existsSync(join(runtime, 'app-timer-entry-actions-ui.js'))) {
+  throw new Error('Runtime app-timer-entry-actions-ui.js was not created.');
 }
 
 if (!existsSync(join(runtime, 'app-account-controls-ui.js'))) {

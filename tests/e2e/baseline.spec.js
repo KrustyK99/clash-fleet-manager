@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-timer-entry-actions-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -45,6 +45,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-account-views.js')).toBe(200);
   expect(assetResponses.get('app-saved-views-ui.js')).toBe(200);
   expect(assetResponses.get('app-timer-entry-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-entry-actions-ui.js')).toBe(200);
   expect(assetResponses.get('app-account-controls-ui.js')).toBe(200);
   expect(assetResponses.get('app-ui-layout.js')).toBe(200);
   expect(assetResponses.get('app-snapshot-import-ui.js')).toBe(200);
@@ -70,6 +71,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-account-views.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-saved-views-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-entry-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-entry-actions-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-controls-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-ui-layout.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-snapshot-import-ui.js'))).toBeTruthy();
@@ -90,6 +92,9 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasAccountViewsFunction: typeof window.getSelectedAccountView === 'function',
     hasSavedViewsUiFunction: typeof window.renderAccountViewsEditor === 'function',
     hasTimerEntryUiFunction: typeof window.openBulkModal === 'function' && typeof window.parseBulkTimerText === 'function',
+    hasTimerEntryActionsUiFunction: typeof window.saveTimer === 'function'
+      && typeof window.saveBulkTimers === 'function'
+      && typeof window.quickAdd === 'function',
     hasAccountControlsUiFunction: typeof window.renderAccountViewPicker === 'function'
       && typeof window.setAccountView === 'function'
       && typeof window.applySavedAccountView === 'function'
@@ -116,6 +121,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasAccountViewsFunction: true,
     hasSavedViewsUiFunction: true,
     hasTimerEntryUiFunction: true,
+    hasTimerEntryActionsUiFunction: true,
     hasAccountControlsUiFunction: true,
     hasLayoutFunction: true,
     hasSnapshotImportUiFunction: true,
