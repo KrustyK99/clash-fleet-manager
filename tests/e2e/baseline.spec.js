@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-ui-layout\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -46,6 +46,8 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-saved-views-ui.js')).toBe(200);
   expect(assetResponses.get('app-timer-entry-ui.js')).toBe(200);
   expect(assetResponses.get('app-ui-layout.js')).toBe(200);
+  expect(assetResponses.get('app-snapshot-import-ui.js')).toBe(200);
+  expect(assetResponses.get('app-snapshot-collector-ui.js')).toBe(200);
   expect(assetResponses.get('app-timer-filters.js')).toBe(200);
   expect(assetResponses.get('app-account-summary.js')).toBe(200);
   expect(assetResponses.get('app-account-summary-ui.js')).toBe(200);
@@ -65,6 +67,8 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-saved-views-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-entry-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-ui-layout.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-snapshot-import-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-snapshot-collector-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-filters.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary-ui.js'))).toBeTruthy();
@@ -79,6 +83,8 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasSavedViewsUiFunction: typeof window.renderAccountViewsEditor === 'function',
     hasTimerEntryUiFunction: typeof window.openBulkModal === 'function' && typeof window.parseBulkTimerText === 'function',
     hasLayoutFunction: typeof window.setupScrollTopButton === 'function',
+    hasSnapshotImportUiFunction: typeof window.openSnapshotModal === 'function' && typeof window.renderSnapshotCandidates === 'function',
+    hasSnapshotCollectorUiFunction: typeof window.openBatchSnapshotModal === 'function' && typeof window.renderBatchSnapshotRows === 'function',
     hasTimerFiltersFunction: typeof window.getVisibleTimerList === 'function',
     hasAccountSummaryFunction: typeof window.buildAccountSummaryRows === 'function',
     hasAccountSummaryUiFunction: typeof window.renderAccountSummary === 'function',
@@ -94,6 +100,8 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasSavedViewsUiFunction: true,
     hasTimerEntryUiFunction: true,
     hasLayoutFunction: true,
+    hasSnapshotImportUiFunction: true,
+    hasSnapshotCollectorUiFunction: true,
     hasTimerFiltersFunction: true,
     hasAccountSummaryFunction: true,
     hasAccountSummaryUiFunction: true,
@@ -686,6 +694,37 @@ test('fleet summary matrix sorting remains interactive', async ({ page }) => {
     matrixSection.locator('.fleet-matrix-sort-btn.active .fleet-matrix-sort-label').filter({ hasText: /^Home$/ })
   ).toBeVisible();
   await expect(matrixSection.locator('.fleet-matrix-row').first()).toBeVisible();
+});
+
+test('account snapshot add modal opens with safe defaults and validates empty paste', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /snapshot add/i }).click();
+
+  const modal = page.locator('#snapshot-modal');
+
+  await expect(modal).toBeVisible();
+  await expect(modal.getByRole('heading', { name: /add timers from account snapshot/i })).toBeVisible();
+
+  await expect(page.locator('#snapshot-start')).toBeChecked();
+  await expect(page.locator('#snapshot-sound')).toBeChecked();
+  await expect(page.locator('#snapshot-include-helper')).not.toBeChecked();
+  await expect(page.locator('#snapshot-replace-existing')).not.toBeChecked();
+  await expect(page.locator('#snapshot-preserve-manual-notes')).toBeChecked();
+  await expect(page.locator('#snapshot-preserve-manual-notes')).toBeDisabled();
+
+  await expect(page.locator('#snapshot-candidate-rows')).toContainText(
+    /paste and parse a snapshot to see timer candidates/i
+  );
+
+  await modal.getByRole('button', { name: /^Parse Snapshot$/ }).click();
+
+  await expect(page.locator('#snapshot-status')).toContainText(/paste account json first/i);
+  await expect(page.locator('#snapshot-status')).toHaveClass(/warning/);
+
+  await modal.getByRole('button', { name: /^Cancel$/ }).click();
+
+  await expect(modal).toBeHidden();
 });
 
 // Keep this as a smoke/guard test only. Full Snapshot Collector imports mutate
