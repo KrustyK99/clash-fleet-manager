@@ -227,6 +227,75 @@ function toggleSidebar() {
   setTimeout(updateScrollTopButton, 0);
 }
 
+// ── Page-level scroll-to-top button ────────────────────────────────────────
+function getScrollTopTarget() {
+  const timerList = document.getElementById('timer-list');
+  const doc = document.documentElement;
+  const body = document.body;
+  const docScrollHeight = Math.max(body ? body.scrollHeight : 0, doc ? doc.scrollHeight : 0);
+  const docClientHeight = window.innerHeight || (doc ? doc.clientHeight : 0);
+  const docScrollable = docScrollHeight > docClientHeight + 1;
+
+  // On mobile the app becomes full-page scrolling. On desktop the timer list is
+  // the scrollable area because the overall app is fixed to the viewport.
+  if (docScrollable) {
+    return {
+      type: 'window',
+      scrollTop: window.pageYOffset || (doc ? doc.scrollTop : 0) || (body ? body.scrollTop : 0) || 0,
+      scrollHeight: docScrollHeight,
+      clientHeight: docClientHeight
+    };
+  }
+
+  if (timerList && timerList.scrollHeight > timerList.clientHeight + 1) {
+    return {
+      type: 'element',
+      el: timerList,
+      scrollTop: timerList.scrollTop,
+      scrollHeight: timerList.scrollHeight,
+      clientHeight: timerList.clientHeight
+    };
+  }
+
+  return null;
+}
+
+function updateScrollTopButton() {
+  const btn = document.getElementById('scroll-top-btn');
+  if (!btn) return;
+
+  // The fleet summary owns its own floating top button while it is open.
+  // Keep the page-level button behind the modal so the controls do not overlap.
+  if (fleetSummaryModalIsOpen()) {
+    btn.classList.remove('visible');
+    return;
+  }
+
+  const target = getScrollTopTarget();
+  const shouldShow = !!target && target.scrollHeight > target.clientHeight + 1 && target.scrollTop > 80;
+  btn.classList.toggle('visible', shouldShow);
+}
+
+function scrollToPageTop() {
+  const target = getScrollTopTarget();
+
+  if (target && target.type === 'element' && target.el) {
+    target.el.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  setTimeout(updateScrollTopButton, 250);
+}
+
+function setupScrollTopButton() {
+  const timerList = document.getElementById('timer-list');
+  if (timerList) timerList.addEventListener('scroll', updateScrollTopButton, { passive: true });
+  window.addEventListener('scroll', updateScrollTopButton, { passive: true });
+  window.addEventListener('resize', updateScrollTopButton);
+  updateScrollTopButton();
+}
+
 
 function applyInitialMobileLayout() {
   // Phones do not have room for the 280px sidebar plus the timer list.

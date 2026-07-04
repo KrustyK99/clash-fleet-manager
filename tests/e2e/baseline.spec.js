@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-ui-layout\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -41,6 +41,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('coc-data-map.js')).toBe(200);
   expect(assetResponses.get('app-config.js')).toBe(200);
   expect(assetResponses.get('app-utils.js')).toBe(200);
+  expect(assetResponses.get('app-ui-layout.js')).toBe(200);
 
   const assets = await page.evaluate(() => ({
     stylesheets: Array.from(document.styleSheets).map(sheet => sheet.href || ''),
@@ -51,17 +52,20 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/coc-data-map.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-config.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-utils.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-ui-layout.js'))).toBeTruthy();
 
   const globalsLoaded = await page.evaluate(() => ({
     hasUpgradeTypes: Array.isArray(window.UPGRADE_TYPES),
     hasDataMap: !!window.COC_DATA_ID_MAP,
-    hasUtilityFunction: typeof window.fmt === 'function'
+    hasUtilityFunction: typeof window.fmt === 'function',
+    hasLayoutFunction: typeof window.setupScrollTopButton === 'function'
   }));
 
   expect(globalsLoaded).toEqual({
     hasUpgradeTypes: true,
     hasDataMap: true,
-    hasUtilityFunction: true
+    hasUtilityFunction: true,
+    hasLayoutFunction: true
   });
 });
 
