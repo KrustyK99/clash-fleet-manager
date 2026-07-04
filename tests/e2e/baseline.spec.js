@@ -126,6 +126,26 @@ test('new timer modal static selects are populated and note template fills note 
   await expect(modal).toBeHidden();
 });
 
+test('edit timer modal opens with the selected timer values', async ({ page }) => {
+  await page.goto('/');
+
+  const firstCard = page.locator('#timer-list .timer-card').first();
+  await expect(firstCard).toBeVisible();
+
+  const timerName = await firstCard.locator('.timer-name').innerText();
+
+  await firstCard.locator('button[title="Edit full timer"]').click();
+
+  const modal = page.locator('#modal');
+  await expect(modal).toBeVisible();
+  await expect(page.locator('#modal-title')).toHaveText('Edit Timer');
+  await expect(page.locator('#f-name')).toHaveValue(timerName);
+
+  await modal.getByRole('button', { name: /^Cancel$/ }).click();
+
+  await expect(modal).toBeHidden();
+});
+
 test('extracted utility helpers preserve expected behavior', async ({ page }) => {
   await page.goto('/');
 

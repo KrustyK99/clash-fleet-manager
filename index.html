@@ -3921,49 +3921,7 @@ function renderTimers() {
   setTimeout(updateScrollTopButton, 0);
 }
 
-// ── Modal ─────────────────────────────────────────────────────────────────
-function openAddModal() {
-  editingId = null;
-  document.getElementById('modal-title').textContent = 'New Timer';
-  document.getElementById('f-account').value = '';
-  document.getElementById('f-upgrade-type').value = '';
-  document.getElementById('f-name').value = '';
-  document.getElementById('f-days').value = '0';
-  document.getElementById('f-hours').value = '0';
-  document.getElementById('f-mins').value = '5';
-  document.getElementById('f-secs').value = '0';
-  document.getElementById('f-note-template').value = '';
-  document.getElementById('f-note').value = '';
-  document.getElementById('f-repeat').checked = false;
-  document.getElementById('f-sound').checked = true;
-  document.getElementById('modal').style.display = 'flex';
-  setTimeout(()=>document.getElementById('f-name').focus(),50);
-}
-
-function openEditModal(id) {
-  const t = timers.find(x=>x.id===id);
-  if (!t) return;
-  editingId = id;
-  document.getElementById('modal-title').textContent = 'Edit Timer';
-  document.getElementById('f-account').value = getAccount(t);
-  document.getElementById('f-upgrade-type').value = getUpgradeType(t);
-  document.getElementById('f-name').value = t.name;
-  document.getElementById('f-days').value = Math.floor(t.duration/86400);
-  document.getElementById('f-hours').value = Math.floor((t.duration%86400)/3600);
-  document.getElementById('f-mins').value = Math.floor((t.duration%3600)/60);
-  document.getElementById('f-secs').value = t.duration%60;
-  document.getElementById('f-note-template').value = '';
-  document.getElementById('f-note').value = t.note||'';
-  document.getElementById('f-repeat').checked = !!t.repeat;
-  document.getElementById('f-sound').checked = t.sound!==false;
-  document.getElementById('modal').style.display = 'flex';
-  setTimeout(()=>document.getElementById('f-name').focus(),50);
-}
-
-function closeModal() {
-  document.getElementById('modal').style.display = 'none';
-}
-
+// ── Modal save handling ───────────────────────────────────────────────────
 function saveTimer() {
   const name = document.getElementById('f-name').value.trim();
   if (!name) { document.getElementById('f-name').focus(); return; }
