@@ -544,6 +544,7 @@
 <script src="app-snapshot-meta.js"></script>
 <script src="app-account-views.js"></script>
 <script src="app-saved-views-ui.js"></script>
+<script src="app-timer-entry-ui.js"></script>
 <script src="app-ui-layout.js"></script>
 <script src="app-timer-filters.js"></script>
 <script src="app-account-summary.js"></script>
@@ -630,9 +631,6 @@ const HOME_BUILDER_HUT_DATA_ID = '1000015';
 const HOME_BOB_HUT_DATA_IDS = ['1000064', '1000093'];
 const BUILDER_HALL_DATA_ID = '1000034';
 const BOB_CONTROL_DATA_ID = '1000081';
-
-const BULK_TARGET_ALL_ACCOUNTS = '__bulk_all_accounts__';
-const BULK_TARGET_CURRENT_VIEW = '__bulk_current_view__';
 
 
 function learnAccountTagMapping(tagOrSnapshot, account) {
@@ -2306,69 +2304,7 @@ function saveTimer() {
   toast(editingId ? `Updated "${name}"` : `Timer "${name}" added`, 'success');
 }
 
-// ── Bulk Add Modal ─────────────────────────────────────────────────────────
-function resolveBulkTargetAccounts(value=document.getElementById('bulk-account')?.value || '') {
-  const target = String(value || '').trim();
-
-  if (target === BULK_TARGET_ALL_ACCOUNTS) {
-    return getKnownAccounts();
-  }
-
-  if (target === BULK_TARGET_CURRENT_VIEW) {
-    return sortAccountNames(getAccountsForView(getSelectedAccountView()));
-  }
-
-  return target ? [target] : [];
-}
-
-function getBulkTargetLabel(value=document.getElementById('bulk-account')?.value || '') {
-  const target = String(value || '').trim();
-
-  if (target === BULK_TARGET_ALL_ACCOUNTS) return 'All Accounts';
-  if (target === BULK_TARGET_CURRENT_VIEW) return `Current Saved View: ${getSelectedAccountView().label}`;
-  return target;
-}
-
-function parseBulkTimerText() {
-  const source = document.getElementById('bulk-paste-text');
-  if (!source) return;
-
-  const lines = source.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  if (!lines.length) {
-    setBulkPasteStatus('Paste one timer per line first.', 'warning');
-    source.focus();
-    return;
-  }
-
-  const parsed = [];
-  const skipped = [];
-  lines.forEach((line, idx) => {
-    const item = parseBulkTimerLine(line);
-    if (item) parsed.push(item);
-    else skipped.push(idx + 1);
-  });
-
-  if (!parsed.length) {
-    setBulkPasteStatus('No timers found. Use format: X-Bow 3h 57m', 'error');
-    toast('No timers found in pasted list.', 'warning');
-    source.focus();
-    return;
-  }
-
-  const rows = document.getElementById('bulk-rows');
-  rows.innerHTML = '';
-  parsed.forEach(item => addBulkTimerRow(item));
-
-  const msg = skipped.length
-    ? `Parsed ${parsed.length} timer${parsed.length === 1 ? '' : 's'}; skipped line${skipped.length === 1 ? '' : 's'} ${skipped.join(', ')}.`
-    : `Parsed ${parsed.length} timer${parsed.length === 1 ? '' : 's'}. Verify rows below.`;
-  setBulkPasteStatus(msg, skipped.length ? 'warning' : 'ok');
-  toast(`Parsed ${parsed.length} timer${parsed.length === 1 ? '' : 's'}`, 'success');
-
-  const firstName = document.querySelector('#bulk-rows .bulk-name');
-  if (firstName) firstName.focus();
-}
-
+// ── Bulk Add Modal save handling ──────────────────────────────────────────
 function saveBulkTimers() {
   const targetValue = document.getElementById('bulk-account').value.trim();
   const targetAccounts = resolveBulkTargetAccounts(targetValue);

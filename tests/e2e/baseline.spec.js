@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-ui-layout\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-ui-layout\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -44,6 +44,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-snapshot-meta.js')).toBe(200);
   expect(assetResponses.get('app-account-views.js')).toBe(200);
   expect(assetResponses.get('app-saved-views-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-entry-ui.js')).toBe(200);
   expect(assetResponses.get('app-ui-layout.js')).toBe(200);
   expect(assetResponses.get('app-timer-filters.js')).toBe(200);
   expect(assetResponses.get('app-account-summary.js')).toBe(200);
@@ -62,6 +63,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-snapshot-meta.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-views.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-saved-views-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-entry-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-ui-layout.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-filters.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary.js'))).toBeTruthy();
@@ -75,6 +77,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasSnapshotMetaFunction: typeof window.getSnapshotFreshness === 'function',
     hasAccountViewsFunction: typeof window.getSelectedAccountView === 'function',
     hasSavedViewsUiFunction: typeof window.renderAccountViewsEditor === 'function',
+    hasTimerEntryUiFunction: typeof window.openBulkModal === 'function' && typeof window.parseBulkTimerText === 'function',
     hasLayoutFunction: typeof window.setupScrollTopButton === 'function',
     hasTimerFiltersFunction: typeof window.getVisibleTimerList === 'function',
     hasAccountSummaryFunction: typeof window.buildAccountSummaryRows === 'function',
@@ -89,6 +92,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasSnapshotMetaFunction: true,
     hasAccountViewsFunction: true,
     hasSavedViewsUiFunction: true,
+    hasTimerEntryUiFunction: true,
     hasLayoutFunction: true,
     hasTimerFiltersFunction: true,
     hasAccountSummaryFunction: true,
@@ -217,6 +221,14 @@ test('bulk add modal opens with default rows and row controls work', async ({ pa
 
   await expect(page.locator('#bulk-paste-text')).toHaveValue('');
   await expect(page.locator('#bulk-paste-status')).toHaveText('List cleared.');
+  await expect(page.locator('#bulk-paste-status')).toHaveClass(/ok/);
+
+  await page.locator('#bulk-paste-text').fill('X-Bow 3h 57m\nGold Storage 6d 7h');
+  await modal.getByRole('button', { name: /parse list/i }).click();
+
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first().locator('.bulk-name')).toHaveValue('X-Bow');
+  await expect(page.locator('#bulk-paste-status')).toContainText('Parsed 2 timers');
   await expect(page.locator('#bulk-paste-status')).toHaveClass(/ok/);
 
   await modal.getByRole('button', { name: /^Cancel$/ }).click();
