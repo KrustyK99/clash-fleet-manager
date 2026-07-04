@@ -13,6 +13,7 @@ copyFileSync(join(root, 'styles.css'), join(runtime, 'styles.css'));
 copyFileSync(join(root, 'coc-data-map.js'), join(runtime, 'coc-data-map.js'));
 copyFileSync(join(root, 'app-config.js'), join(runtime, 'app-config.js'));
 copyFileSync(join(root, 'app-utils.js'), join(runtime, 'app-utils.js'));
+copyFileSync(join(root, 'app-snapshot-meta.js'), join(runtime, 'app-snapshot-meta.js'));
 copyFileSync(join(root, 'app-ui-layout.js'), join(runtime, 'app-ui-layout.js'));
 copyFileSync(join(root, 'api.php'), join(runtime, 'api.php'));
 
@@ -46,6 +47,10 @@ if (!existsSync(join(runtime, 'app-config.js'))) {
 
 if (!existsSync(join(runtime, 'app-utils.js'))) {
   throw new Error('Runtime app-utils.js was not created.');
+}
+
+if (!existsSync(join(runtime, 'app-snapshot-meta.js'))) {
+  throw new Error('Runtime app-snapshot-meta.js was not created.');
 }
 
 if (!existsSync(join(runtime, 'app-ui-layout.js'))) {

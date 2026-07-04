@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-ui-layout\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-ui-layout\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -41,6 +41,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('coc-data-map.js')).toBe(200);
   expect(assetResponses.get('app-config.js')).toBe(200);
   expect(assetResponses.get('app-utils.js')).toBe(200);
+  expect(assetResponses.get('app-snapshot-meta.js')).toBe(200);
   expect(assetResponses.get('app-ui-layout.js')).toBe(200);
 
   const assets = await page.evaluate(() => ({
@@ -52,12 +53,14 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/coc-data-map.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-config.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-utils.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-snapshot-meta.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-ui-layout.js'))).toBeTruthy();
 
   const globalsLoaded = await page.evaluate(() => ({
     hasUpgradeTypes: Array.isArray(window.UPGRADE_TYPES),
     hasDataMap: !!window.COC_DATA_ID_MAP,
     hasUtilityFunction: typeof window.fmt === 'function',
+    hasSnapshotMetaFunction: typeof window.getSnapshotFreshness === 'function',
     hasLayoutFunction: typeof window.setupScrollTopButton === 'function'
   }));
 
@@ -65,6 +68,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasUpgradeTypes: true,
     hasDataMap: true,
     hasUtilityFunction: true,
+    hasSnapshotMetaFunction: true,
     hasLayoutFunction: true
   });
 });
@@ -238,6 +242,56 @@ test('extracted utility helpers preserve expected behavior', async ({ page }) =>
   expect(result.dueSoon).toMatchObject({ key: 'Soon', cls: 'soon', order: 1 });
   expect(result.dueToday).toMatchObject({ key: 'Today', cls: 'today', order: 2 });
   expect(result.dueLater).toMatchObject({ key: 'Later', cls: 'later', order: 3 });
+});
+
+
+test('extracted snapshot metadata helpers preserve expected behavior', async ({ page }) => {
+  await page.goto('/');
+
+  const result = await page.evaluate(() => {
+    snapshotFreshnessSettings = normalizeSnapshotFreshnessSettings({ freshHours: 6, agingHours: 24 });
+    accountSnapshotMeta = normalizeAccountSnapshotMeta({
+      Bart: {
+        loadedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
+        tag: '#abc123',
+        candidateCount: 4,
+        selectedCount: 3,
+        builderCapacity: { homeTotal: 6, builderBaseTotal: 2 }
+      }
+    });
+
+    const snapshot = {
+      tag: ' xyz789 ',
+      playerName: 'Snapshot Bart',
+      buildings: [
+        { data: '1000015', cnt: 5 },
+        { data: '1000064', lvl: 1 }
+      ],
+      buildings2: [
+        { data: '1000034', lvl: 9 }
+      ]
+    };
+
+    return {
+      normalizedSettings: normalizeSnapshotFreshnessSettings({ freshHours: 99.8, agingHours: 12 }),
+      normalizedTagMap: normalizeAccountTagMap({ abc123: 'Bart', ' #def456 ': ' Elvira Dark ' }),
+      playerTag: getSnapshotPlayerTag(snapshot),
+      playerName: getSnapshotPlayerName(snapshot),
+      freshness: getSnapshotFreshness('Bart'),
+      builderCapacity: getAccountBuilderCapacity('Bart'),
+      derivedCapacity: deriveBuilderCapacityFromSnapshot(snapshot),
+      capacityText: snapshotBuilderCapacityStatusText(snapshot)
+    };
+  });
+
+  expect(result.normalizedSettings).toEqual({ freshHours: 100, agingHours: 101 });
+  expect(result.normalizedTagMap).toEqual({ '#ABC123': 'Bart', '#DEF456': 'Elvira Dark' });
+  expect(result.playerTag).toBe('#XYZ789');
+  expect(result.playerName).toBe('Snapshot Bart');
+  expect(result.freshness).toMatchObject({ key: 'fresh', cls: 'fresh', label: 'Fresh' });
+  expect(result.builderCapacity).toEqual({ homeTotal: 6, builderBaseTotal: 2 });
+  expect(result.derivedCapacity).toEqual({ homeTotal: 6, builderBaseTotal: 2 });
+  expect(result.capacityText).toBe(' Detected capacity: 6 home builders, 2 Builder Base builders.');
 });
 
 test('account filter pill filters the timer list and reset restores all timers', async ({ page, request }) => {
