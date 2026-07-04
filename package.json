@@ -8,7 +8,11 @@
     "serve:test:docker": "docker run --rm -p 8011:8011 -v \"%cd%\\tests\\runtime-app:/app\" -w /app php:8.3-cli php -S 0.0.0.0:8011",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "ai:zip": "python Tools/make-ai-review-zip.py",
+    "ai:zip:dry": "python Tools/make-ai-review-zip.py --dry-run",
+    "ai:zip:db": "python Tools/make-ai-review-zip.py --include-db-poc",
+    "ai:zip:tools": "python Tools/make-ai-review-zip.py --include-tools"
   },
   "repository": {
     "type": "git",
