@@ -221,6 +221,56 @@ function applySidebarToggleState() {
   updateSearchFilterIndicators();
 }
 
+// ── Search filter indicators ───────────────────────────────────────────────
+function getSearchFilter() {
+  const searchEl = document.getElementById('search-input');
+  return searchEl ? searchEl.value.trim() : '';
+}
+
+function clearSearchFilter() {
+  const searchEl = document.getElementById('search-input');
+  if (searchEl) searchEl.value = '';
+  renderTimers();
+}
+
+function updateSearchFilterIndicators() {
+  const search = getSearchFilter();
+  const active = !!search;
+
+  const pill = document.getElementById('active-search-pill');
+  if (pill) {
+    pill.classList.toggle('visible', active);
+    if (active) {
+      pill.title = `Search filter active: ${search}`;
+      pill.innerHTML = `
+        <span class="active-search-label">🔎 Search:</span>
+        <span class="active-search-value">${esc(search)}</span>
+        <button class="active-search-clear" type="button" onclick="clearSearchFilter()" aria-label="Clear search filter" title="Clear search filter">×</button>
+      `;
+    } else {
+      pill.title = '';
+      pill.innerHTML = '';
+    }
+  }
+
+  const menuBtn = document.getElementById('sidebar-toggle-btn');
+  if (menuBtn) {
+    menuBtn.classList.toggle('search-active', active);
+    const baseTitle = sidebarVisible ? 'Hide menu' : 'Show menu';
+    const title = active ? `${baseTitle} — search filter active: ${search}` : baseTitle;
+    menuBtn.title = title;
+    menuBtn.setAttribute('aria-label', title);
+  }
+
+  const focusExitBtn = document.getElementById('focus-exit-btn');
+  if (focusExitBtn) {
+    focusExitBtn.classList.toggle('search-active', active);
+    const title = active ? `Exit focus view — search filter active: ${search}` : 'Exit focus view';
+    focusExitBtn.title = title;
+    focusExitBtn.setAttribute('aria-label', title);
+  }
+}
+
 function toggleSidebar() {
   sidebarVisible = !sidebarVisible;
   applySidebarToggleState();
