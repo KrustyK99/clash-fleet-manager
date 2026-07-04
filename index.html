@@ -3989,70 +3989,6 @@ function getBulkTargetLabel(value=document.getElementById('bulk-account')?.value
   return target;
 }
 
-function updateBulkTargetSummary() {
-  const summary = document.getElementById('bulk-target-summary');
-  const select = document.getElementById('bulk-account');
-  if (!summary || !select) return;
-
-  const value = select.value;
-  const accounts = resolveBulkTargetAccounts(value);
-  const label = getBulkTargetLabel(value);
-
-  if (!value) {
-    summary.textContent = 'Choose a single account, the current saved view, or all known accounts.';
-    return;
-  }
-
-  if (!accounts.length) {
-    summary.textContent = 'No accounts are available for this target.';
-    return;
-  }
-
-  if (accounts.length === 1) {
-    summary.innerHTML = `Creates timers for <strong>${esc(accounts[0])}</strong>.`;
-    return;
-  }
-
-  summary.innerHTML = `Creates one copy of each timer row for <strong>${esc(label)}</strong> (${accounts.length} accounts).`;
-}
-
-function openBulkModal() {
-  populateAccountControls(true);
-  const accountEl = document.getElementById('bulk-account');
-  const defaultTypeEl = document.getElementById('bulk-default-type');
-  const quickAccount = document.getElementById('q-account');
-  const quickType = document.getElementById('q-upgrade-type');
-
-  accountEl.value = getPreferredAccountForCurrentView(filterGroup !== 'All' ? filterGroup : '', quickAccount ? quickAccount.value : '');
-  updateBulkTargetSummary();
-  defaultTypeEl.innerHTML = upgradeTypeOptionsHtml(quickType ? quickType.value : '');
-  document.getElementById('bulk-start').checked = true;
-  document.getElementById('bulk-sound').checked = true;
-  clearBulkTimerText(false);
-
-  const rows = document.getElementById('bulk-rows');
-  rows.innerHTML = '';
-  for (let i = 0; i < 5; i++) addBulkTimerRow();
-
-  document.getElementById('bulk-modal').style.display = 'flex';
-  setTimeout(() => {
-    const pasteText = document.getElementById('bulk-paste-text');
-    const firstName = document.querySelector('#bulk-rows .bulk-name');
-    if (pasteText) pasteText.focus();
-    else if (firstName) firstName.focus();
-  }, 50);
-}
-
-function closeBulkModal() {
-  document.getElementById('bulk-modal').style.display = 'none';
-}
-
-function clearBulkTimerText(showStatus=true) {
-  const el = document.getElementById('bulk-paste-text');
-  if (el) el.value = '';
-  setBulkPasteStatus(showStatus ? 'List cleared.' : '', showStatus ? 'ok' : '');
-}
-
 function parseBulkTimerLine(rawLine) {
   let line = String(rawLine || '').trim();
   if (!line) return null;
@@ -4129,46 +4065,6 @@ function parseBulkTimerText() {
 
   const firstName = document.querySelector('#bulk-rows .bulk-name');
   if (firstName) firstName.focus();
-}
-
-function addBulkTimerRow(values={}) {
-  const rows = document.getElementById('bulk-rows');
-  const defaultType = document.getElementById('bulk-default-type')?.value || '';
-  const selectedType = values.upgradeType ?? defaultType;
-  const row = document.createElement('div');
-  row.className = 'bulk-timer-row';
-  row.innerHTML = `
-    <select class="bulk-type" title="Upgrade type">${upgradeTypeOptionsHtml(selectedType)}</select>
-    <input type="text" class="bulk-name" placeholder="Upgrade name…" value="${esc(values.name || '')}">
-    <input type="number" class="bulk-days" min="0" max="999" value="${Number(values.days) || 0}" placeholder="0" title="Days">
-    <input type="number" class="bulk-hours" min="0" max="23" value="${Number(values.hours) || 0}" placeholder="0" title="Hours">
-    <input type="number" class="bulk-mins" min="0" max="59" value="${values.minutes ?? 0}" placeholder="0" title="Minutes">
-    <input type="number" class="bulk-secs" min="0" max="59" value="${values.seconds ?? 0}" placeholder="0" title="Seconds">
-    <input type="text" class="bulk-note" placeholder="Optional note…" value="${esc(values.note || '')}">
-    <button class="btn btn-sm btn-icon btn-danger bulk-remove-btn" onclick="removeBulkTimerRow(this)" title="Remove row">✕</button>
-  `;
-  rows.appendChild(row);
-}
-
-function removeBulkTimerRow(btn) {
-  const rows = document.querySelectorAll('#bulk-rows .bulk-timer-row');
-  const row = btn.closest('.bulk-timer-row');
-  if (!row) return;
-
-  // Keep at least one row available so the modal never becomes empty.
-  if (rows.length <= 1) {
-    row.querySelector('.bulk-type').value = document.getElementById('bulk-default-type')?.value || '';
-    row.querySelector('.bulk-name').value = '';
-    row.querySelector('.bulk-days').value = '0';
-    row.querySelector('.bulk-hours').value = '0';
-    row.querySelector('.bulk-mins').value = '0';
-    row.querySelector('.bulk-secs').value = '0';
-    row.querySelector('.bulk-note').value = '';
-    row.querySelector('.bulk-name').focus();
-    return;
-  }
-
-  row.remove();
 }
 
 function saveBulkTimers() {

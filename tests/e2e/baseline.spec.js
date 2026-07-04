@@ -146,6 +146,40 @@ test('edit timer modal opens with the selected timer values', async ({ page }) =
   await expect(modal).toBeHidden();
 });
 
+
+test('bulk add modal opens with default rows and row controls work', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /multi add/i }).click();
+
+  const modal = page.locator('#bulk-modal');
+  const rows = page.locator('#bulk-rows .bulk-timer-row');
+
+  await expect(modal).toBeVisible();
+  await expect(modal.getByRole('heading', { name: /add multiple timers/i })).toBeVisible();
+
+  await expect(page.locator('#bulk-start')).toBeChecked();
+  await expect(page.locator('#bulk-sound')).toBeChecked();
+  await expect(rows).toHaveCount(5);
+
+  await page.locator('.bulk-add-row').click();
+  await expect(rows).toHaveCount(6);
+
+  await rows.last().locator('.bulk-remove-btn').click();
+  await expect(rows).toHaveCount(5);
+
+  await page.locator('#bulk-paste-text').fill('X-Bow 3h 57m');
+  await modal.getByRole('button', { name: /clear list/i }).click();
+
+  await expect(page.locator('#bulk-paste-text')).toHaveValue('');
+  await expect(page.locator('#bulk-paste-status')).toHaveText('List cleared.');
+  await expect(page.locator('#bulk-paste-status')).toHaveClass(/ok/);
+
+  await modal.getByRole('button', { name: /^Cancel$/ }).click();
+
+  await expect(modal).toBeHidden();
+});
+
 test('extracted utility helpers preserve expected behavior', async ({ page }) => {
   await page.goto('/');
 

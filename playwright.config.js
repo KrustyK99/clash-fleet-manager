@@ -32,7 +32,7 @@ module.exports = defineConfig({
   ],
 
   webServer: {
-    command: 'npm.cmd run prepare:test-app && npm.cmd run serve:test:docker',
+    command: 'npm run prepare:test-app && npm run serve:test:docker',
     url: 'http://127.0.0.1:8011',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000
