@@ -15,6 +15,7 @@ copyFileSync(join(root, 'app-config.js'), join(runtime, 'app-config.js'));
 copyFileSync(join(root, 'app-utils.js'), join(runtime, 'app-utils.js'));
 copyFileSync(join(root, 'app-snapshot-meta.js'), join(runtime, 'app-snapshot-meta.js'));
 copyFileSync(join(root, 'app-account-views.js'), join(runtime, 'app-account-views.js'));
+copyFileSync(join(root, 'app-saved-views-ui.js'), join(runtime, 'app-saved-views-ui.js'));
 copyFileSync(join(root, 'app-ui-layout.js'), join(runtime, 'app-ui-layout.js'));
 copyFileSync(join(root, 'app-timer-filters.js'), join(runtime, 'app-timer-filters.js'));
 copyFileSync(join(root, 'app-account-summary.js'), join(runtime, 'app-account-summary.js'));
@@ -60,6 +61,10 @@ if (!existsSync(join(runtime, 'app-snapshot-meta.js'))) {
 
 if (!existsSync(join(runtime, 'app-account-views.js'))) {
   throw new Error('Runtime app-account-views.js was not created.');
+}
+
+if (!existsSync(join(runtime, 'app-saved-views-ui.js'))) {
+  throw new Error('Runtime app-saved-views-ui.js was not created.');
 }
 
 if (!existsSync(join(runtime, 'app-ui-layout.js'))) {

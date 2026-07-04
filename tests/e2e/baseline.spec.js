@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-ui-layout\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-ui-layout\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -43,6 +43,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-utils.js')).toBe(200);
   expect(assetResponses.get('app-snapshot-meta.js')).toBe(200);
   expect(assetResponses.get('app-account-views.js')).toBe(200);
+  expect(assetResponses.get('app-saved-views-ui.js')).toBe(200);
   expect(assetResponses.get('app-ui-layout.js')).toBe(200);
   expect(assetResponses.get('app-timer-filters.js')).toBe(200);
   expect(assetResponses.get('app-account-summary.js')).toBe(200);
@@ -60,6 +61,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-utils.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-snapshot-meta.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-views.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-saved-views-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-ui-layout.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-filters.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary.js'))).toBeTruthy();
@@ -72,6 +74,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasUtilityFunction: typeof window.fmt === 'function',
     hasSnapshotMetaFunction: typeof window.getSnapshotFreshness === 'function',
     hasAccountViewsFunction: typeof window.getSelectedAccountView === 'function',
+    hasSavedViewsUiFunction: typeof window.renderAccountViewsEditor === 'function',
     hasLayoutFunction: typeof window.setupScrollTopButton === 'function',
     hasTimerFiltersFunction: typeof window.getVisibleTimerList === 'function',
     hasAccountSummaryFunction: typeof window.buildAccountSummaryRows === 'function',
@@ -85,6 +88,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasUtilityFunction: true,
     hasSnapshotMetaFunction: true,
     hasAccountViewsFunction: true,
+    hasSavedViewsUiFunction: true,
     hasLayoutFunction: true,
     hasTimerFiltersFunction: true,
     hasAccountSummaryFunction: true,
@@ -443,6 +447,24 @@ test('saved account view scopes timers and can return to all accounts', async ({
 
   await expect(page.locator('#account-view-select')).toHaveValue('all');
   await expect(timerCards).toHaveCount(timers.length);
+});
+
+test('saved views management modal opens with editor and freshness settings', async ({ page }) => {
+  await page.goto('/');
+
+  await showMenuIfNeeded(page);
+  await page.getByRole('button', { name: /^Manage$/ }).click();
+
+  const modal = page.locator('#account-views-modal');
+  await expect(modal).toBeVisible();
+  await expect(modal.getByRole('heading', { name: /manage saved views/i })).toBeVisible();
+  await expect(modal.locator('.account-view-editor-row').first()).toBeVisible();
+  await expect(modal.locator('#snapshot-fresh-hours')).toBeVisible();
+  await expect(modal.locator('#snapshot-aging-hours')).toBeVisible();
+
+  await modal.getByRole('button', { name: /^Cancel$/ }).click();
+
+  await expect(modal).toBeHidden();
 });
 
 test('search filters timers and clear search restores the full list', async ({ page, request }) => {
