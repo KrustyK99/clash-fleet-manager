@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-fleet-summary-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -52,6 +52,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-account-summary.js')).toBe(200);
   expect(assetResponses.get('app-account-summary-ui.js')).toBe(200);
   expect(assetResponses.get('app-timer-filter-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-list-actions-ui.js')).toBe(200);
   expect(assetResponses.get('app-fleet-summary-ui.js')).toBe(200);
 
   const assets = await page.evaluate(() => ({
@@ -74,6 +75,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-filter-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-list-actions-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-fleet-summary-ui.js'))).toBeTruthy();
 
   const globalsLoaded = await page.evaluate(() => ({
@@ -91,6 +93,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasAccountSummaryFunction: typeof window.buildAccountSummaryRows === 'function',
     hasAccountSummaryUiFunction: typeof window.renderAccountSummary === 'function',
     hasTimerFilterUiFunction: typeof window.renderGroupBar === 'function' && typeof window.renderStats === 'function' && typeof window.resetFilters === 'function',
+    hasTimerListActionsUiFunction: typeof window.toggleDeleteSelectionMode === 'function' && typeof window.renderDeleteSelectionBar === 'function' && typeof window.toggleTimerActions === 'function',
     hasFleetSummaryUiFunction: typeof window.renderFleetSummaryModal === 'function'
   }));
 
@@ -109,6 +112,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasAccountSummaryFunction: true,
     hasAccountSummaryUiFunction: true,
     hasTimerFilterUiFunction: true,
+    hasTimerListActionsUiFunction: true,
     hasFleetSummaryUiFunction: true
   });
 });
@@ -364,6 +368,30 @@ test('timer filter/status bars render baseline controls after app load', async (
   await expect(page.locator('#type-bar').getByRole('button', { name: /^all \(/i })).toBeVisible();
   await expect(page.locator('#stats-bar').getByRole('button', { name: /reset filters/i })).toBeVisible();
   await expect(page.locator('#stats-bar').getByRole('button', { name: /pinned/i })).toBeVisible();
+});
+
+test('delete selection mode opens with stable controls and can cancel', async ({ page }) => {
+  await page.goto('/');
+
+  const deleteButton = page.locator('#delete-mode-btn');
+  const deleteBar = page.locator('#delete-selection-bar');
+
+  await expect(page.locator('#timer-list .timer-card').first()).toBeVisible();
+
+  await deleteButton.click();
+
+  await expect(deleteButton).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#delete-mode-label')).toHaveText('Delete On');
+  await expect(deleteBar).toHaveClass(/visible/);
+  await expect(deleteBar).toContainText(/Delete mode/i);
+  await expect(deleteBar.getByRole('button', { name: /select visible/i })).toBeVisible();
+  await expect(deleteBar.getByRole('button', { name: /^cancel$/i })).toBeVisible();
+
+  await deleteBar.getByRole('button', { name: /^cancel$/i }).click();
+
+  await expect(deleteButton).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#delete-mode-label')).toHaveText('Delete');
+  await expect(deleteBar).not.toHaveClass(/visible/);
 });
 
 test('account filter pill filters the timer list and reset restores all timers', async ({ page, request }) => {
