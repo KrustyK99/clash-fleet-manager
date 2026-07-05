@@ -26,7 +26,14 @@ Optional:
     python make-ai-review-zip.py --include-backups
     python make-ai-review-zip.py --include-db-poc
     python make-ai-review-zip.py --include-tools
+    python make-ai-review-zip.py --max-files-per-zip 10
     python make-ai-review-zip.py --dry-run
+
+Gemini split mode:
+- Use --max-files-per-zip 10 to create multiple zip files when needed.
+- Split zip files contain project files only, so the limit applies to real files.
+- A single external manifest is written beside the split zip files.
+- Default single-zip behavior still includes README_FOR_AI.md inside the zip.
 """
 
 from __future__ import annotations
@@ -185,6 +192,18 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=10.0,
         help="Skip individual files larger than this size in MB. Default: 10.",
+    )
+
+    parser.add_argument(
+        "--max-files-per-zip",
+        type=int,
+        default=None,
+        help=(
+            "Split output into multiple zip files with at most this many project "
+            "files per zip. Useful for AI tools with zip file-count limits, such "
+            "as Gemini. Split zip files do not include README_FOR_AI.md; one "
+            "external manifest is written beside the zip parts."
+        ),
     )
 
     parser.add_argument(
@@ -467,17 +486,117 @@ Maximum individual file size included:
 """
 
 
+def chunk_files(files: list[Path], max_files_per_zip: int) -> list[list[Path]]:
+    if max_files_per_zip <= 0:
+        raise ValueError("max_files_per_zip must be greater than zero")
+
+    return [
+        files[index : index + max_files_per_zip]
+        for index in range(0, len(files), max_files_per_zip)
+    ]
+
+
+def build_split_zip_filename(
+    zip_prefix: str,
+    timestamp: str,
+    part_index: int,
+    part_count: int,
+) -> str:
+    part_width = max(2, len(str(part_count)))
+    return (
+        f"{zip_prefix}-{timestamp}-"
+        f"part{part_index:0{part_width}d}-of{part_count:0{part_width}d}.zip"
+    )
+
+
+def build_split_manifest(
+    project_root: Path,
+    included_files: list[Path],
+    excluded_items: list[tuple[Path, str]],
+    include_runtime_app: bool,
+    include_backups: bool,
+    include_db_poc: bool,
+    include_tools: bool,
+    max_file_mb: float,
+    max_files_per_zip: int,
+    split_packages: list[tuple[str, list[Path]]],
+) -> str:
+    base_manifest = build_manifest(
+        project_root=project_root,
+        included_files=included_files,
+        excluded_items=excluded_items,
+        include_runtime_app=include_runtime_app,
+        include_backups=include_backups,
+        include_db_poc=include_db_poc,
+        include_tools=include_tools,
+        max_file_mb=max_file_mb,
+    )
+
+    split_lines = [
+        "## Split zip package details",
+        "",
+        "Split mode was enabled with --max-files-per-zip.",
+        "",
+        "The split zip files intentionally contain project files only.",
+        (
+            "README_FOR_AI.md is not included inside each split zip so the "
+            "per-zip file limit applies to real project files."
+        ),
+        "",
+        f"Maximum project files per zip: {max_files_per_zip}",
+        f"Total project files: {len(included_files)}",
+        f"Total zip files: {len(split_packages)}",
+        "",
+    ]
+
+    for zip_filename, files in split_packages:
+        split_lines.append(f"### {zip_filename}")
+        split_lines.append("")
+        split_lines.append(f"Project files in this zip: {len(files)}")
+        split_lines.append("")
+
+        if files:
+            for file_path in files:
+                relative = file_path.relative_to(project_root).as_posix()
+                size_kb = file_path.stat().st_size / 1024
+                split_lines.append(f"- {relative} ({size_kb:.1f} KB)")
+        else:
+            split_lines.append("- None")
+
+        split_lines.append("")
+
+    return f"{base_manifest}\n\n" + "\n".join(split_lines)
+
+
+def print_split_plan(
+    project_root: Path,
+    split_packages: list[tuple[str, list[Path]]],
+    max_files_per_zip: int,
+) -> None:
+    print()
+    print("Split mode:          enabled")
+    print(f"Max files per zip:   {max_files_per_zip}")
+    print(f"Zip files planned:   {len(split_packages)}")
+
+    for zip_filename, files in split_packages:
+        print()
+        print(f"{zip_filename}:")
+        for file_path in files:
+            print(f"  {file_path.relative_to(project_root).as_posix()}")
+
+
 def create_zip(
     zip_path: Path,
     project_root: Path,
     top_folder: str,
     included_files: list[Path],
-    manifest_text: str,
+    manifest_text: str | None,
 ) -> None:
     with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as zip_file:
-        # Add generated AI manifest first.
-        manifest_arcname = Path(top_folder) / "README_FOR_AI.md"
-        zip_file.writestr(manifest_arcname.as_posix(), manifest_text)
+        if manifest_text is not None:
+            # Add generated AI manifest first.
+            manifest_arcname = Path(top_folder) / "README_FOR_AI.md"
+            zip_file.writestr(manifest_arcname.as_posix(), manifest_text)
 
         # Add real project files.
         for file_path in included_files:
@@ -488,6 +607,10 @@ def create_zip(
 
 def main() -> int:
     args = parse_args()
+
+    if args.max_files_per_zip is not None and args.max_files_per_zip <= 0:
+        print("ERROR: --max-files-per-zip must be greater than zero.", file=sys.stderr)
+        return 1
 
     project_root = Path(args.project_root).resolve()
 
@@ -541,13 +664,75 @@ def main() -> int:
     print(f"Approx source size:  {total_mb:.2f} MB")
     print(f"Excluded items:      {len(excluded_items)}")
 
+    split_packages: list[tuple[str, list[Path]]] = []
+    if args.max_files_per_zip is not None:
+        chunks = chunk_files(included_files, args.max_files_per_zip)
+        part_count = len(chunks)
+        split_packages = [
+            (
+                build_split_zip_filename(
+                    zip_prefix=args.zip_prefix,
+                    timestamp=timestamp,
+                    part_index=part_index,
+                    part_count=part_count,
+                ),
+                chunk,
+            )
+            for part_index, chunk in enumerate(chunks, start=1)
+        ]
+        print_split_plan(project_root, split_packages, args.max_files_per_zip)
+
     if args.dry_run:
         print()
         print("Dry run only. No zip created.")
+
+        if args.max_files_per_zip is None:
+            print()
+            print("Included files:")
+            for file_path in included_files:
+                print(f"  {file_path.relative_to(project_root).as_posix()}")
+        return 0
+
+    if args.max_files_per_zip is not None:
+        created_zip_paths: list[Path] = []
+        for zip_filename, files in split_packages:
+            part_zip_path = output_dir / zip_filename
+            create_zip(
+                zip_path=part_zip_path,
+                project_root=project_root,
+                top_folder=top_folder,
+                included_files=files,
+                manifest_text=None,
+            )
+            created_zip_paths.append(part_zip_path)
+
+        manifest_filename = f"{args.zip_prefix}-{timestamp}-manifest.txt"
+        manifest_path = output_dir / manifest_filename
+        split_manifest_text = build_split_manifest(
+            project_root=project_root,
+            included_files=included_files,
+            excluded_items=excluded_items,
+            include_runtime_app=args.include_runtime_app,
+            include_backups=args.include_backups,
+            include_db_poc=args.include_db_poc,
+            include_tools=args.include_tools,
+            max_file_mb=args.max_file_mb,
+            max_files_per_zip=args.max_files_per_zip,
+            split_packages=split_packages,
+        )
+        manifest_path.write_text(split_manifest_text, encoding="utf-8")
+
         print()
-        print("Included files:")
-        for file_path in included_files:
-            print(f"  {file_path.relative_to(project_root).as_posix()}")
+        print("Created split zips:")
+        for created_zip_path in created_zip_paths:
+            final_size_mb = created_zip_path.stat().st_size / (1024 * 1024)
+            print(f"  {created_zip_path} ({final_size_mb:.2f} MB)")
+
+        print(f"External manifest:   {manifest_path}")
+        print()
+        print("Upload the split zip files when you want Gemini analysis.")
+        print("Use the external manifest to see which project files are in each part.")
+        print()
         return 0
 
     create_zip(
