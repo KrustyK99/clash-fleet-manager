@@ -505,7 +505,7 @@ def build_split_zip_filename(
     part_width = max(2, len(str(part_count)))
     return (
         f"{zip_prefix}-{timestamp}-"
-        f"part{part_index:0{part_width}d}-of{part_count:0{part_width}d}.zip"
+        f"part{part_index:0{part_width}d}-of-{part_count:0{part_width}d}.zip"
     )
 
 
