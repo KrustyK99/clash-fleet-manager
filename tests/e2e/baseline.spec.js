@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-snapshot-meta-actions\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-timer-entry-actions-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-snapshot-import-actions\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-lifecycle-actions\.js|app-timer-runtime\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js|app-timer-list-render-ui\.js|app-backup-io-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-snapshot-meta-actions\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-timer-entry-actions-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-snapshot-import-actions\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-lifecycle-actions\.js|app-timer-runtime\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js|app-timer-list-render-ui\.js|app-backup-io-ui\.js|app-main\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -63,6 +63,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-fleet-summary-ui.js')).toBe(200);
   expect(assetResponses.get('app-timer-list-render-ui.js')).toBe(200);
   expect(assetResponses.get('app-backup-io-ui.js')).toBe(200);
+  expect(assetResponses.get('app-main.js')).toBe(200);
 
   const assets = await page.evaluate(() => ({
     stylesheets: Array.from(document.styleSheets).map(sheet => sheet.href || ''),
@@ -95,6 +96,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-fleet-summary-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-list-render-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-backup-io-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-main.js'))).toBeTruthy();
 
   const globalsLoaded = await page.evaluate(() => ({
     hasUpgradeTypes: Array.isArray(window.UPGRADE_TYPES),
@@ -143,7 +145,12 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasTimerCardUiFunction: typeof window.renderTimerCard === 'function',
     hasFleetSummaryUiFunction: typeof window.renderFleetSummaryModal === 'function',
     hasTimerListRenderUiFunction: typeof window.renderTimers === 'function',
-    hasBackupIoUiFunction: typeof window.exportTimers === 'function' && typeof window.importTimers === 'function'
+    hasBackupIoUiFunction: typeof window.exportTimers === 'function' && typeof window.importTimers === 'function',
+    hasMainAppFunction: typeof window.boot === 'function'
+      && typeof window.save === 'function'
+      && typeof window.load === 'function'
+      && typeof window.reloadTimerFile === 'function'
+      && typeof window.normalizeTimersAfterLoad === 'function'
   }));
 
   expect(globalsLoaded).toEqual({
@@ -171,7 +178,8 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasTimerCardUiFunction: true,
     hasFleetSummaryUiFunction: true,
     hasTimerListRenderUiFunction: true,
-    hasBackupIoUiFunction: true
+    hasBackupIoUiFunction: true,
+    hasMainAppFunction: true
   });
 });
 
