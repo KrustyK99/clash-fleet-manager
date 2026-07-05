@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-timer-entry-actions-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-lifecycle-actions\.js|app-timer-runtime\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js|app-timer-list-render-ui\.js|app-backup-io-ui\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-timer-entry-actions-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-snapshot-import-actions\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-lifecycle-actions\.js|app-timer-runtime\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js|app-timer-list-render-ui\.js|app-backup-io-ui\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -50,6 +50,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('app-ui-layout.js')).toBe(200);
   expect(assetResponses.get('app-snapshot-import-ui.js')).toBe(200);
   expect(assetResponses.get('app-snapshot-collector-ui.js')).toBe(200);
+  expect(assetResponses.get('app-snapshot-import-actions.js')).toBe(200);
   expect(assetResponses.get('app-timer-filters.js')).toBe(200);
   expect(assetResponses.get('app-account-summary.js')).toBe(200);
   expect(assetResponses.get('app-account-summary-ui.js')).toBe(200);
@@ -80,6 +81,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-ui-layout.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-snapshot-import-ui.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-snapshot-collector-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-snapshot-import-actions.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-timer-filters.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-summary-ui.js'))).toBeTruthy();
@@ -112,6 +114,10 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasLayoutFunction: typeof window.setupScrollTopButton === 'function',
     hasSnapshotImportUiFunction: typeof window.openSnapshotModal === 'function' && typeof window.renderSnapshotCandidates === 'function',
     hasSnapshotCollectorUiFunction: typeof window.openBatchSnapshotModal === 'function' && typeof window.renderBatchSnapshotRows === 'function',
+    hasSnapshotImportActionsFunction: typeof window.parseAccountSnapshot === 'function'
+      && typeof window.saveSnapshotTimers === 'function'
+      && typeof window.saveBatchSnapshotTimers === 'function'
+      && typeof window.applySnapshotImportForAccount === 'function',
     hasTimerFiltersFunction: typeof window.getVisibleTimerList === 'function',
     hasAccountSummaryFunction: typeof window.buildAccountSummaryRows === 'function',
     hasAccountSummaryUiFunction: typeof window.renderAccountSummary === 'function',
@@ -146,6 +152,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
     hasLayoutFunction: true,
     hasSnapshotImportUiFunction: true,
     hasSnapshotCollectorUiFunction: true,
+    hasSnapshotImportActionsFunction: true,
     hasTimerFiltersFunction: true,
     hasAccountSummaryFunction: true,
     hasAccountSummaryUiFunction: true,
