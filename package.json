@@ -13,7 +13,8 @@
     "ai:zip:dry": "python Tools/make-ai-review-zip.py --dry-run",
     "ai:zip:db": "python Tools/make-ai-review-zip.py --include-db-poc",
     "ai:zip:tools": "python Tools/make-ai-review-zip.py --include-tools",
-    "ai:zip:gemini": "python Tools/make-ai-review-zip.py --max-files-per-zip 10"
+    "ai:zip:gemini": "python Tools/make-ai-review-zip.py --max-files-per-zip 10",
+    "deploy:nas": "powershell -ExecutionPolicy Bypass -File .\\Tools\\deploy-to-nas.ps1"
   },
   "repository": {
     "type": "git",
