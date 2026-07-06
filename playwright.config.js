@@ -10,7 +10,10 @@ module.exports = defineConfig({
   // Useful CI safety rails, even though we are not wiring CI yet.
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // The PHP backend tests mutate file-backed JSON fixtures. Keep the suite in
+  // one worker so UI tests never read a file while an API contract test is
+  // truncating and rewriting it.
+  workers: 1,
 
   reporter: 'html',
 

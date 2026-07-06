@@ -1,4 +1,13 @@
 const { test, expect } = require('@playwright/test');
+const {
+  createApiContractClient,
+  resolveApiContractTarget
+} = require('../support/api-contract-client');
+const {
+  WRONG_LAST_UPDATED,
+  createTimerSavePayload,
+  createSavedViewsSavePayload
+} = require('../support/api-contract-fixtures');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -12,20 +21,23 @@ async function responseJson(response) {
   return await response.json();
 }
 
-async function loadTimers(request) {
-  const response = await request.get('/api.php?action=load');
+async function loadTimers(api) {
+  const response = await api.loadTimers();
   expect(response.status()).toBe(200);
   return await responseJson(response);
 }
 
-async function loadViews(request) {
-  const response = await request.get('/api.php?action=loadViews');
+async function loadViews(api) {
+  const response = await api.loadAccountViews();
   expect(response.status()).toBe(200);
   return await responseJson(response);
 }
 
 test('load returns the timer data contract', async ({ request }) => {
-  const response = await request.get('/api.php?action=load');
+  expect(resolveApiContractTarget().name).toBe('php');
+
+  const api = createApiContractClient(request);
+  const response = await api.loadTimers();
 
   expect(response.status()).toBe(200);
 
@@ -37,7 +49,8 @@ test('load returns the timer data contract', async ({ request }) => {
 });
 
 test('loadViews returns the saved-view and shared-settings contract', async ({ request }) => {
-  const response = await request.get('/api.php?action=loadViews');
+  const api = createApiContractClient(request);
+  const response = await api.loadAccountViews();
 
   expect(response.status()).toBe(200);
 
@@ -61,89 +74,79 @@ test('loadViews returns the saved-view and shared-settings contract', async ({ r
 });
 
 test('invalid and unsupported API calls return useful errors', async ({ request }) => {
-  const unknownAction = await request.get('/api.php?action=doesNotExist');
+  expect(() => resolveApiContractTarget({ target: 'fastapi' })).toThrow('Unsupported API_CONTRACT_TARGET: fastapi');
+
+  const api = createApiContractClient(request);
+
+  const unknownAction = await api.getUnsupportedAction();
   expect(unknownAction.status()).toBe(400);
   expect((await responseJson(unknownAction)).error).toBeTruthy();
 
-  const saveWithGet = await request.get('/api.php?action=save');
+  const saveWithGet = await api.getSaveTimers();
   expect(saveWithGet.status()).toBe(405);
   expect((await responseJson(saveWithGet)).error).toBeTruthy();
 
-  const saveViewsWithGet = await request.get('/api.php?action=saveViews');
+  const saveViewsWithGet = await api.getSaveAccountViews();
   expect(saveViewsWithGet.status()).toBe(405);
   expect((await responseJson(saveViewsWithGet)).error).toBeTruthy();
 
-  const invalidJson = await request.post('/api.php?action=save', {
-    headers: { 'Content-Type': 'application/json' },
-    data: '{'
+  const invalidJson = await api.saveTimersRaw('{', {
+    headers: { 'Content-Type': 'application/json' }
   });
   expect(invalidJson.status()).toBe(400);
   expect((await responseJson(invalidJson)).error).toBeTruthy();
 
-  const saveWithoutTimers = await request.post('/api.php?action=save', {
-    data: { lastKnownLastUpdated: null }
-  });
+  const saveWithoutTimers = await api.saveTimers({ lastKnownLastUpdated: null });
   expect(saveWithoutTimers.status()).toBe(400);
   expect((await responseJson(saveWithoutTimers)).error).toBeTruthy();
 
-  const saveViewsWithoutViews = await request.post('/api.php?action=saveViews', {
-    data: { lastKnownLastUpdated: null }
-  });
+  const saveViewsWithoutViews = await api.saveAccountViews({ lastKnownLastUpdated: null });
   expect(saveViewsWithoutViews.status()).toBe(400);
   expect((await responseJson(saveViewsWithoutViews)).error).toBeTruthy();
 });
 
 test('timer stale-save protection rejects old client data', async ({ request }) => {
-  const current = await loadTimers(request);
+  const api = createApiContractClient(request);
+  const current = await loadTimers(api);
   expect(typeof current.lastUpdated).toBe('string');
 
-  const response = await request.post('/api.php?action=save', {
-    data: {
-      lastKnownLastUpdated: 'deliberately-wrong-last-updated',
-      timers: current.timers,
-      accountSnapshotMeta: current.accountSnapshotMeta
-    }
-  });
+  const response = await api.saveTimers(createTimerSavePayload(current, {
+    lastKnownLastUpdated: WRONG_LAST_UPDATED
+  }));
 
   expect(response.status()).toBe(409);
 
   const error = await responseJson(response);
   expect(error.code).toBe('STALE_DATA');
   expect(error.currentLastUpdated).toBe(current.lastUpdated);
-  expect(error.lastKnownLastUpdated).toBe('deliberately-wrong-last-updated');
+  expect(error.lastKnownLastUpdated).toBe(WRONG_LAST_UPDATED);
 });
 
 test('saved-view stale-save protection rejects old client data', async ({ request }) => {
-  const current = await loadViews(request);
+  const api = createApiContractClient(request);
+  const current = await loadViews(api);
   expect(typeof current.lastUpdated).toBe('string');
 
-  const response = await request.post('/api.php?action=saveViews', {
-    data: {
-      lastKnownLastUpdated: 'deliberately-wrong-last-updated',
-      views: current.views,
-      snapshotFreshnessSettings: current.snapshotFreshnessSettings,
-      accountTagMap: current.accountTagMap
-    }
-  });
+  const response = await api.saveAccountViews(createSavedViewsSavePayload(current, {
+    lastKnownLastUpdated: WRONG_LAST_UPDATED
+  }));
 
   expect(response.status()).toBe(409);
 
   const error = await responseJson(response);
   expect(error.code).toBe('STALE_VIEWS');
   expect(error.currentLastUpdated).toBe(current.lastUpdated);
-  expect(error.lastKnownLastUpdated).toBe('deliberately-wrong-last-updated');
+  expect(error.lastKnownLastUpdated).toBe(WRONG_LAST_UPDATED);
 });
 
 test('timer save preserves accountSnapshotMeta when older clients omit it', async ({ request }) => {
-  const before = await loadTimers(request);
+  const api = createApiContractClient(request);
+  const before = await loadTimers(api);
   const existingMeta = before.accountSnapshotMeta;
 
-  const saveResponse = await request.post('/api.php?action=save', {
-    data: {
-      lastKnownLastUpdated: before.lastUpdated,
-      timers: before.timers
-    }
-  });
+  const saveResponse = await api.saveTimers(createTimerSavePayload(before, {
+    accountSnapshotMeta: undefined
+  }));
 
   expect(saveResponse.status()).toBe(200);
 
@@ -155,22 +158,21 @@ test('timer save preserves accountSnapshotMeta when older clients omit it', asyn
   expect(saveResult.backupCreated.length).toBeGreaterThan(0);
   expect(saveResult.backupCreated.startsWith('timers-')).toBeTruthy();
 
-  const after = await loadTimers(request);
+  const after = await loadTimers(api);
   expect(after.accountSnapshotMeta).toEqual(existingMeta);
   expect(after.lastUpdated).toBe(saveResult.lastUpdated);
 });
 
 test('saved-view save preserves shared settings when older clients omit them', async ({ request }) => {
-  const before = await loadViews(request);
+  const api = createApiContractClient(request);
+  const before = await loadViews(api);
   const existingFreshnessSettings = before.snapshotFreshnessSettings;
   const existingAccountTagMap = before.accountTagMap;
 
-  const saveResponse = await request.post('/api.php?action=saveViews', {
-    data: {
-      lastKnownLastUpdated: before.lastUpdated,
-      views: before.views
-    }
-  });
+  const saveResponse = await api.saveAccountViews(createSavedViewsSavePayload(before, {
+    snapshotFreshnessSettings: undefined,
+    accountTagMap: undefined
+  }));
 
   expect(saveResponse.status()).toBe(200);
 
@@ -182,7 +184,7 @@ test('saved-view save preserves shared settings when older clients omit them', a
   expect(saveResult.backupCreated.length).toBeGreaterThan(0);
   expect(saveResult.backupCreated.startsWith('account-views-')).toBeTruthy();
 
-  const after = await loadViews(request);
+  const after = await loadViews(api);
   expect(after.snapshotFreshnessSettings).toEqual(existingFreshnessSettings);
   expect(after.accountTagMap).toEqual(existingAccountTagMap);
   expect(after.lastUpdated).toBe(saveResult.lastUpdated);
