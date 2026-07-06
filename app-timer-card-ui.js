@@ -1,8 +1,39 @@
 // Timer card rendering helpers extracted from index.html.
 // Classic browser script: these functions intentionally read existing global app state.
 
+function getTimerProgressPercent(t) {
+  return t.duration > 0 ? Math.round(100*(1 - t.remaining/t.duration)) : 100;
+}
+
+function getTimerStatusLabel(t) {
+  return String(t.status || '').charAt(0).toUpperCase() + String(t.status || '').slice(1);
+}
+
+function getTimerSecondaryText(t) {
+  const showEndTime = (cardModes[t.id] === 'endtime');
+
+  if (t.status === 'running' || t.status === 'paused') {
+    const elapsed = t.duration - t.remaining;
+    if (showEndTime && t.endTime) {
+      return `ends ${fmtDateTime(t.endTime)}`;
+    }
+    return `elapsed ${fmt(elapsed)}`;
+  }
+
+  if (t.status === 'expired') {
+    if (showEndTime) {
+      const expiredAt = t.expiredAt || t.finishedAt;
+      const when = fmtDateTime(expiredAt);
+      return when ? `expired ${when}` : 'expired time not recorded';
+    }
+    return `elapsed ${fmtDuration(t.duration)}`;
+  }
+
+  return '';
+}
+
 function renderTimerCard(t) {
-  const pct = t.duration > 0 ? Math.round(100*(1 - t.remaining/t.duration)) : 100;
+  const pct = getTimerProgressPercent(t);
   const isPaused = t.status==='paused';
   const isRunning = t.status==='running';
   const isExpired = t.status==='expired';
@@ -39,28 +70,11 @@ function renderTimerCard(t) {
         ? `<button class="btn btn-sm copy-mode-card-action" onclick="applyCopiedTimerDataToTarget(${idArg}, event)" title="Paste copied timer data here and keep this timer's note/comment">Paste</button>`
         : `<button class="btn btn-sm btn-icon" onclick="beginTimerDataCopy(${idArg}, event)" title="Use this timer as the copy-data source">⧉</button>`));
   // Secondary info: elapsed or end time
-  const showEndTime = (cardModes[t.id] === 'endtime');
-  let secondaryText = '';
-  if (t.status === 'running' || t.status === 'paused') {
-    const elapsed = t.duration - t.remaining;
-    if (showEndTime && t.endTime) {
-      secondaryText = `ends ${fmtDateTime(t.endTime)}`;
-    } else {
-      secondaryText = `elapsed ${fmt(elapsed)}`;
-    }
-  } else if (t.status === 'expired') {
-    if (showEndTime) {
-      const expiredAt = t.expiredAt || t.finishedAt;
-      const when = fmtDateTime(expiredAt);
-      secondaryText = when ? `expired ${when}` : 'expired time not recorded';
-    } else {
-      secondaryText = `elapsed ${fmtDuration(t.duration)}`;
-    }
-  }
+  const secondaryText = getTimerSecondaryText(t);
   const secondaryEl = (!deleteSelectionMode && secondaryText)
-    ? `<span class="timer-secondary" onclick="toggleCardMode('${t.id}')" title="Click to switch view">⇄ ${secondaryText}</span>`
+    ? `<span class="timer-secondary" data-timer-secondary onclick="toggleCardMode('${t.id}')" title="Click to switch view">⇄ ${secondaryText}</span>`
     : '';
-  return `<div class="timer-card ${t.status}${isPinned ? ' pinned' : ''}${actionsExpanded ? ' actions-expanded' : ''}${deleteSelectionMode ? ' delete-selectable' : ''}${isDeleteSelected ? ' delete-selected' : ''}${isCopySource ? ' copy-source' : ''}${isCopyTargetable ? ' copy-targetable' : ''}" id="tc-${t.id}" onclick="handleTimerCardClick(event, ${idArg})" aria-selected="${isDeleteSelected ? 'true' : 'false'}">
+  return `<div class="timer-card ${t.status}${isPinned ? ' pinned' : ''}${actionsExpanded ? ' actions-expanded' : ''}${deleteSelectionMode ? ' delete-selectable' : ''}${isDeleteSelected ? ' delete-selected' : ''}${isCopySource ? ' copy-source' : ''}${isCopyTargetable ? ' copy-targetable' : ''}" id="tc-${t.id}" data-timer-id="${esc(t.id)}" onclick="handleTimerCardClick(event, ${idArg})" aria-selected="${isDeleteSelected ? 'true' : 'false'}">
     <div class="card-left">
       <div class="card-title-row">
         ${deleteSelectControl}
@@ -70,14 +84,14 @@ function renderTimerCard(t) {
       <div class="card-top">
         ${getAccount(t)?`<span class="timer-group-badge">${esc(getAccount(t))}</span>`:''}
         ${upgradeType?`<span class="timer-type-badge" title="${esc(upgradeType)}">${esc(upgradeTypeLabel)}</span>`:''}
-        <span class="timer-due-badge ${due.cls}" title="${esc(due.label)}">${dueLabel}</span>
+        <span class="timer-due-badge ${due.cls}" data-timer-due title="${esc(due.label)}">${dueLabel}</span>
         ${repeatIcon}${soundIcon}
       </div>
-      <div class="timer-display${deleteSelectionMode ? '' : ' adjustable'}"${deleteSelectionMode ? ' title="Tap card to select for deletion"' : ` onclick="toggleTimerAdjustPanel(${idArg})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTimerAdjustPanel(${idArg})}" role="button" tabindex="0" title="Tap to adjust remaining time"`}>${fmt(t.remaining)}</div>
-      <div class="timer-meta">of ${fmtDuration(t.duration)} · ${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</div>
+      <div class="timer-display${deleteSelectionMode ? '' : ' adjustable'}" data-timer-remaining${deleteSelectionMode ? ' title="Tap card to select for deletion"' : ` onclick="toggleTimerAdjustPanel(${idArg})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTimerAdjustPanel(${idArg})}" role="button" tabindex="0" title="Tap to adjust remaining time"`}>${fmt(t.remaining)}</div>
+      <div class="timer-meta" data-timer-status>of ${fmtDuration(t.duration)} · ${getTimerStatusLabel(t)}</div>
       ${secondaryEl}
       ${t.note?`<div class="timer-note" title="${esc(t.note)}">📝 ${esc(t.note)}</div>`:''}
-      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="progress-bar"><div class="progress-fill" data-timer-progress style="width:${pct}%"></div></div>
     </div>
     <div class="card-right">
       ${deleteSelectionMode

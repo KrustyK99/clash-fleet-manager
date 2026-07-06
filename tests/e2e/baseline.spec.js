@@ -163,7 +163,9 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
       && typeof window.resetExpired === 'function',
     hasTimerRuntimeFunction: typeof window.tick === 'function'
       && typeof window.renderTimersSafely === 'function'
-      && typeof window.playAlert === 'function',
+      && typeof window.playAlert === 'function'
+      && typeof window.updateTimerCardRuntimeFields === 'function'
+      && typeof window.refreshVisibleTimerRuntimeFields === 'function',
     hasTimerCardUiFunction: typeof window.renderTimerCard === 'function',
     hasFleetSummaryUiFunction: typeof window.renderFleetSummaryModal === 'function',
     hasTimerListRenderUiFunction: typeof window.renderTimers === 'function',
@@ -241,6 +243,80 @@ test('extracted app configuration is available to the browser app', async ({ pag
   expect(config.freshnessSettings.agingHours).toBeGreaterThan(
     config.freshnessSettings.freshHours
   );
+});
+
+test('running timer tick updates runtime fields without rebuilding filter UI', async ({ page }) => {
+  await page.goto('/');
+
+  const probe = await page.evaluate(() => {
+    if (tickInterval) {
+      clearInterval(tickInterval);
+      tickInterval = null;
+    }
+
+    const now = Date.now();
+    timers = [{
+      id: 'lightweight-tick-probe',
+      name: 'Lightweight Tick Probe',
+      duration: 120,
+      remaining: 60,
+      status: 'running',
+      endTime: now + 59000,
+      repeat: false,
+      sound: false,
+      created: now - 1000,
+      account: 'Probe Account',
+      group: 'Probe Account',
+      upgradeType: 'Builder',
+      note: '',
+      pinned: false,
+      expiredAt: null
+    }];
+    sortKey = 'name';
+    sortDir = 1;
+    filterGroup = 'All';
+    filterDue = 'All';
+    filterType = 'All';
+    filterStatus = 'All';
+    filterPinned = false;
+    selectedAccountView = 'all';
+    expandedAccount = null;
+    expandedGapType = null;
+    deleteSelectionMode = false;
+    selectedTimerIds = new Set();
+    timerCopySourceId = null;
+    cardModes = {};
+
+    renderTimers();
+
+    const dueMarker = document.querySelector('#due-bar .group-pill');
+    const summaryMarker = document.querySelector('#account-summary .account-summary-table');
+    dueMarker.dataset.tickProbe = 'kept';
+    if (summaryMarker) summaryMarker.dataset.tickProbe = 'kept';
+
+    const remainingEl = document.querySelector('#tc-lightweight-tick-probe [data-timer-remaining]');
+    const progressEl = document.querySelector('#tc-lightweight-tick-probe [data-timer-progress]');
+    const beforeText = remainingEl.textContent;
+    const beforeProgress = progressEl.style.width;
+
+    tick();
+
+    return {
+      beforeText,
+      afterText: remainingEl.textContent,
+      beforeProgress,
+      afterProgress: progressEl.style.width,
+      dueMarkerKept: document.querySelector('#due-bar .group-pill[data-tick-probe="kept"]') === dueMarker,
+      summaryMarkerKept: summaryMarker
+        ? document.querySelector('#account-summary .account-summary-table[data-tick-probe="kept"]') === summaryMarker
+        : true
+    };
+  });
+
+  expect(probe.afterText).not.toBe(probe.beforeText);
+  expect(probe.afterProgress).not.toBe(probe.beforeProgress);
+  expect(probe.dueMarkerKept).toBeTruthy();
+  expect(probe.summaryMarkerKept).toBeTruthy();
 });
 
 test('new timer modal static selects are populated and note template fills note field', async ({ page }) => {
@@ -850,7 +926,7 @@ test('fleet summary modal opens', async ({ page }) => {
   await page.locator('#fleet-summary-btn').click();
 
   await expect(page.getByRole('heading', { name: /fleet summary/i })).toBeVisible();
-  await expect(page.getByText(/Active timers/i)).toBeVisible();
+  await expect(page.locator('.fleet-kpi-label').getByText('Active timers', { exact: true })).toBeVisible();
   const matrixSection = page.locator('#fleet-section-matrix');
   await expect(matrixSection).toBeVisible();
   await expect(matrixSection.locator('.fleet-panel-title').getByText(/Queue coverage matrix/i)).toBeVisible();

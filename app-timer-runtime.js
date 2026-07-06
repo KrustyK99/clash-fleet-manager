@@ -37,18 +37,70 @@ function playAlert() {
 }
 
 // ── Timer logic ────────────────────────────────────────────────────────────
+function getVisibleTimerIdList() {
+  return getVisibleTimerList().map(t => String(t.id));
+}
+
+function timerIdListsMatch(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  return a.every((id, index) => id === b[index]);
+}
+
+function getTimerCardElement(t) {
+  if (!t || t.id === undefined || t.id === null) return null;
+  return document.getElementById(`tc-${t.id}`);
+}
+
+function updateTimerCardRuntimeFields(t) {
+  const card = getTimerCardElement(t);
+  if (!card) return false;
+
+  const remainingEl = card.querySelector('[data-timer-remaining]');
+  if (remainingEl) remainingEl.textContent = fmt(t.remaining);
+
+  const statusEl = card.querySelector('[data-timer-status]');
+  if (statusEl) statusEl.textContent = `of ${fmtDuration(t.duration)} · ${getTimerStatusLabel(t)}`;
+
+  const secondaryEl = card.querySelector('[data-timer-secondary]');
+  if (secondaryEl) {
+    const secondaryText = getTimerSecondaryText(t);
+    if (secondaryText) secondaryEl.textContent = `⇄ ${secondaryText}`;
+  }
+
+  const progressEl = card.querySelector('[data-timer-progress]');
+  if (progressEl) progressEl.style.width = `${getTimerProgressPercent(t)}%`;
+
+  const dueEl = card.querySelector('[data-timer-due]');
+  if (dueEl) {
+    const due = dueWindow(t);
+    dueEl.className = `timer-due-badge ${due.cls}`;
+    dueEl.title = due.label;
+    dueEl.textContent = compactMode ? due.key : due.label;
+  }
+
+  return true;
+}
+
+function refreshVisibleTimerRuntimeFields(changedTimers) {
+  (changedTimers || []).forEach(updateTimerCardRuntimeFields);
+}
+
 function tick() {
-  let needsRender = false;
+  let needsFullRender = false;
   let needsSave = false;
+  const changedTimers = [];
+  const beforeVisibleTimerIds = getVisibleTimerIdList();
   const now = Date.now();
 
   timers.forEach(t => {
     if (t.status !== 'running') return;
 
+    const beforeDueKey = dueWindow(t).key;
     const rem = Math.ceil((t.endTime - now) / 1000);
     if (rem !== t.remaining) {
       t.remaining = Math.max(0, rem);
-      needsRender = true;
+      changedTimers.push(t);
+      if (dueWindow(t).key !== beforeDueKey) needsFullRender = true;
     }
 
     if (t.remaining <= 0) {
@@ -66,12 +118,24 @@ function tick() {
         toast(`⏰ ${t.name} expired!`, 'expired');
       }
       needsSave = true;
-      needsRender = true;
+      needsFullRender = true;
     }
   });
 
   // Do not save every one-second countdown tick to the NAS.
   // Running timers can be recalculated from endTime on any device.
   if (needsSave) save();
-  if (needsRender) renderTimersSafely();
+
+  if (!changedTimers.length && !needsFullRender) return;
+
+  if (!needsFullRender) {
+    const afterVisibleTimerIds = getVisibleTimerIdList();
+    needsFullRender = !timerIdListsMatch(beforeVisibleTimerIds, afterVisibleTimerIds);
+  }
+
+  if (needsFullRender) {
+    renderTimersSafely();
+  } else {
+    refreshVisibleTimerRuntimeFields(changedTimers);
+  }
 }
