@@ -25,7 +25,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   page.on('response', response => {
     const url = response.url();
 
-    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-snapshot-meta-actions\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-timer-entry-actions-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-snapshot-import-actions\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-lifecycle-actions\.js|app-timer-runtime\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js|app-timer-list-render-ui\.js|app-backup-io-ui\.js|app-api-client\.js|app-main\.js|app-bootstrap\.js)(\?|$)/.test(url)) {
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-state\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-snapshot-meta-actions\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-timer-entry-actions-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-snapshot-import-actions\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-lifecycle-actions\.js|app-timer-runtime\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js|app-timer-list-render-ui\.js|app-backup-io-ui\.js|app-api-client\.js|app-main\.js|app-bootstrap\.js)(\?|$)/.test(url)) {
       assetResponses.set(url.split('/').pop().split('?')[0], response.status());
     }
   });
@@ -40,6 +40,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assetResponses.get('styles.css')).toBe(200);
   expect(assetResponses.get('coc-data-map.js')).toBe(200);
   expect(assetResponses.get('app-config.js')).toBe(200);
+  expect(assetResponses.get('app-state.js')).toBe(200);
   expect(assetResponses.get('app-utils.js')).toBe(200);
   expect(assetResponses.get('app-snapshot-meta.js')).toBe(200);
   expect(assetResponses.get('app-account-views.js')).toBe(200);
@@ -75,6 +76,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.stylesheets.some(href => href.endsWith('/styles.css'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/coc-data-map.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-config.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-state.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-utils.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-snapshot-meta.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-account-views.js'))).toBeTruthy();
@@ -102,9 +104,14 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(assets.scripts.some(src => src.endsWith('/app-main.js'))).toBeTruthy();
   expect(assets.scripts.some(src => src.endsWith('/app-bootstrap.js'))).toBeTruthy();
 
+  const configScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-config.js'));
+  const stateScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-state.js'));
+  const utilsScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-utils.js'));
   const apiClientScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-api-client.js'));
   const mainScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-main.js'));
   const bootstrapScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-bootstrap.js'));
+  expect(stateScriptIndex).toBe(configScriptIndex + 1);
+  expect(utilsScriptIndex).toBe(stateScriptIndex + 1);
   expect(apiClientScriptIndex).toBe(mainScriptIndex - 1);
   expect(bootstrapScriptIndex).toBe(mainScriptIndex + 1);
   expect(bootstrapScriptIndex).toBe(assets.scripts.length - 1);
@@ -112,6 +119,10 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   const globalsLoaded = await page.evaluate(() => ({
     hasUpgradeTypes: Array.isArray(window.UPGRADE_TYPES),
     hasDataMap: !!window.COC_DATA_ID_MAP,
+    hasCoreState: typeof timers !== 'undefined'
+      && Array.isArray(timers)
+      && typeof filterGroup === 'string'
+      && typeof saveInFlight === 'boolean',
     hasUtilityFunction: typeof window.fmt === 'function',
     hasSnapshotMetaFunction: typeof window.getSnapshotFreshness === 'function',
     hasAccountViewsFunction: typeof window.getSelectedAccountView === 'function',
@@ -172,6 +183,7 @@ test('extracted CSS and script files load successfully', async ({ page }) => {
   expect(globalsLoaded).toEqual({
     hasUpgradeTypes: true,
     hasDataMap: true,
+    hasCoreState: true,
     hasUtilityFunction: true,
     hasSnapshotMetaFunction: true,
     hasAccountViewsFunction: true,
