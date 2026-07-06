@@ -6,44 +6,38 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from .json_store import (
-    BadPayloadError,
-    JsonStoreError,
-    StaleDataError,
-    load_account_views,
-    load_timers,
-    save_account_views,
-    save_timers,
-)
+from .errors import BadPayloadError, StaleDataError, StoreError
+from .store_factory import create_store
 
 app = FastAPI(title="Clash Fleet Manager Compatibility API")
+store = create_store()
 
 
 @app.api_route("/api.php", methods=["GET", "POST"])
 async def api_php(request: Request, action: str = "load") -> JSONResponse:
     try:
         if action == "load":
-            return json_response(load_timers())
+            return json_response(store.load_timers())
 
         if action == "loadViews":
-            return json_response(load_account_views())
+            return json_response(store.load_account_views())
 
         if action == "save":
             if request.method != "POST":
                 return json_response({"error": "Save requires POST"}, status_code=405)
             incoming = await read_json_payload(request)
-            return json_response(save_timers(incoming))
+            return json_response(store.save_timers(incoming))
 
         if action == "saveViews":
             if request.method != "POST":
                 return json_response({"error": "Save views requires POST"}, status_code=405)
             incoming = await read_json_payload(request)
-            return json_response(save_account_views(incoming))
+            return json_response(store.save_account_views(incoming))
 
         return json_response({"error": "Unknown action"}, status_code=400)
     except StaleDataError as exc:
         return json_response(exc.to_payload(), status_code=exc.status_code)
-    except JsonStoreError as exc:
+    except StoreError as exc:
         return json_response({"error": exc.message}, status_code=exc.status_code)
 
 
