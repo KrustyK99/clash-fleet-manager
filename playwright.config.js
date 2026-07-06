@@ -1,6 +1,8 @@
 // @ts-check
 const { defineConfig, devices } = require('@playwright/test');
 
+const isFastApiContractTarget = process.env.API_CONTRACT_TARGET === 'fastapi';
+
 module.exports = defineConfig({
   testDir: './tests/e2e',
 
@@ -35,7 +37,7 @@ module.exports = defineConfig({
     }
   ],
 
-  webServer: {
+  webServer: isFastApiContractTarget ? undefined : {
     command: 'npm run prepare:test-app && npm run serve:test:docker',
     url: 'http://127.0.0.1:8011',
     reuseExistingServer: !process.env.CI,

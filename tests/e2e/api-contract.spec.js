@@ -34,7 +34,7 @@ async function loadViews(api) {
 }
 
 test('load returns the timer data contract', async ({ request }) => {
-  expect(resolveApiContractTarget().name).toBe('php');
+  expect(['php', 'fastapi']).toContain(resolveApiContractTarget().name);
 
   const api = createApiContractClient(request);
   const response = await api.loadTimers();
@@ -74,7 +74,8 @@ test('loadViews returns the saved-view and shared-settings contract', async ({ r
 });
 
 test('invalid and unsupported API calls return useful errors', async ({ request }) => {
-  expect(() => resolveApiContractTarget({ target: 'fastapi' })).toThrow('Unsupported API_CONTRACT_TARGET: fastapi');
+  expect(resolveApiContractTarget({ target: 'fastapi' }).name).toBe('fastapi');
+  expect(() => resolveApiContractTarget({ target: 'somethingelse' })).toThrow('Unsupported API_CONTRACT_TARGET: somethingelse');
 
   const api = createApiContractClient(request);
 

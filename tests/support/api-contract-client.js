@@ -8,17 +8,42 @@ const PHP_ENDPOINTS = {
   }
 };
 
+function buildFastApiEndpoints(baseUrl) {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+
+  return {
+    loadTimers: `${normalizedBaseUrl}/api.php?action=load`,
+    saveTimers: `${normalizedBaseUrl}/api.php?action=save`,
+    loadAccountViews: `${normalizedBaseUrl}/api.php?action=loadViews`,
+    saveAccountViews: `${normalizedBaseUrl}/api.php?action=saveViews`,
+    unsupportedAction(action) {
+      return `${normalizedBaseUrl}/api.php?action=${encodeURIComponent(action)}`;
+    }
+  };
+}
+
 function resolveApiContractTarget(options = {}) {
   const target = options.target || process.env.API_CONTRACT_TARGET || 'php';
 
-  if (target !== 'php') {
-    throw new Error(`Unsupported API_CONTRACT_TARGET: ${target}`);
+  if (target === 'php') {
+    return {
+      name: target,
+      endpoints: PHP_ENDPOINTS
+    };
   }
 
-  return {
-    name: target,
-    endpoints: PHP_ENDPOINTS
-  };
+  if (target === 'fastapi') {
+    const baseUrl = options.fastApiBaseUrl
+      || process.env.API_CONTRACT_FASTAPI_BASE_URL
+      || 'http://127.0.0.1:8001';
+
+    return {
+      name: target,
+      endpoints: buildFastApiEndpoints(baseUrl)
+    };
+  }
+
+  throw new Error(`Unsupported API_CONTRACT_TARGET: ${target}`);
 }
 
 function createApiContractClient(request, options = {}) {
