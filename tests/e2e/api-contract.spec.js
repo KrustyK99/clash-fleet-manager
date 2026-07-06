@@ -2,10 +2,6 @@ const { test, expect } = require('@playwright/test');
 
 test.describe.configure({ mode: 'serial' });
 
-test.beforeEach(async ({}, testInfo) => {
-  test.skip(testInfo.project.name === 'mobile-chrome', 'API contract tests only need to run once.');
-});
-
 function expectObject(value) {
   expect(value).not.toBeNull();
   expect(typeof value).toBe('object');

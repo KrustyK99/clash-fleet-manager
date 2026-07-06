@@ -27,6 +27,7 @@ module.exports = defineConfig({
     },
     {
       name: 'mobile-chrome',
+      testIgnore: /api-contract\.spec\.js/,
       use: { ...devices['Pixel 5'] }
     }
   ],
