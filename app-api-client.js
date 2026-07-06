@@ -4,12 +4,33 @@
 (function () {
   const API_URL = 'api.php';
 
-  async function requestJson(action, options = {}) {
-    const method = options.method || 'GET';
-    const body = options.body;
+  const ENDPOINTS = {
+    loadTimers: {
+      action: 'load',
+      method: 'GET'
+    },
+    saveTimers: {
+      action: 'save',
+      method: 'POST'
+    },
+    loadAccountViews: {
+      action: 'loadViews',
+      method: 'GET'
+    },
+    saveAccountViews: {
+      action: 'saveViews',
+      method: 'POST'
+    }
+  };
 
+  function buildActionUrl(endpoint) {
+    return `${API_URL}?action=${encodeURIComponent(endpoint.action)}`;
+  }
+
+  async function requestJson(endpointName, body) {
+    const endpoint = ENDPOINTS[endpointName];
     const fetchOptions = {
-      method,
+      method: endpoint.method,
       cache: 'no-store'
     };
 
@@ -18,7 +39,7 @@
       fetchOptions.body = JSON.stringify(body);
     }
 
-    const response = await fetch(`${API_URL}?action=${encodeURIComponent(action)}`, fetchOptions);
+    const response = await fetch(buildActionUrl(endpoint), fetchOptions);
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
@@ -34,25 +55,19 @@
 
   window.FleetApiClient = {
     loadTimers() {
-      return requestJson('load');
+      return requestJson('loadTimers');
     },
 
     saveTimers(payload) {
-      return requestJson('save', {
-        method: 'POST',
-        body: payload
-      });
+      return requestJson('saveTimers', payload);
     },
 
     loadAccountViews() {
-      return requestJson('loadViews');
+      return requestJson('loadAccountViews');
     },
 
     saveAccountViews(payload) {
-      return requestJson('saveViews', {
-        method: 'POST',
-        body: payload
-      });
+      return requestJson('saveAccountViews', payload);
     }
   };
 })();
