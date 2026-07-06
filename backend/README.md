@@ -5,7 +5,8 @@ intentionally preserves the existing legacy browser-facing contract instead of
 introducing a new API shape.
 
 The production app still uses `api.php` by default. This FastAPI app is an
-alternate compatibility target for API contract tests only.
+alternate compatibility target for API contract tests and the dedicated
+FastAPI-backed full-app E2E proof path.
 
 ## Endpoint
 
@@ -117,13 +118,47 @@ where the already-running FastAPI server is listening.
 These Playwright settings do not start FastAPI. The FastAPI server must already
 be running in a separate terminal.
 
+## Run the full browser app against FastAPI
+
+PHP remains the default/status quo E2E path. To prove the browser app can run
+through the FastAPI strangler backend, use the dedicated FastAPI E2E command:
+
+```powershell
+npm run test:e2e:fastapi
+```
+
+For line output:
+
+```powershell
+npm run verify:fastapi:e2e
+```
+
+This path still prepares the disposable `tests/runtime-app` directory. It then
+starts FastAPI on port `8001` with:
+
+```text
+FLEET_DATA_DIR=tests/runtime-app/data
+FLEET_SERVE_APP=1
+FLEET_APP_DIR=tests/runtime-app
+```
+
+`FLEET_SERVE_APP=1` is test-only. It tells FastAPI to serve the prepared browser
+app files from `FLEET_APP_DIR` on the same origin as `/api.php?action=...`, so
+the browser app can exercise the existing compatibility route without CORS or
+production data changes.
+
 ## Default PHP-backed app tests
 
 PHP remains the default app backend and default test target:
 
 ```powershell
-node tests/support/prepare-test-app.mjs
-npm.cmd run test:e2e -- --reporter=line
+npm run test:e2e
+```
+
+For line output:
+
+```powershell
+npm run verify:php
 ```
 
 The browser-facing frontend contract remains unchanged.

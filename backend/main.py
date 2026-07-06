@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .errors import BadPayloadError, StaleDataError, StoreError
 from .store_factory import create_store
@@ -57,3 +60,25 @@ async def read_json_payload(request: Request) -> dict[str, Any]:
 
 def json_response(payload: dict[str, Any], status_code: int = 200) -> JSONResponse:
     return JSONResponse(content=payload, status_code=status_code)
+
+
+def mount_test_app_if_enabled() -> None:
+    """Serve browser app files only for the disposable FastAPI E2E harness."""
+
+    if os.environ.get("FLEET_SERVE_APP") != "1":
+        return
+
+    configured_app_dir = os.environ.get("FLEET_APP_DIR")
+    if not configured_app_dir:
+        raise RuntimeError("FLEET_APP_DIR is required when FLEET_SERVE_APP=1")
+
+    app_dir = Path(configured_app_dir).expanduser().resolve()
+    index_file = app_dir / "index.html"
+
+    if not index_file.exists():
+        raise RuntimeError(f"FastAPI test app index.html was not found at {index_file}")
+
+    app.mount("/", StaticFiles(directory=app_dir, html=True), name="test-app")
+
+
+mount_test_app_if_enabled()

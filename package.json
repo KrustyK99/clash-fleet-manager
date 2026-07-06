@@ -21,7 +21,10 @@
     "ai:zip:db": "python Tools/make-ai-review-zip.py --include-db-poc",
     "ai:zip:tools": "python Tools/make-ai-review-zip.py --include-tools",
     "ai:zip:gemini": "python Tools/make-ai-review-zip.py --max-files-per-zip 10",
-    "deploy:nas": "powershell -ExecutionPolicy Bypass -File .\\Tools\\deploy-to-nas.ps1"
+    "deploy:nas": "powershell -ExecutionPolicy Bypass -File .\\Tools\\deploy-to-nas.ps1",
+    "serve:test:fastapi": "node tests/support/serve-fastapi-test-app.mjs",
+    "test:e2e:fastapi": "playwright test",
+    "verify:fastapi:e2e": "npm run test:e2e:fastapi -- --reporter=line"
   },
   "repository": {
     "type": "git",

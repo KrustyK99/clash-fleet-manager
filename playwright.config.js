@@ -1,7 +1,17 @@
 // @ts-check
 const { defineConfig, devices } = require('@playwright/test');
 
+const isFastApiAppTarget = process.env.APP_E2E_TARGET === 'fastapi'
+  || process.env.npm_lifecycle_event === 'test:e2e:fastapi'
+  || process.env.npm_lifecycle_event === 'verify:fastapi:e2e';
+
+if (isFastApiAppTarget) {
+  process.env.API_CONTRACT_TARGET = process.env.API_CONTRACT_TARGET || 'fastapi';
+  process.env.API_CONTRACT_FASTAPI_BASE_URL = process.env.API_CONTRACT_FASTAPI_BASE_URL || 'http://127.0.0.1:8001';
+}
+
 const isFastApiContractTarget = process.env.API_CONTRACT_TARGET === 'fastapi';
+const shouldUseExternallyManagedFastApi = isFastApiContractTarget && !isFastApiAppTarget;
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
@@ -20,7 +30,7 @@ module.exports = defineConfig({
   reporter: 'html',
 
   use: {
-    baseURL: 'http://127.0.0.1:8011',
+    baseURL: isFastApiAppTarget ? 'http://127.0.0.1:8001' : 'http://127.0.0.1:8011',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure'
   },
@@ -37,9 +47,11 @@ module.exports = defineConfig({
     }
   ],
 
-  webServer: isFastApiContractTarget ? undefined : {
-    command: 'npm run prepare:test-app && npm run serve:test:docker',
-    url: 'http://127.0.0.1:8011',
+  webServer: shouldUseExternallyManagedFastApi ? undefined : {
+    command: isFastApiAppTarget
+      ? 'npm run prepare:test-app && npm run serve:test:fastapi'
+      : 'npm run prepare:test-app && npm run serve:test:docker',
+    url: isFastApiAppTarget ? 'http://127.0.0.1:8001' : 'http://127.0.0.1:8011',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000
   }
