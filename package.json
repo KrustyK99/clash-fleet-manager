@@ -6,6 +6,13 @@
   "scripts": {
     "prepare:test-app": "node tests/support/prepare-test-app.mjs",
     "serve:test:docker": "docker run --rm -p 8011:8011 -v \"%cd%\\tests\\runtime-app:/app\" -w /app php:8.3-cli php -S 0.0.0.0:8011",
+    "verify:php": "node tests/support/prepare-test-app.mjs && set \"API_CONTRACT_TARGET=php\"&& playwright test --reporter=line",
+    "fastapi:serve": "node tests/support/prepare-test-app.mjs && set \"FLEET_DATA_DIR=%cd%\\tests\\runtime-app\\data\"&& .\\.venv\\Scripts\\python -m uvicorn backend.main:app --host 127.0.0.1 --port 8001",
+    "test:contract:fastapi": "set \"API_CONTRACT_TARGET=fastapi\"&& set \"API_CONTRACT_FASTAPI_BASE_URL=http://127.0.0.1:8001\"&& playwright test tests/e2e/api-contract.spec.js --project=chromium --reporter=line",
+    "verify:fastapi": "powershell -ExecutionPolicy Bypass -NoProfile -File .\\Tools\\verify-fastapi-contract.ps1",
+    "test:contract:php": "set \"API_CONTRACT_TARGET=php\"&& playwright test tests/e2e/api-contract.spec.js --project=chromium --reporter=line",
+    "test:api-client": "playwright test tests/e2e/api-client.spec.js --project=chromium --reporter=line",
+    "test:list": "playwright test --list",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
