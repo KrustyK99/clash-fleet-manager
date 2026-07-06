@@ -97,6 +97,12 @@ test('invalid and unsupported API calls return useful errors', async ({ request 
   expect(invalidJson.status()).toBe(400);
   expect((await responseJson(invalidJson)).error).toBeTruthy();
 
+  const invalidViewsJson = await api.saveAccountViewsRaw('{', {
+    headers: { 'Content-Type': 'application/json' }
+  });
+  expect(invalidViewsJson.status()).toBe(400);
+  expect((await responseJson(invalidViewsJson)).error).toBeTruthy();
+
   const saveWithoutTimers = await api.saveTimers({ lastKnownLastUpdated: null });
   expect(saveWithoutTimers.status()).toBe(400);
   expect((await responseJson(saveWithoutTimers)).error).toBeTruthy();
@@ -189,4 +195,93 @@ test('saved-view save preserves shared settings when older clients omit them', a
   expect(after.snapshotFreshnessSettings).toEqual(existingFreshnessSettings);
   expect(after.accountTagMap).toEqual(existingAccountTagMap);
   expect(after.lastUpdated).toBe(saveResult.lastUpdated);
+});
+
+test('saved-view save normalizes views, freshness settings, and account tag map', async ({ request }) => {
+  const api = createApiContractClient(request);
+  const before = await loadViews(api);
+  let after = null;
+
+  try {
+    const saveResponse = await api.saveAccountViews({
+      lastKnownLastUpdated: before.lastUpdated,
+      views: [
+        {
+          id: 'all',
+          label: 'Wrong label should normalize away',
+          accounts: ['Should not persist']
+        },
+        {
+          id: 'parity-view',
+          label: '  Parity View  ',
+          accounts: ['Bart', 'Bart', '', null, 'Zylink']
+        },
+        {
+          id: 'duplicate-view',
+          label: 'First duplicate wins',
+          accounts: ['Heisenberg']
+        },
+        {
+          id: 'duplicate-view',
+          label: 'Second duplicate is ignored',
+          accounts: ['Jesse Pinkman']
+        },
+        {
+          id: '',
+          label: 'Missing id is ignored',
+          accounts: ['Bart']
+        }
+      ],
+      snapshotFreshnessSettings: {
+        freshHours: 0,
+        agingHours: 0
+      },
+      accountTagMap: {
+        ' abc 123 ': ' Bart ',
+        '#def456': '',
+        '#AAA': 'Zylink',
+        '': 'Ignored'
+      }
+    });
+
+    expect(saveResponse.status()).toBe(200);
+    expect((await responseJson(saveResponse)).ok).toBe(true);
+
+    after = await loadViews(api);
+
+    expect(after.views[0]).toEqual({
+      id: 'all',
+      label: 'All Accounts',
+      accounts: null,
+      system: true
+    });
+
+    expect(after.views.find((view) => view.id === 'parity-view')).toEqual({
+      id: 'parity-view',
+      label: 'Parity View',
+      accounts: ['Bart', 'Zylink']
+    });
+
+    expect(after.views.filter((view) => view.id === 'duplicate-view')).toEqual([
+      {
+        id: 'duplicate-view',
+        label: 'First duplicate wins',
+        accounts: ['Heisenberg']
+      }
+    ]);
+
+    expect(after.views.some((view) => view.label === 'Missing id is ignored')).toBeFalsy();
+    expect(after.snapshotFreshnessSettings).toEqual({ freshHours: 1, agingHours: 2 });
+    expect(after.accountTagMap).toEqual({
+      '#AAA': 'Zylink',
+      '#ABC123': 'Bart'
+    });
+  } finally {
+    if (after && after.lastUpdated) {
+      const restoreResponse = await api.saveAccountViews(createSavedViewsSavePayload(before, {
+        lastKnownLastUpdated: after.lastUpdated
+      }));
+      expect(restoreResponse.status()).toBe(200);
+    }
+  }
 });

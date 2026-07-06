@@ -86,6 +86,13 @@ function createApiContractClient(request, options = {}) {
         headers: options.headers,
         data: rawBody
       });
+    },
+
+    saveAccountViewsRaw(rawBody, options = {}) {
+      return request.post(endpoints.saveAccountViews, {
+        headers: options.headers,
+        data: rawBody
+      });
     }
   };
 }
