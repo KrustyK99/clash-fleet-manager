@@ -35,6 +35,7 @@ copyFileSync(join(root, 'app-timer-card-ui.js'), join(runtime, 'app-timer-card-u
 copyFileSync(join(root, 'app-fleet-summary-ui.js'), join(runtime, 'app-fleet-summary-ui.js'));
 copyFileSync(join(root, 'app-timer-list-render-ui.js'), join(runtime, 'app-timer-list-render-ui.js'));
 copyFileSync(join(root, 'app-backup-io-ui.js'), join(runtime, 'app-backup-io-ui.js'));
+copyFileSync(join(root, 'app-api-client.js'), join(runtime, 'app-api-client.js'));
 copyFileSync(join(root, 'app-main.js'), join(runtime, 'app-main.js'));
 copyFileSync(join(root, 'app-bootstrap.js'), join(runtime, 'app-bootstrap.js'));
 copyFileSync(join(root, 'api.php'), join(runtime, 'api.php'));
@@ -157,6 +158,10 @@ if (!existsSync(join(runtime, 'app-timer-list-render-ui.js'))) {
 
 if (!existsSync(join(runtime, 'app-backup-io-ui.js'))) {
   throw new Error('Runtime app-backup-io-ui.js was not created.');
+}
+
+if (!existsSync(join(runtime, 'app-api-client.js'))) {
+  throw new Error('Runtime app-api-client.js was not created.');
 }
 
 if (!existsSync(join(runtime, 'app-main.js'))) {

@@ -47,7 +47,6 @@ let selectedTimerIds = new Set();
 let timerCopySourceId = null;
 
 const STORAGE_KEY = 'timerdesk_v2';
-const API_URL = 'api.php';
 const EMERGENCY_BACKUP_KEY = STORAGE_KEY + '_emergency_backup';
 const FOCUS_MODE_KEY = STORAGE_KEY + '_focus_mode';
 const COMPACT_MODE_KEY = STORAGE_KEY + '_compact_mode';
@@ -145,9 +144,7 @@ function normalizeTimersAfterLoad() {
 
 async function loadAccountViews() {
   try {
-    const res = await fetch(`${API_URL}?action=loadViews`, { cache: 'no-store' });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Load views failed with HTTP ${res.status}`);
+    const data = await window.FleetApiClient.loadAccountViews();
 
     const payload = Array.isArray(data) ? {} : (data || {});
     accountViews = normalizeAccountViews(Array.isArray(data) ? data : data.views);
@@ -173,25 +170,13 @@ async function saveAccountViews(nextViews, nextFreshnessSettings=snapshotFreshne
   const quiet = options && options.quiet === true;
 
   try {
-    const res = await fetch(`${API_URL}?action=saveViews`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
-      body: JSON.stringify({
-        schemaVersion: 3,
-        lastKnownLastUpdated: accountViewsLastUpdated,
-        views: normalized,
-        snapshotFreshnessSettings: normalizedFreshnessSettings,
-        accountTagMap: normalizedAccountTagMap
-      })
+    const data = await window.FleetApiClient.saveAccountViews({
+      schemaVersion: 3,
+      lastKnownLastUpdated: accountViewsLastUpdated,
+      views: normalized,
+      snapshotFreshnessSettings: normalizedFreshnessSettings,
+      accountTagMap: normalizedAccountTagMap
     });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const err = new Error(data.error || `Save views failed with HTTP ${res.status}`);
-      err.code = data.code || '';
-      throw err;
-    }
 
     accountViews = normalized;
     snapshotFreshnessSettings = normalizedFreshnessSettings;
@@ -224,20 +209,12 @@ async function save() {
   let ok = false;
 
   try {
-    const res = await fetch(`${API_URL}?action=save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
-      body: JSON.stringify({
-        schemaVersion: 2,
-        lastKnownLastUpdated: serverLastUpdated,
-        timers,
-        accountSnapshotMeta
-      })
+    const data = await window.FleetApiClient.saveTimers({
+      schemaVersion: 2,
+      lastKnownLastUpdated: serverLastUpdated,
+      timers,
+      accountSnapshotMeta
     });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Save failed with HTTP ${res.status}`);
 
     serverLastUpdated = data.lastUpdated || serverLastUpdated;
     const stamp = serverLastUpdated ? new Date(serverLastUpdated).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : 'now';
@@ -272,9 +249,7 @@ async function load() {
   setSyncStatus('Loading…', 'saving');
 
   try {
-    const res = await fetch(`${API_URL}?action=load`, { cache: 'no-store' });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Load failed with HTTP ${res.status}`);
+    const data = await window.FleetApiClient.loadTimers();
 
     const payload = Array.isArray(data) ? {} : (data || {});
     timers = Array.isArray(data) ? data : (Array.isArray(data.timers) ? data.timers : []);
