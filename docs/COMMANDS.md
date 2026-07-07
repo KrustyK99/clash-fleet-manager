@@ -10,8 +10,10 @@ A low-cognitive-load command reference for the project. Keep this file open in V
 | Status quo / PHP full E2E | `npm run test:e2e` | Same practical target as `npm test`; explicit E2E name. |
 | FastAPI full E2E | `npm run test:e2e:fastapi` | Runs the same app E2E suite against the FastAPI path. |
 | PHP verification | `npm run verify:php` | Prepares the runtime app and runs the PHP/status-quo suite with line output. |
-| FastAPI contract verification | `npm run verify:fastapi` | Runs the PowerShell FastAPI contract verification wrapper. |
-| FastAPI E2E verification | `npm run verify:fastapi:e2e` | Runs the FastAPI E2E path with line output. |
+| FastAPI contract verification | `npm run verify:fastapi` | Runs the PowerShell FastAPI contract verification wrapper using the default JSON store. |
+| FastAPI MariaDB contract verification | `npm run verify:fastapi:mariadb` | Opt-in only. Requires disposable MariaDB test database variables. |
+| FastAPI E2E verification | `npm run verify:fastapi:e2e` | Runs the FastAPI E2E path with line output using the default JSON store. |
+| FastAPI MariaDB E2E verification | `npm run verify:fastapi:mariadb:e2e` | Optional full browser suite against FastAPI + MariaDB test DB. |
 | AI review zip | `npm run ai:zip` | Creates the normal AI review zip. |
 | AI review JSON | `npm run ai:json` | Creates structured JSON output for AI review. |
 | Gemini-friendly package | `npm run ai:gemini` | Creates split zip files with a 10-file-per-zip limit. |
@@ -30,6 +32,14 @@ npm test
 
 ```bash
 npm run test:e2e:fastapi
+```
+
+### Optional MariaDB FastAPI contract check
+
+Set the disposable `FLEET_TEST_MARIADB_*` variables first, then run:
+
+```bash
+npm run verify:fastapi:mariadb
 ```
 
 ### Create an AI review package
@@ -89,7 +99,9 @@ This is the complete script list from `package.json`, grouped by intent.
 |---|---|
 | `verify:php` | `node tests/support/prepare-test-app.mjs && set "API_CONTRACT_TARGET=php"&& playwright test --reporter=line` |
 | `verify:fastapi` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\verify-fastapi-contract.ps1` |
+| `verify:fastapi:mariadb` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\verify-fastapi-mariadb-contract.ps1` |
 | `verify:fastapi:e2e` | `npm run test:e2e:fastapi -- --reporter=line` |
+| `verify:fastapi:mariadb:e2e` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\verify-fastapi-mariadb-e2e.ps1` |
 
 ### Local serving / test harness
 
@@ -102,6 +114,7 @@ This is the complete script list from `package.json`, grouped by intent.
 | `serve:test:fastapi` | `npm run _serve:fastapi` |
 | `fastapi:serve` | `npm run serve:api:fastapi` |
 | `prepare:test-app` | `node tests/support/prepare-test-app.mjs` |
+| `prepare:mariadb:test-db` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\prepare-mariadb-test-db.ps1 -ClearData -SeedFixtures` |
 | `_serve:php` | `docker run --rm -p 8011:8011 -v "%cd%\tests\runtime-app:/app" -w /app php:8.3-cli php -S 0.0.0.0:8011` |
 | `_serve:fastapi` | `node tests/support/serve-fastapi-test-app.mjs` |
 
@@ -138,7 +151,7 @@ This is the complete script list from `package.json`, grouped by intent.
 - `_serve:*` scripts are internal helpers. Prefer the friendlier `serve:*` commands unless Playwright or another wrapper needs the old name.
 - `serve:test:*` aliases are intentionally preserved because Playwright configuration may still call those names.
 
-## Optional MariaDB backend tests
+## Optional MariaDB validation
 
 JSON remains the default store. The normal backend test command does not require
 MariaDB:
@@ -147,12 +160,32 @@ MariaDB:
 npm run test:backend
 ```
 
-MariaDB integration tests are opt-in and require explicit test database
-environment variables plus `FLEET_ALLOW_MARIADB_TEST_WRITES=1`:
+MariaDB integration tests and verification wrappers are opt-in and require
+explicit disposable test database variables plus `FLEET_ALLOW_MARIADB_TEST_WRITES=1`:
 
-```bash
-npm run test:backend:mariadb
+```powershell
+$env:FLEET_TEST_MARIADB_HOST = "127.0.0.1"
+$env:FLEET_TEST_MARIADB_PORT = "3306"
+$env:FLEET_TEST_MARIADB_DATABASE = "clash_fleet_manager_test"
+$env:FLEET_TEST_MARIADB_USER = "fleet_test_user"
+$env:FLEET_TEST_MARIADB_PASSWORD = "..."
+$env:FLEET_ALLOW_MARIADB_TEST_WRITES = "1"
 ```
 
-Apply `backend/db/mariadb_schema.sql` manually to the test database before using
-`FLEET_STORE_BACKEND=mariadb` outside the tests.
+The database name must contain `test`. Do not use production credentials.
+
+```bash
+npm run prepare:mariadb:test-db
+npm run test:backend:mariadb
+npm run verify:fastapi:mariadb
+```
+
+Optional full browser E2E proof against MariaDB:
+
+```bash
+npm run verify:fastapi:mariadb:e2e
+```
+
+These commands apply `backend/db/mariadb_schema.sql` to the disposable test
+database and seed the API/E2E verification path from `tests/fixtures/data`.
+They do not make MariaDB the default and they do not migrate production data.

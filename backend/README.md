@@ -37,12 +37,16 @@ backend/main.py
     ↓
 backend/store.py
     ↓
-backend/stores/json_file_store.py
+backend/store_factory.py
+    ↓
+backend/stores/json_file_store.py      # default/status quo
+backend/stores/mariadb_store.py        # opt-in MariaDB test path
 ```
 
-For now, `JsonFileStore` is the only real implementation. The seam exists so a
-future MariaDB-backed store can be introduced without changing the `/api.php`
-compatibility route contract.
+`JsonFileStore` remains the default implementation. `MariaDbStore` is an
+explicitly selected bridge store for proving MariaDB behind the same `/api.php`
+compatibility route. It stores the existing aggregate API documents; it is not a
+normalized production data model.
 
 ## Data files
 
@@ -169,7 +173,8 @@ The browser-facing frontend contract remains unchanged.
 
 ## Store backend selection
 
-JSON-file storage remains the default FastAPI backend store.
+JSON-file storage remains the default FastAPI backend store. Leaving
+`FLEET_STORE_BACKEND` unset uses JSON.
 
 ```powershell
 $env:FLEET_STORE_BACKEND = "json"
@@ -182,23 +187,26 @@ $env:FLEET_STORE_BACKEND = "mariadb"
 $env:FLEET_MARIADB_HOST = "127.0.0.1"
 $env:FLEET_MARIADB_PORT = "3306"
 $env:FLEET_MARIADB_DATABASE = "clash_fleet_manager_test"
-$env:FLEET_MARIADB_USER = "fleet_user"
+$env:FLEET_MARIADB_USER = "fleet_test_user"
 $env:FLEET_MARIADB_PASSWORD = "..."
 ```
 
-Apply the schema manually before starting FastAPI with the MariaDB store:
+Apply the schema before starting FastAPI with the MariaDB store:
 
 ```text
 backend/db/mariadb_schema.sql
 ```
 
-This schema stores the current aggregate documents (`timers` and `account_views`)
-behind the existing `FleetStore` contract. It does not normalize timers, migrate
-production data, or change the `/api.php?action=...` compatibility route.
+This schema stores the current aggregate documents (`timers` and
+`account_views`) behind the existing `FleetStore` contract. It does not normalize
+timers, migrate production data, or change the `/api.php?action=...`
+compatibility route.
 
-Optional MariaDB integration tests are skipped unless an explicit test database
-is configured. The database name must contain `test`, and writes require the
-extra opt-in variable.
+## Disposable MariaDB test database
+
+MariaDB validation must use a disposable test database. The test database name
+must contain `test`, and destructive setup/reset actions require the extra write
+allowance variable.
 
 ```powershell
 $env:FLEET_TEST_MARIADB_HOST = "127.0.0.1"
@@ -207,5 +215,41 @@ $env:FLEET_TEST_MARIADB_DATABASE = "clash_fleet_manager_test"
 $env:FLEET_TEST_MARIADB_USER = "fleet_test_user"
 $env:FLEET_TEST_MARIADB_PASSWORD = "..."
 $env:FLEET_ALLOW_MARIADB_TEST_WRITES = "1"
+```
+
+Prepare the disposable test database from the project schema and seeded test
+fixtures:
+
+```powershell
+npm run prepare:mariadb:test-db
+```
+
+Run the optional MariaDB backend store contract tests:
+
+```powershell
 npm run test:backend:mariadb
 ```
+
+Run the FastAPI API contract against MariaDB:
+
+```powershell
+npm run verify:fastapi:mariadb
+```
+
+Optionally run the full FastAPI browser E2E suite against MariaDB:
+
+```powershell
+npm run verify:fastapi:mariadb:e2e
+```
+
+The existing default JSON safety paths stay unchanged:
+
+```powershell
+npm run test:backend
+npm run verify:fastapi
+npm run verify:fastapi:e2e
+```
+
+Do not use production credentials or production-looking database names for any
+MariaDB validation command. This phase proves the opt-in store path only; it does
+not migrate production data.

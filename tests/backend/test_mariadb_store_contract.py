@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -107,6 +108,29 @@ def _backup_count(connection: Any, doc_key: str) -> int:
     return int(row["count"])
 
 
+def _seed_document(connection: Any, doc_key: str, payload: dict[str, Any]) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO fleet_documents
+                (doc_key, schema_version, last_updated, payload_json)
+            VALUES
+                (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                schema_version = VALUES(schema_version),
+                last_updated = VALUES(last_updated),
+                payload_json = VALUES(payload_json)
+            """,
+            (
+                doc_key,
+                payload["schemaVersion"],
+                payload.get("lastUpdated"),
+                json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+            ),
+        )
+    connection.commit()
+
+
 def test_load_timers_initializes_default_document(store):
     payload = store.load_timers()
 
@@ -116,6 +140,63 @@ def test_load_timers_initializes_default_document(store):
         "timers": [],
         "accountSnapshotMeta": {},
     }
+
+
+def test_load_timers_preserves_existing_timer_fields(store, mariadb_connection):
+    timer = {
+        "id": "timer-1",
+        "account": "Bart",
+        "type": "builder",
+        "name": "Archer Tower",
+        "finishTime": "2026-07-08T10:30:00Z",
+        "notes": "Keep this manual note",
+        "pinned": True,
+        "unknownFutureField": {"preserve": True},
+    }
+    _seed_document(
+        mariadb_connection,
+        "timers",
+        {
+            "schemaVersion": 2,
+            "lastUpdated": "2026-07-07T10:00:00Z",
+            "timers": [timer],
+            "accountSnapshotMeta": {
+                "Bart": {
+                    "lastLoadedAt": "2026-07-07T09:00:00Z",
+                    "tag": "#ABC123",
+                    "candidateCount": 3,
+                    "selectedCount": 2,
+                }
+            },
+        },
+    )
+
+    payload = store.load_timers()
+
+    assert payload["schemaVersion"] == 2
+    assert payload["lastUpdated"] == "2026-07-07T10:00:00Z"
+    assert payload["timers"] == [timer]
+    assert payload["accountSnapshotMeta"]["Bart"]["candidateCount"] == 3
+
+
+def test_load_timers_normalizes_missing_collection_fields(store, mariadb_connection):
+    _seed_document(
+        mariadb_connection,
+        "timers",
+        {
+            "schemaVersion": 1,
+            "lastUpdated": "2026-07-07T10:00:00Z",
+            "timers": "not a list",
+            "accountSnapshotMeta": "not an object",
+        },
+    )
+
+    payload = store.load_timers()
+
+    assert payload["schemaVersion"] == 2
+    assert payload["lastUpdated"] == "2026-07-07T10:00:00Z"
+    assert payload["timers"] == []
+    assert payload["accountSnapshotMeta"] == {}
 
 
 def test_save_timers_writes_payload_creates_backup_and_rejects_stale_save(store, mariadb_connection):
@@ -175,6 +256,38 @@ def test_save_timers_writes_payload_creates_backup_and_rejects_stale_save(store,
     assert stale["lastKnownLastUpdated"] is None
 
 
+def test_save_timers_preserves_existing_snapshot_meta_when_older_client_omits_it(store, mariadb_connection):
+    existing_meta = {
+        "Bart": {
+            "lastLoadedAt": "2026-07-07T14:00:00Z",
+            "tag": "#BART",
+            "candidateCount": 3,
+            "selectedCount": 2,
+            "builderCapacity": {"homeTotal": 6},
+        }
+    }
+    _seed_document(
+        mariadb_connection,
+        "timers",
+        {
+            "schemaVersion": 2,
+            "lastUpdated": "2026-07-07T10:00:00Z",
+            "timers": [],
+            "accountSnapshotMeta": existing_meta,
+        },
+    )
+
+    result = store.save_timers(
+        {
+            "lastKnownLastUpdated": "2026-07-07T10:00:00Z",
+            "timers": [{"id": "timer-1", "account": "Bart"}],
+        }
+    )
+
+    assert result["ok"] is True
+    assert store.load_timers()["accountSnapshotMeta"] == existing_meta
+
+
 def test_save_timers_requires_timers_array(store):
     with pytest.raises(BadPayloadError):
         store.save_timers({"lastKnownLastUpdated": None})
@@ -193,6 +306,53 @@ def test_load_account_views_initializes_default_document(store):
     }
     assert payload["snapshotFreshnessSettings"] == DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS
     assert payload["accountTagMap"] == {}
+
+
+def test_load_account_views_normalizes_existing_and_legacy_settings(store, mariadb_connection):
+    _seed_document(
+        mariadb_connection,
+        "account_views",
+        {
+            "schemaVersion": 2,
+            "lastUpdated": "2026-07-07T10:00:00Z",
+            "views": [
+                {
+                    "id": "all",
+                    "label": "Wrong label",
+                    "accounts": ["Should not persist"],
+                },
+                {
+                    "id": "focus",
+                    "label": "  Focus Accounts  ",
+                    "accounts": ["Bart", "Bart", "", None, "Zylink"],
+                },
+            ],
+            "settings": {
+                "snapshotFreshnessSettings": {"freshHours": "6", "agingHours": "24"},
+                "accountTagMap": {" abc123 ": " Bart ", "#zzz": "Zylink", "": "ignored"},
+            },
+        },
+    )
+
+    payload = store.load_account_views()
+
+    assert payload["schemaVersion"] == 3
+    assert payload["lastUpdated"] == "2026-07-07T10:00:00Z"
+    assert payload["views"] == [
+        {
+            "id": "all",
+            "label": "All Accounts",
+            "accounts": None,
+            "system": True,
+        },
+        {
+            "id": "focus",
+            "label": "Focus Accounts",
+            "accounts": ["Bart", "Zylink"],
+        },
+    ]
+    assert payload["snapshotFreshnessSettings"] == {"freshHours": 6, "agingHours": 24}
+    assert payload["accountTagMap"] == {"#ABC123": "Bart", "#ZZZ": "Zylink"}
 
 
 def test_save_account_views_normalizes_settings_creates_backup_and_rejects_stale_save(
@@ -238,6 +398,37 @@ def test_save_account_views_normalizes_settings_creates_backup_and_rejects_stale
     assert stale["code"] == "STALE_VIEWS"
     assert stale["currentLastUpdated"] == result["lastUpdated"]
     assert stale["lastKnownLastUpdated"] is None
+
+
+def test_save_account_views_preserves_shared_settings_when_older_client_omits_them(store, mariadb_connection):
+    existing_settings = {"freshHours": 8, "agingHours": 36}
+    existing_tag_map = {"#BART": "Bart", "#ZYLINK": "Zylink"}
+    _seed_document(
+        mariadb_connection,
+        "account_views",
+        {
+            "schemaVersion": 3,
+            "lastUpdated": "2026-07-07T10:00:00Z",
+            "views": [{"id": "all", "label": "All Accounts", "accounts": None, "system": True}],
+            "snapshotFreshnessSettings": existing_settings,
+            "accountTagMap": existing_tag_map,
+        },
+    )
+
+    result = store.save_account_views(
+        {
+            "lastKnownLastUpdated": "2026-07-07T10:00:00Z",
+            "views": [
+                {"id": "all", "label": "All Accounts", "accounts": None, "system": True},
+                {"id": "focus", "label": "Focus", "accounts": ["Bart"]},
+            ],
+        }
+    )
+
+    assert result["ok"] is True
+    payload = store.load_account_views()
+    assert payload["snapshotFreshnessSettings"] == existing_settings
+    assert payload["accountTagMap"] == existing_tag_map
 
 
 def test_save_account_views_requires_views_array(store):
