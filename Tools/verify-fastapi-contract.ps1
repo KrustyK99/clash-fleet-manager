@@ -1,3 +1,8 @@
+param(
+    [ValidateSet("json", "mariadb")]
+    [string]$StoreBackend = "json"
+)
+
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
@@ -20,10 +25,36 @@ try {
         throw "Could not find the project virtual environment Python at .venv\Scripts\python.exe. Create/activate the venv and install backend requirements first."
     }
 
+    $env:FLEET_STORE_BACKEND = $StoreBackend
+    if ($StoreBackend -eq "json") {
+        # Keep the default verification path explicit and immune to stale shell
+        # MariaDB variables from a previous opt-in test session.
+        Remove-Item Env:\FLEET_MARIADB_HOST -ErrorAction SilentlyContinue
+        Remove-Item Env:\FLEET_MARIADB_PORT -ErrorAction SilentlyContinue
+        Remove-Item Env:\FLEET_MARIADB_DATABASE -ErrorAction SilentlyContinue
+        Remove-Item Env:\FLEET_MARIADB_USER -ErrorAction SilentlyContinue
+        Remove-Item Env:\FLEET_MARIADB_PASSWORD -ErrorAction SilentlyContinue
+    }
+    else {
+        $MissingMariaDbVars = @(
+            @(
+                "FLEET_MARIADB_HOST",
+                "FLEET_MARIADB_DATABASE",
+                "FLEET_MARIADB_USER",
+                "FLEET_MARIADB_PASSWORD"
+            ) | Where-Object { -not [Environment]::GetEnvironmentVariable($_) }
+        )
+
+        if (@($MissingMariaDbVars).Count -gt 0) {
+            throw "MariaDB store verification is missing: $($MissingMariaDbVars -join ', ')."
+        }
+    }
+
     $env:FLEET_DATA_DIR = Join-Path $Root "tests\runtime-app\data"
     $env:API_CONTRACT_TARGET = "fastapi"
     $env:API_CONTRACT_FASTAPI_BASE_URL = "http://127.0.0.1:8001"
 
+    Write-Host "Using FastAPI store backend: $env:FLEET_STORE_BACKEND"
     Write-Host "Starting FastAPI on $env:API_CONTRACT_FASTAPI_BASE_URL ..."
     $ServerProcess = Start-Process `
         -FilePath $Python `

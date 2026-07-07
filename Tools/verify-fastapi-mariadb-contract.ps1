@@ -19,7 +19,7 @@ try {
     $env:FLEET_MARIADB_PASSWORD = $env:FLEET_TEST_MARIADB_PASSWORD
 
     Write-Host "Running FastAPI API contract verification with FLEET_STORE_BACKEND=mariadb..."
-    & (Join-Path $PSScriptRoot "verify-fastapi-contract.ps1")
+    & (Join-Path $PSScriptRoot "verify-fastapi-contract.ps1") -StoreBackend mariadb
     exit $LASTEXITCODE
 }
 finally {

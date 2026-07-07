@@ -46,7 +46,9 @@ backend/stores/mariadb_store.py        # opt-in MariaDB test path
 `JsonFileStore` remains the default implementation. `MariaDbStore` is an
 explicitly selected bridge store for proving MariaDB behind the same `/api.php`
 compatibility route. It stores the existing aggregate API documents; it is not a
-normalized production data model.
+normalized production data model. The default FastAPI verification wrapper
+explicitly selects JSON so stale MariaDB shell variables cannot change the
+normal path by accident.
 
 ## Data files
 
@@ -141,6 +143,8 @@ For line output:
 npm run verify:fastapi:e2e
 ```
 
+The verification command forces Playwright to start a fresh FastAPI test server instead of reusing a server that may already be listening on port `8001`.
+
 This path still prepares the disposable `tests/runtime-app` directory. It then
 starts FastAPI on port `8001` with:
 
@@ -174,7 +178,8 @@ The browser-facing frontend contract remains unchanged.
 ## Store backend selection
 
 JSON-file storage remains the default FastAPI backend store. Leaving
-`FLEET_STORE_BACKEND` unset uses JSON.
+`FLEET_STORE_BACKEND` unset uses JSON. The one-command default verifier,
+`npm run verify:fastapi`, also forces JSON explicitly.
 
 ```powershell
 $env:FLEET_STORE_BACKEND = "json"
@@ -241,6 +246,8 @@ Optionally run the full FastAPI browser E2E suite against MariaDB:
 ```powershell
 npm run verify:fastapi:mariadb:e2e
 ```
+
+This wrapper forces Playwright to start a fresh FastAPI server, which prevents accidental reuse of a JSON-backed FastAPI process on port `8001`.
 
 The existing default JSON safety paths stay unchanged:
 

@@ -8,8 +8,9 @@ This runbook documents the current PHP/status quo runtime path and the FastAPI c
 - FastAPI remains opt-in.
 - The browser-facing API contract remains `/api.php?action=...`.
 - FastAPI exposes a PHP-compatible `/api.php?action=...` route.
-- Both backends currently use JSON-file persistence.
-- MariaDB/database migration work is not part of the current runtime.
+- PHP and the default FastAPI verification path use JSON-file persistence.
+- MariaDB exists only as an explicit, disposable test-store path behind the same `/api.php?action=...` contract.
+- MariaDB validation does not migrate production data and does not make MariaDB the default runtime.
 - Production deployment behavior has not been changed.
 
 ## Backend defaults
@@ -37,12 +38,12 @@ FastAPI is deliberately explicit. Do not point `test:e2e` at FastAPI until a fut
 | `npm test` | PHP/status quo | Yes, through Playwright `webServer` | `tests/runtime-app/data` | No | Alias for `npm run test:e2e:php`. |
 | `npm run test:e2e` | PHP/status quo | Yes, through Playwright `webServer` | `tests/runtime-app/data` | No | Default full browser E2E path. Keep this as PHP until an intentional cutover. |
 | `npm run test:e2e:php` | PHP/status quo | Yes, through Playwright `webServer` | `tests/runtime-app/data` | No | Explicit PHP full browser E2E path. |
-| `npm run verify:php` | PHP/status quo | Yes, through Playwright `webServer` | `tests/runtime-app/data` | No | Prepares the test app and runs the full browser suite with line reporter. |
+| `npm run verify:php` | PHP/status quo | Yes, through Playwright `webServer` | `tests/runtime-app/data` | No | Prepares the test app and runs the full browser suite with line reporter. May reuse the expected local PHP/Docker server on port `8011`. |
 | `npm run test:e2e:fastapi` | FastAPI compatibility | Yes, through Playwright `webServer` and `tests/support/serve-fastapi-test-app.mjs` | `tests/runtime-app/data` via `FLEET_DATA_DIR` | No | Dedicated FastAPI full browser E2E path. FastAPI remains opt-in. |
-| `npm run verify:fastapi:e2e` | FastAPI compatibility | Yes, through `test:e2e:fastapi` | `tests/runtime-app/data` via `FLEET_DATA_DIR` | No | FastAPI full browser E2E path with line reporter. |
+| `npm run verify:fastapi:e2e` | FastAPI compatibility | Yes, through `test:e2e:fastapi` | `tests/runtime-app/data` via `FLEET_DATA_DIR` | No | FastAPI full browser E2E path with line reporter. Forces a fresh test server. |
 | `npm run test:contract:php` | PHP/status quo | Yes, through Playwright `webServer` | `tests/runtime-app/data` | No | Runs only `tests/e2e/api-contract.spec.js` against the PHP runtime app. |
 | `npm run test:contract:fastapi` | FastAPI compatibility | No | Whatever the already-running FastAPI server uses | Depends on that server | Expects FastAPI to already be running at `API_CONTRACT_FASTAPI_BASE_URL`, default `http://127.0.0.1:8001`. |
-| `npm run verify:fastapi` | FastAPI compatibility | Yes, via `Tools/verify-fastapi-contract.ps1` | `tests/runtime-app/data` via `FLEET_DATA_DIR` | No | Windows PowerShell-oriented FastAPI contract verifier. Starts FastAPI, waits for readiness, runs API contract tests, then stops FastAPI. |
+| `npm run verify:fastapi` | FastAPI compatibility | Yes, via `Tools/verify-fastapi-contract.ps1` | `tests/runtime-app/data` via `FLEET_DATA_DIR` | No | Windows PowerShell-oriented FastAPI contract verifier. Explicitly forces `FLEET_STORE_BACKEND=json`, starts FastAPI, waits for readiness, runs API contract tests, then stops FastAPI. |
 | `npm run serve:php` | PHP/status quo | Yes | `tests/runtime-app/data` | No | Prepares the isolated runtime app, then runs the PHP server command. |
 | `npm run serve:fastapi` | FastAPI compatibility | Yes | `tests/runtime-app/data` via `FLEET_DATA_DIR` | No | Prepares the isolated runtime app, then runs the FastAPI test-app server wrapper. |
 | `npm run serve:api:fastapi` | FastAPI compatibility API only | Yes | `tests/runtime-app/data` via `FLEET_DATA_DIR` | No | Manual FastAPI API server command for Windows local use. Browser app serving is not enabled by this command. |
@@ -71,6 +72,8 @@ For line reporter output:
 npm run verify:php
 ```
 
+This command may reuse the expected local PHP/Docker server on port `8011`. If another unrelated process is using that port, stop the unrelated process before running the verification.
+
 ## Run the FastAPI E2E path
 
 ```bash
@@ -84,6 +87,8 @@ For line reporter output:
 ```bash
 npm run verify:fastapi:e2e
 ```
+
+The verification command sets `PLAYWRIGHT_REUSE_EXISTING_SERVER=0`, so it starts the intended disposable FastAPI server instead of reusing a server that may already be listening on port `8001`.
 
 ## Run PHP API contract tests
 
@@ -101,7 +106,7 @@ For the one-command Windows rehearsal path:
 npm run verify:fastapi
 ```
 
-This script prepares isolated runtime data, starts FastAPI on port `8001`, waits for readiness, runs the API contract tests, and stops FastAPI.
+This script prepares isolated runtime data, explicitly sets `FLEET_STORE_BACKEND=json`, starts FastAPI on port `8001`, waits for readiness, runs the API contract tests, and stops FastAPI. Explicitly selecting JSON keeps stale MariaDB shell variables from changing the default verification path by accident.
 
 If FastAPI is already running in another terminal:
 
@@ -137,6 +142,15 @@ Or use the package script:
 ```bash
 npm run fastapi:serve
 ```
+
+## Playwright server reuse safety
+
+By default, ordinary Playwright test commands may reuse an existing local server when one is already listening on the target port. The FastAPI E2E `verify:*` commands are stricter:
+
+- `npm run verify:fastapi:e2e` sets `PLAYWRIGHT_REUSE_EXISTING_SERVER=0`.
+- `npm run verify:fastapi:mariadb:e2e` sets `PLAYWRIGHT_REUSE_EXISTING_SERVER=0`.
+
+This matters most for the MariaDB E2E proof path. It prevents Playwright from accidentally reusing an already-running JSON-backed FastAPI process on port `8001` when the command is supposed to start a MariaDB-backed FastAPI process.
 
 ## Runtime/test data safety
 

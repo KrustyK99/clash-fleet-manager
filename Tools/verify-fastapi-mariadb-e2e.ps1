@@ -21,6 +21,7 @@ try {
     $env:APP_E2E_TARGET = "fastapi"
     $env:API_CONTRACT_TARGET = "fastapi"
     $env:API_CONTRACT_FASTAPI_BASE_URL = "http://127.0.0.1:8001"
+    $env:PLAYWRIGHT_REUSE_EXISTING_SERVER = "0"
 
     Write-Host "Running full FastAPI E2E suite with FLEET_STORE_BACKEND=mariadb..."
     & npx.cmd playwright test --reporter=line

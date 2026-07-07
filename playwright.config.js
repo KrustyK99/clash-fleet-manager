@@ -12,6 +12,11 @@ if (isFastApiAppTarget) {
 
 const isFastApiContractTarget = process.env.API_CONTRACT_TARGET === 'fastapi';
 const shouldUseExternallyManagedFastApi = isFastApiContractTarget && !isFastApiAppTarget;
+const shouldReuseExistingServer = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === '0'
+  ? false
+  : process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === '1'
+    ? true
+    : !process.env.CI;
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
@@ -52,7 +57,7 @@ module.exports = defineConfig({
       ? 'npm run prepare:test-app && npm run serve:test:fastapi'
       : 'npm run prepare:test-app && npm run serve:test:docker',
     url: isFastApiAppTarget ? 'http://127.0.0.1:8001' : 'http://127.0.0.1:8011',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: shouldReuseExistingServer,
     timeout: 120 * 1000
   }
 });

@@ -9,11 +9,11 @@ A low-cognitive-load command reference for the project. Keep this file open in V
 | Status quo / PHP full E2E | `npm test` | Default test command. Runs the PHP/status-quo E2E path. |
 | Status quo / PHP full E2E | `npm run test:e2e` | Same practical target as `npm test`; explicit E2E name. |
 | FastAPI full E2E | `npm run test:e2e:fastapi` | Runs the same app E2E suite against the FastAPI path. |
-| PHP verification | `npm run verify:php` | Prepares the runtime app and runs the PHP/status-quo suite with line output. |
-| FastAPI contract verification | `npm run verify:fastapi` | Runs the PowerShell FastAPI contract verification wrapper using the default JSON store. |
+| PHP verification | `npm run verify:php` | Prepares the runtime app and runs the PHP/status-quo suite with line output. May reuse the expected local PHP/Docker server on port `8011`. |
+| FastAPI contract verification | `npm run verify:fastapi` | Runs the PowerShell FastAPI contract verification wrapper and explicitly forces the default JSON store. |
 | FastAPI MariaDB contract verification | `npm run verify:fastapi:mariadb` | Opt-in only. Requires disposable MariaDB test database variables. |
-| FastAPI E2E verification | `npm run verify:fastapi:e2e` | Runs the FastAPI E2E path with line output using the default JSON store. |
-| FastAPI MariaDB E2E verification | `npm run verify:fastapi:mariadb:e2e` | Optional full browser suite against FastAPI + MariaDB test DB. |
+| FastAPI E2E verification | `npm run verify:fastapi:e2e` | Runs the FastAPI E2E path with line output using the default JSON store. Forces a fresh test server. |
+| FastAPI MariaDB E2E verification | `npm run verify:fastapi:mariadb:e2e` | Optional full browser suite against FastAPI + MariaDB test DB. Forces a fresh FastAPI server so it cannot accidentally reuse a JSON-backed server. |
 | AI review zip | `npm run ai:zip` | Creates the normal AI review zip. |
 | AI review JSON | `npm run ai:json` | Creates structured JSON output for AI review. |
 | Gemini-friendly package | `npm run ai:gemini` | Creates split zip files with a 10-file-per-zip limit. |
@@ -41,6 +41,16 @@ Set the disposable `FLEET_TEST_MARIADB_*` variables first, then run:
 ```bash
 npm run verify:fastapi:mariadb
 ```
+
+### Optional MariaDB FastAPI full E2E check
+
+Set the same disposable `FLEET_TEST_MARIADB_*` variables first, then run:
+
+```bash
+npm run verify:fastapi:mariadb:e2e
+```
+
+This verification wrapper forces Playwright to start a fresh FastAPI server, so it cannot accidentally reuse another server already listening on port `8001`.
 
 ### Create an AI review package
 
@@ -100,7 +110,7 @@ This is the complete script list from `package.json`, grouped by intent.
 | `verify:php` | `node tests/support/prepare-test-app.mjs && set "API_CONTRACT_TARGET=php"&& playwright test --reporter=line` |
 | `verify:fastapi` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\verify-fastapi-contract.ps1` |
 | `verify:fastapi:mariadb` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\verify-fastapi-mariadb-contract.ps1` |
-| `verify:fastapi:e2e` | `npm run test:e2e:fastapi -- --reporter=line` |
+| `verify:fastapi:e2e` | `set "PLAYWRIGHT_REUSE_EXISTING_SERVER=0"&& npm run test:e2e:fastapi -- --reporter=line` |
 | `verify:fastapi:mariadb:e2e` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\verify-fastapi-mariadb-e2e.ps1` |
 
 ### Local serving / test harness
@@ -152,6 +162,8 @@ This is the complete script list from `package.json`, grouped by intent.
 - `serve:test:*` aliases are intentionally preserved because Playwright configuration may still call those names.
 
 ## Optional MariaDB validation
+
+The default FastAPI contract verifier also forces `FLEET_STORE_BACKEND=json`, which keeps stale MariaDB shell variables from changing the normal FastAPI path by accident.
 
 JSON remains the default store. The normal backend test command does not require
 MariaDB:
