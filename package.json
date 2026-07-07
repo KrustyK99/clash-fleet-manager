@@ -43,7 +43,8 @@
     "ai:both:gemini": "python Tools/make-ai-review-zip.py --output-format both --max-files-per-zip 10",
     "ai:both:gemini:tools": "python Tools/make-ai-review-zip.py --include-tools --output-format both --max-files-per-zip 10",
     "deploy:nas": "powershell -ExecutionPolicy Bypass -File .\\Tools\\deploy-to-nas.ps1",
-    "test:backend": "python -m pytest tests/backend"
+    "test:backend": "python -m pytest tests/backend",
+    "test:backend:mariadb": "python -m pytest tests/backend -m mariadb"
   },
   "repository": {
     "type": "git",

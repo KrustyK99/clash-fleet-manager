@@ -137,3 +137,22 @@ This is the complete script list from `package.json`, grouped by intent.
 - `fastapi` means the new backend path being used for the strangler migration.
 - `_serve:*` scripts are internal helpers. Prefer the friendlier `serve:*` commands unless Playwright or another wrapper needs the old name.
 - `serve:test:*` aliases are intentionally preserved because Playwright configuration may still call those names.
+
+## Optional MariaDB backend tests
+
+JSON remains the default store. The normal backend test command does not require
+MariaDB:
+
+```bash
+npm run test:backend
+```
+
+MariaDB integration tests are opt-in and require explicit test database
+environment variables plus `FLEET_ALLOW_MARIADB_TEST_WRITES=1`:
+
+```bash
+npm run test:backend:mariadb
+```
+
+Apply `backend/db/mariadb_schema.sql` manually to the test database before using
+`FLEET_STORE_BACKEND=mariadb` outside the tests.

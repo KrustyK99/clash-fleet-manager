@@ -166,3 +166,46 @@ npm run verify:php
 ```
 
 The browser-facing frontend contract remains unchanged.
+
+## Store backend selection
+
+JSON-file storage remains the default FastAPI backend store.
+
+```powershell
+$env:FLEET_STORE_BACKEND = "json"
+```
+
+MariaDB is opt-in only:
+
+```powershell
+$env:FLEET_STORE_BACKEND = "mariadb"
+$env:FLEET_MARIADB_HOST = "127.0.0.1"
+$env:FLEET_MARIADB_PORT = "3306"
+$env:FLEET_MARIADB_DATABASE = "clash_fleet_manager_test"
+$env:FLEET_MARIADB_USER = "fleet_user"
+$env:FLEET_MARIADB_PASSWORD = "..."
+```
+
+Apply the schema manually before starting FastAPI with the MariaDB store:
+
+```text
+backend/db/mariadb_schema.sql
+```
+
+This schema stores the current aggregate documents (`timers` and `account_views`)
+behind the existing `FleetStore` contract. It does not normalize timers, migrate
+production data, or change the `/api.php?action=...` compatibility route.
+
+Optional MariaDB integration tests are skipped unless an explicit test database
+is configured. The database name must contain `test`, and writes require the
+extra opt-in variable.
+
+```powershell
+$env:FLEET_TEST_MARIADB_HOST = "127.0.0.1"
+$env:FLEET_TEST_MARIADB_PORT = "3306"
+$env:FLEET_TEST_MARIADB_DATABASE = "clash_fleet_manager_test"
+$env:FLEET_TEST_MARIADB_USER = "fleet_test_user"
+$env:FLEET_TEST_MARIADB_PASSWORD = "..."
+$env:FLEET_ALLOW_MARIADB_TEST_WRITES = "1"
+npm run test:backend:mariadb
+```
