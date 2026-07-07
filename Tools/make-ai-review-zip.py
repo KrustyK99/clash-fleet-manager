@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Build an AI-friendly project zip for code review / analysis.
+Build an AI-friendly project bundle for code review / analysis.
 
 Default behavior:
+- Creates a zip file.
 - Preserves folder structure.
 - Includes source files, docs, tests, fixtures, config files, etc.
 - Excludes generated/noisy folders such as:
@@ -27,19 +28,31 @@ Optional:
     python make-ai-review-zip.py --include-db-poc
     python make-ai-review-zip.py --include-tools
     python make-ai-review-zip.py --max-files-per-zip 10
+    python make-ai-review-zip.py --output-format json
+    python make-ai-review-zip.py --output-format both
     python make-ai-review-zip.py --dry-run
+
+Output formats:
+- zip: creates the original AI-friendly zip file. This remains the default.
+- json: creates one structured JSON file containing metadata plus file contents.
+- both: creates both the zip output and the structured JSON bundle.
 
 Gemini split mode:
 - Use --max-files-per-zip 10 to create multiple zip files when needed.
 - Split zip files contain project files only, so the limit applies to real files.
 - A single external manifest is written beside the split zip files.
 - Default single-zip behavior still includes README_FOR_AI.md inside the zip.
+- If --output-format json or both is used with --max-files-per-zip, the split
+  zip behavior still applies to zip output, while the JSON bundle is written as
+  a single companion file.
 """
 
 from __future__ import annotations
 
 import argparse
 import fnmatch
+import hashlib
+import json
 import os
 import sys
 from datetime import datetime
@@ -127,25 +140,37 @@ DEFAULT_TOOLING_PATH_PATTERNS = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Create an AI-friendly project zip while preserving folder structure."
+        description="Create an AI-friendly project bundle while preserving folder structure."
     )
 
     parser.add_argument(
         "--project-root",
         default=".",
-        help="Project root folder to zip. Default: current directory.",
+        help="Project root folder to bundle. Default: current directory.",
     )
 
     parser.add_argument(
         "--output-dir",
         default="ai-review-zips",
-        help="Folder where the zip file will be created. Default: ai-review-zips.",
+        help="Folder where output files will be created. Default: ai-review-zips.",
     )
 
     parser.add_argument(
         "--zip-prefix",
         default=DEFAULT_ZIP_PREFIX,
-        help=f"Zip filename prefix. Default: {DEFAULT_ZIP_PREFIX}.",
+        help=f"Output filename prefix. Default: {DEFAULT_ZIP_PREFIX}.",
+    )
+
+    parser.add_argument(
+        "--output-format",
+        choices=("zip", "json", "both"),
+        default="zip",
+        help=(
+            "Output format to create. "
+            "zip preserves the original behavior. "
+            "json creates one structured file containing metadata and file contents. "
+            "both creates both outputs. Default: zip."
+        ),
     )
 
     parser.add_argument(
@@ -605,6 +630,127 @@ def create_zip(
             zip_file.write(file_path, archive_path.as_posix())
 
 
+def file_sha256(file_path: Path) -> str:
+    digest = hashlib.sha256()
+
+    with file_path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+
+    return digest.hexdigest()
+
+
+def read_file_content_for_json(file_path: Path) -> tuple[str | None, str | None, bool, str | None]:
+    """
+    Return (content, encoding, is_binary, omitted_reason).
+
+    The collector already filters for source-oriented files, so most included
+    files should be UTF-8 text. This guard keeps JSON generation safe if a
+    binary or non-UTF-8 file slips through later.
+    """
+    try:
+        raw_bytes = file_path.read_bytes()
+    except OSError as exc:
+        return None, None, False, f"could not read file: {exc}"
+
+    if b"\x00" in raw_bytes:
+        return None, None, True, "binary file omitted from JSON content"
+
+    try:
+        return raw_bytes.decode("utf-8"), "utf-8", False, None
+    except UnicodeDecodeError:
+        return (
+            raw_bytes.decode("utf-8", errors="replace"),
+            "utf-8-with-replacement",
+            False,
+            "file was not valid UTF-8; invalid characters were replaced",
+        )
+
+
+def build_json_bundle(
+    project_root: Path,
+    top_folder: str,
+    included_files: list[Path],
+    excluded_items: list[tuple[Path, str]],
+    include_runtime_app: bool,
+    include_backups: bool,
+    include_db_poc: bool,
+    include_tools: bool,
+    max_file_mb: float,
+    max_files_per_zip: int | None,
+) -> dict:
+    total_bytes = sum(path.stat().st_size for path in included_files)
+
+    files = []
+    for file_path in included_files:
+        relative = file_path.relative_to(project_root).as_posix()
+        content, encoding, is_binary, omitted_reason = read_file_content_for_json(file_path)
+
+        file_entry = {
+            "path": relative,
+            "size_bytes": file_path.stat().st_size,
+            "sha256": file_sha256(file_path),
+            "encoding": encoding,
+            "is_binary": is_binary,
+            "content": content,
+        }
+
+        if omitted_reason is not None:
+            file_entry["content_omitted_reason"] = omitted_reason
+
+        files.append(file_entry)
+
+    excluded = []
+    for path, reason in excluded_items:
+        try:
+            relative = path.relative_to(project_root).as_posix()
+        except ValueError:
+            relative = str(path)
+
+        excluded.append({"path": relative, "reason": reason})
+
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "project": {
+            "name": project_root.name,
+            "top_folder": top_folder,
+        },
+        "options": {
+            "include_runtime_app": include_runtime_app,
+            "include_backups": include_backups,
+            "include_db_poc": include_db_poc,
+            "include_tools": include_tools,
+            "max_file_mb": max_file_mb,
+            "max_files_per_zip": max_files_per_zip,
+        },
+        "summary": {
+            "included_file_count": len(included_files),
+            "excluded_item_count": len(excluded_items),
+            "total_source_bytes": total_bytes,
+            "total_source_mb": round(total_bytes / (1024 * 1024), 3),
+        },
+        "review_guidance": {
+            "project_description": "Clash Fleet Manager app",
+            "recommended_approach": [
+                "Use the files array as the project file manifest.",
+                "Use each file object's path to preserve project structure.",
+                "Read only the files relevant to the user's task unless a full project review is requested.",
+                "Treat content as the exact text extracted from each included source file.",
+            ],
+        },
+        "files": files,
+        "excluded_items": excluded,
+    }
+
+
+def write_json_bundle(json_path: Path, bundle: dict) -> None:
+    json_path.write_text(
+        json.dumps(bundle, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> int:
     args = parse_args()
 
@@ -631,6 +777,9 @@ def main() -> int:
     zip_filename = f"{args.zip_prefix}-{timestamp}.zip"
     zip_path = output_dir / zip_filename
 
+    should_create_zip = args.output_format in {"zip", "both"}
+    should_create_json = args.output_format in {"json", "both"}
+
     included_files, excluded_items = collect_files(
         project_root=project_root,
         output_dir=output_dir,
@@ -656,16 +805,17 @@ def main() -> int:
     total_mb = total_bytes / (1024 * 1024)
 
     print()
-    print("AI review zip build")
-    print("-------------------")
+    print("AI review bundle build")
+    print("----------------------")
     print(f"Project root:        {project_root}")
+    print(f"Output format:       {args.output_format}")
     print(f"Top folder in zip:   {top_folder}")
     print(f"Files included:      {len(included_files)}")
     print(f"Approx source size:  {total_mb:.2f} MB")
     print(f"Excluded items:      {len(excluded_items)}")
 
     split_packages: list[tuple[str, list[Path]]] = []
-    if args.max_files_per_zip is not None:
+    if args.max_files_per_zip is not None and should_create_zip:
         chunks = chunk_files(included_files, args.max_files_per_zip)
         part_count = len(chunks)
         split_packages = [
@@ -684,32 +834,63 @@ def main() -> int:
 
     if args.dry_run:
         print()
-        print("Dry run only. No zip created.")
+        print("Dry run only. No output files created.")
 
-        if args.max_files_per_zip is None:
+        if not split_packages:
             print()
             print("Included files:")
             for file_path in included_files:
                 print(f"  {file_path.relative_to(project_root).as_posix()}")
         return 0
 
-    if args.max_files_per_zip is not None:
-        created_zip_paths: list[Path] = []
-        for zip_filename, files in split_packages:
-            part_zip_path = output_dir / zip_filename
+    created_zip_paths: list[Path] = []
+    manifest_path: Path | None = None
+
+    if should_create_zip:
+        if args.max_files_per_zip is not None:
+            for zip_filename, files in split_packages:
+                part_zip_path = output_dir / zip_filename
+                create_zip(
+                    zip_path=part_zip_path,
+                    project_root=project_root,
+                    top_folder=top_folder,
+                    included_files=files,
+                    manifest_text=None,
+                )
+                created_zip_paths.append(part_zip_path)
+
+            manifest_filename = f"{args.zip_prefix}-{timestamp}-manifest.txt"
+            manifest_path = output_dir / manifest_filename
+            split_manifest_text = build_split_manifest(
+                project_root=project_root,
+                included_files=included_files,
+                excluded_items=excluded_items,
+                include_runtime_app=args.include_runtime_app,
+                include_backups=args.include_backups,
+                include_db_poc=args.include_db_poc,
+                include_tools=args.include_tools,
+                max_file_mb=args.max_file_mb,
+                max_files_per_zip=args.max_files_per_zip,
+                split_packages=split_packages,
+            )
+            manifest_path.write_text(split_manifest_text, encoding="utf-8")
+        else:
             create_zip(
-                zip_path=part_zip_path,
+                zip_path=zip_path,
                 project_root=project_root,
                 top_folder=top_folder,
-                included_files=files,
-                manifest_text=None,
+                included_files=included_files,
+                manifest_text=manifest_text,
             )
-            created_zip_paths.append(part_zip_path)
+            created_zip_paths.append(zip_path)
 
-        manifest_filename = f"{args.zip_prefix}-{timestamp}-manifest.txt"
-        manifest_path = output_dir / manifest_filename
-        split_manifest_text = build_split_manifest(
+    json_path: Path | None = None
+    if should_create_json:
+        json_filename = f"{args.zip_prefix}-{timestamp}-ai-review.json"
+        json_path = output_dir / json_filename
+        json_bundle = build_json_bundle(
             project_root=project_root,
+            top_folder=top_folder,
             included_files=included_files,
             excluded_items=excluded_items,
             include_runtime_app=args.include_runtime_app,
@@ -718,38 +899,43 @@ def main() -> int:
             include_tools=args.include_tools,
             max_file_mb=args.max_file_mb,
             max_files_per_zip=args.max_files_per_zip,
-            split_packages=split_packages,
         )
-        manifest_path.write_text(split_manifest_text, encoding="utf-8")
+        write_json_bundle(json_path, json_bundle)
 
-        print()
-        print("Created split zips:")
-        for created_zip_path in created_zip_paths:
+    print()
+
+    if created_zip_paths:
+        if args.max_files_per_zip is not None:
+            print("Created split zips:")
+            for created_zip_path in created_zip_paths:
+                final_size_mb = created_zip_path.stat().st_size / (1024 * 1024)
+                print(f"  {created_zip_path} ({final_size_mb:.2f} MB)")
+
+            if manifest_path is not None:
+                print(f"External manifest:   {manifest_path}")
+        else:
+            created_zip_path = created_zip_paths[0]
             final_size_mb = created_zip_path.stat().st_size / (1024 * 1024)
-            print(f"  {created_zip_path} ({final_size_mb:.2f} MB)")
+            print(f"Created zip:         {created_zip_path}")
+            print(f"Zip size:            {final_size_mb:.2f} MB")
 
-        print(f"External manifest:   {manifest_path}")
-        print()
+    if json_path is not None:
+        final_json_size_mb = json_path.stat().st_size / (1024 * 1024)
+        print(f"Created JSON bundle: {json_path}")
+        print(f"JSON size:           {final_json_size_mb:.2f} MB")
+
+    print()
+
+    if should_create_zip and should_create_json:
+        print("Upload the zip output for normal AI analysis, or the JSON bundle when one attachment is easier.")
+    elif should_create_json:
+        print("Upload this JSON bundle when you want AI analysis with a single structured attachment.")
+    elif args.max_files_per_zip is not None:
         print("Upload the split zip files when you want Gemini analysis.")
         print("Use the external manifest to see which project files are in each part.")
-        print()
-        return 0
+    else:
+        print("Upload this zip when you want AI analysis.")
 
-    create_zip(
-        zip_path=zip_path,
-        project_root=project_root,
-        top_folder=top_folder,
-        included_files=included_files,
-        manifest_text=manifest_text,
-    )
-
-    final_size_mb = zip_path.stat().st_size / (1024 * 1024)
-
-    print()
-    print(f"Created zip:         {zip_path}")
-    print(f"Zip size:            {final_size_mb:.2f} MB")
-    print()
-    print("Upload this zip when you want AI analysis.")
     print()
 
     return 0
