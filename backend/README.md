@@ -8,6 +8,10 @@ The production app still uses `api.php` by default. This FastAPI app is an
 alternate compatibility target for API contract tests and the dedicated
 FastAPI-backed full-app E2E proof path.
 
+## Runtime readiness runbook
+
+For the PHP/FastAPI command inventory, runtime/test data safety notes, and future cutover rehearsal checklist, see [`FASTAPI_RUNBOOK.md`](FASTAPI_RUNBOOK.md).
+
 ## Endpoint
 
 The FastAPI app exposes the same compatibility path as the PHP backend:
