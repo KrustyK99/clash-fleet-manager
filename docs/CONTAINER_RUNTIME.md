@@ -43,7 +43,7 @@ npm run container:build
 npm run container:save
 ```
 
-This creates `clash-fleet-manager-fastapi-json-local.tar` from the already-built `clash-fleet-manager-fastapi-json:local` image. Use this only when importing the Phase 4A image into Synology Container Manager for the Phase 4B rehearsal.
+This creates `clash-fleet-manager-fastapi-json-local.tar` from the already-built `clash-fleet-manager-fastapi-json:local` image. Use this only when importing the Phase 4A image into Synology Docker for the Phase 4B rehearsal.
 
 ## Run the local container
 
@@ -158,7 +158,7 @@ npm run container:stop
 
 ## Synology rehearsal
 
-The Synology Container Manager rehearsal is documented separately in `docs/SYNOLOGY_CONTAINER_REHEARSAL.md`. It uses the same image shape, a separate Synology LAN-only port, and a disposable Synology JSON folder mounted to `/data`.
+The Synology Docker rehearsal is documented separately in `docs/SYNOLOGY_CONTAINER_REHEARSAL.md`. It uses the same image shape, a separate Synology LAN-only port, and a disposable Synology JSON folder mounted to `/data`.
 
 ## What not to do yet
 

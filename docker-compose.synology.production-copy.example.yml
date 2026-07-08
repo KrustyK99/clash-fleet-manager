@@ -1,0 +1,31 @@
+# Phase 4C-B Synology Docker production-copy rehearsal example.
+#
+# This file is a template only. It is for the safe production-copy rehearsal,
+# not the later real production-data mount.
+#
+# The host volume must point to a copied, disposable folder containing production
+# shaped JSON files. Do not point this volume at the live Web Station/PHP
+# production data folder.
+#
+# Intended path:
+#   Browser on LAN -> http://<synology-host-or-ip>:8003
+#     -> FastAPI container -> /api.php -> JsonFileStore -> copied JSON at /data
+
+services:
+  fastapi-json-prod-copy:
+    image: clash-fleet-manager-fastapi-json:local
+    container_name: clash-fleet-manager-fastapi-json-prod-copy
+    ports:
+      - "8003:8001"
+    environment:
+      FLEET_STORE_BACKEND: json
+      FLEET_DATA_DIR: /data
+      FLEET_SERVE_APP: "1"
+      FLEET_APP_DIR: /app
+    volumes:
+      # Copy production JSON files here first:
+      #   timers.json
+      #   account_views.json
+      # plus any other JSON files the production app actually uses.
+      - /volume1/docker/clash-fleet-manager-production-copy/data:/data
+    restart: "no"

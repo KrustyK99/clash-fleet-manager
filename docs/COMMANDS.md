@@ -38,7 +38,7 @@ Useful helpers:
 |---|---|---|
 | Prepare disposable JSON data | `npm run container:prepare-data` | Rebuilds `tests/runtime-app/data` from fixtures. `container:run` already does this. |
 | Build local FastAPI JSON image | `npm run container:build` | Builds `clash-fleet-manager-fastapi-json:local`. |
-| Save local image for Synology import | `npm run container:save` | Exports `clash-fleet-manager-fastapi-json-local.tar` for Container Manager image import. |
+| Save local image for Synology import | `npm run container:save` | Exports `clash-fleet-manager-fastapi-json-local.tar` for Synology Docker image import. |
 | Run local FastAPI JSON container | `npm run container:run` | Starts `http://127.0.0.1:8001` with `FLEET_STORE_BACKEND=json` and `/data` mounted from `tests/runtime-app/data`. |
 | Smoke test running container | `npm run verify:container` | Read-only check for `/`, `/api.php?action=load`, and `/api.php?action=loadViews`. |
 | View container logs | `npm run container:logs` | Follows logs for `clash-fleet-manager-fastapi-json`. |
@@ -46,9 +46,9 @@ Useful helpers:
 
 See `docs/CONTAINER_RUNTIME.md` for the full runbook.
 
-## Phase 4B Synology Container Manager rehearsal
+## Phase 4B Synology Docker rehearsal
 
-This rehearsal takes the Phase 4A image shape to Synology Container Manager without touching production Web Station/PHP, production data, DNS, router rules, MariaDB, nginx, or reverse proxy configuration.
+This rehearsal takes the Phase 4A image shape to Synology Docker without touching production Web Station/PHP, production data, DNS, router rules, MariaDB, nginx, or reverse proxy configuration.
 
 Preferred local export path:
 
@@ -57,7 +57,7 @@ npm run container:build
 npm run container:save
 ```
 
-Then import `clash-fleet-manager-fastapi-json-local.tar` into Synology Container Manager and create a rehearsal container with:
+Then import `clash-fleet-manager-fastapi-json-local.tar` into Synology Docker and create a rehearsal container with:
 
 ```text
 Host port:       8002, or another unused LAN-only rehearsal port
@@ -75,6 +75,46 @@ node tests/support/verify-container-runtime.mjs --base-url http://<synology-host
 
 See `docs/SYNOLOGY_CONTAINER_REHEARSAL.md` for the full runbook.
 
+
+## Phase 4C-B production-copy rehearsal
+
+This is the next safe step after Phase 4B. It uses copied production JSON, not the live production JSON folder.
+
+Production-copy shape:
+
+```text
+Browser on LAN
+  -> http://<synology-host-or-ip>:8003
+  -> Synology Docker FastAPI container
+  -> /api.php compatibility route
+  -> JsonFileStore
+  -> /data mounted from /volume1/docker/clash-fleet-manager-production-copy/data
+```
+
+Suggested Synology Docker settings:
+
+```text
+Container name:  clash-fleet-manager-fastapi-json-prod-copy
+Host port:       8003
+Container port:  8001
+Host data path:  /volume1/docker/clash-fleet-manager-production-copy/data
+Container path:  /data
+Environment:     FLEET_STORE_BACKEND=json, FLEET_DATA_DIR=/data, FLEET_SERVE_APP=1, FLEET_APP_DIR=/app
+```
+
+Template/reference file:
+
+```text
+docker-compose.synology.production-copy.example.yml
+```
+
+Read-only smoke test for the running production-copy container:
+
+```powershell
+node tests/support/verify-container-runtime.mjs --base-url http://<synology-host-or-ip>:8003
+```
+
+Do not mount the live production JSON folder for Phase 4C-B.
 
 ## Phase 4C production data mount planning
 

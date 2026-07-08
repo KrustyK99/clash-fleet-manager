@@ -1,6 +1,6 @@
-# Synology Container Manager rehearsal example.
-# Copy this into a Synology Container Manager Project only after adjusting the
-# host data path and host port for your NAS.
+# Synology Docker rehearsal example.
+# Use this as a reference when creating a container in the Synology Docker package,
+# or in a compose-capable setup after adjusting the host data path and host port.
 #
 # This rehearsal must mount disposable JSON data only. Do not point this volume
 # at the production Web Station/PHP app data folder.

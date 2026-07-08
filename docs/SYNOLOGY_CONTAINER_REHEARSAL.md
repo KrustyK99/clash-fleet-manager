@@ -1,13 +1,13 @@
-# Phase 4B Synology Container Manager Rehearsal
+# Phase 4B Synology Docker Rehearsal
 
-This runbook is for the Phase 4B Synology Container Manager rehearsal only.
+This runbook is for the Phase 4B Synology Docker rehearsal only.
 
 It proves this shape on the Synology NAS without replacing the current Web Station/PHP deployment:
 
 ```text
 Browser on LAN
   -> http://<synology-host-or-ip>:8002
-  -> FastAPI container in Synology Container Manager
+  -> FastAPI container in Synology Docker
   -> static app files served by FastAPI
   -> /api.php compatibility route served by FastAPI
   -> JsonFileStore
@@ -20,7 +20,7 @@ It does **not** cut over production. It does **not** change the production app U
 
 Use the existing Phase 4A Dockerfile/image shape.
 
-Run one FastAPI JSON container in Synology Container Manager:
+Run one FastAPI JSON container in Synology Docker:
 
 - Same-origin browser app: `/`, app scripts, styles, and `/api.php` all come from the FastAPI container.
 - Container port: `8001`.
@@ -56,13 +56,13 @@ tests/fixtures/data/account_views.json
 - `Dockerfile`
 - `.dockerignore`
 - `docker-compose.yml` for local Phase 4A validation
-- `docker-compose.synology.example.yml` as a Synology Project starting point
+- `docker-compose.synology.example.yml` as a compose reference if needed
 - `tests/support/verify-container-runtime.mjs` for read-only HTTP smoke testing
 - `docs/SYNOLOGY_CONTAINER_REHEARSAL.md` for this runbook
 
 ## Environment variables
 
-Set these safe non-secret values in Synology Container Manager:
+Set these safe non-secret values in Synology Docker:
 
 ```text
 FLEET_STORE_BACKEND=json
@@ -105,17 +105,17 @@ This creates:
 clash-fleet-manager-fastapi-json-local.tar
 ```
 
-Upload/import that tar file into Synology Container Manager as an image. Keep the image name/tag as:
+Upload/import that tar file into Synology Docker as an image. Keep the image name/tag as:
 
 ```text
 clash-fleet-manager-fastapi-json:local
 ```
 
-If Synology displays the imported image without the expected tag, retag it in Container Manager if the UI allows it, or select the imported image directly when creating the container.
+If Synology displays the imported image without the expected tag, retag it in Docker if the UI allows it, or select the imported image directly when creating the container.
 
-## Option B: Synology Container Manager Project with compose YAML
+## Option B: compose YAML reference
 
-Use this only if the source files or imported image are already available to Synology Container Manager in a way that makes a Project simpler.
+Use this only if the source files or imported image are already available to a compose-capable setup. For the older Synology Docker package UI, the main path is to create the container manually from the imported image.
 
 Start from:
 
@@ -123,7 +123,7 @@ Start from:
 docker-compose.synology.example.yml
 ```
 
-Before creating the Project, confirm the host volume path and host port:
+Before using the compose reference, confirm the host volume path and host port:
 
 ```yaml
 ports:
@@ -166,7 +166,7 @@ The app may create a `backups` folder inside the disposable data folder after wr
 
 ## Create the Synology container in the UI
 
-Use Synology Container Manager to create a container from the imported image.
+Use Synology Docker to create a container from the imported image.
 
 Recommended settings:
 
@@ -273,7 +273,7 @@ Then:
 1. Create or edit one clearly disposable timer.
 2. Refresh the browser page.
 3. Confirm the change remains.
-4. Stop the container in Synology Container Manager.
+4. Stop the container in Synology Docker.
 5. Start the container again.
 6. Reopen the Synology rehearsal URL.
 7. Confirm the change still remains.
@@ -283,7 +283,7 @@ Do not perform this test against production data.
 
 ## Stop the rehearsal
 
-Stop the container in Synology Container Manager.
+Stop the container in Synology Docker.
 
 Stopping this container must not affect the production PHP/Web Station app. The PHP rollback path remains the existing production path because this rehearsal uses a separate Synology port and a separate disposable data folder.
 
@@ -307,7 +307,7 @@ If `8001` is already in use locally, stop the process using that port before tre
 
 Phase 4B is complete only when all of these are true:
 
-- The FastAPI JSON image runs under Synology Container Manager.
+- The FastAPI JSON image runs under Synology Docker.
 - Logs confirm `Using FastAPI store backend: json`.
 - No MariaDB variables are set.
 - The container does not mount production JSON data.

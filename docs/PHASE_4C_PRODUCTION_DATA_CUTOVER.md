@@ -1,6 +1,6 @@
-# Phase 4C Production Data Mount and Controlled Cutover Plan
+# Phase 4C Production-Copy, Production Data Mount, and Controlled Cutover Plan
 
-This runbook is for the controlled Phase 4C step after the Phase 4B Synology Docker rehearsal.
+This runbook is for the controlled Phase 4C steps after the Phase 4B Synology Docker rehearsal. It covers the safer production-copy rehearsal before any real production-data mount.
 
 Phase 4C does **not** cut over the production URL. It does **not** change DNS, router rules, reverse proxy settings, Web Station configuration, or MariaDB production state.
 
@@ -32,6 +32,20 @@ Browser on LAN
 ```
 
 The container image listens on container port `8001`. The Synology rehearsal used host port `8002`. Phase 4C should use a separate production-candidate host port, normally `8003`.
+
+Phase 4C-B has its own copied-data template:
+
+```text
+docker-compose.synology.production-copy.example.yml
+```
+
+That template is intentionally separate from:
+
+```text
+docker-compose.synology.production-candidate.example.yml
+```
+
+The production-copy template mounts `/volume1/docker/clash-fleet-manager-production-copy/data` to `/data`. The production-candidate template is reserved for the later real production-data mount after backups and explicit approval.
 
 ## Hard stop gates
 
@@ -74,11 +88,18 @@ Outcome:
 - Mount the copy into the FastAPI container at `/data`.
 - Test reads and optional writes against the copy only.
 - Production Web Station/PHP data remains untouched.
+- The container volume must point at the copied folder, not the live production folder.
 
 Suggested copy folder:
 
 ```text
 /volume1/docker/clash-fleet-manager-production-copy/data
+```
+
+Suggested container name:
+
+```text
+clash-fleet-manager-fastapi-json-prod-copy
 ```
 
 Suggested URL:
@@ -181,6 +202,38 @@ During a Strategy C test, treat the old PHP/Web Station URL as rollback only. Us
 
 This matters because both runtimes write the same JSON files. The app has stale-data protection, but concurrent human/device edits still create avoidable risk during a production migration test.
 
+## Production-copy container settings
+
+Use these settings for Strategy B / Phase 4C-B. This container is intentionally separate from both the Phase 4B disposable rehearsal container and the later Strategy C real-data production-candidate container.
+
+| Setting | Value |
+|---|---|
+| Image | `clash-fleet-manager-fastapi-json:local` |
+| Container name | `clash-fleet-manager-fastapi-json-prod-copy` |
+| Host port | `8003` |
+| Container port | `8001` |
+| Host data path | `/volume1/docker/clash-fleet-manager-production-copy/data` |
+| Container data path | `/data` |
+| Volume mode | Read/write |
+| Restart policy | Manual / no automatic restart for rehearsal |
+
+Environment variables:
+
+| Name | Value |
+|---|---|
+| `FLEET_STORE_BACKEND` | `json` |
+| `FLEET_DATA_DIR` | `/data` |
+| `FLEET_SERVE_APP` | `1` |
+| `FLEET_APP_DIR` | `/app` |
+
+Do not set MariaDB variables. Do not mount the live production JSON folder.
+
+Reference file:
+
+```text
+docker-compose.synology.production-copy.example.yml
+```
+
 ## Production-candidate container settings
 
 Create a separate container from the Phase 4B rehearsal container.
@@ -219,53 +272,119 @@ FLEET_MARIADB_PASSWORD
 
 ## Strategy B production-copy rehearsal steps
 
-1. Confirm the production JSON folder.
-2. Create the copy folder:
+Use the older Synology **Docker** package vocabulary for the NAS UI. Do not treat this as a Web Station cutover and do not mount the live production folder.
+
+1. Confirm the current production Web Station/PHP URL.
+2. Confirm the exact production JSON folder. The current PHP fallback code expects a `data` folder beside `api.php`, with at least `timers.json` and `account_views.json`, but verify the actual NAS paths before copying.
+3. In File Station, create the copy folder:
 
 ```text
 /volume1/docker/clash-fleet-manager-production-copy/data
 ```
 
-3. Copy production JSON files into the copy folder.
-4. Confirm copied files are readable and non-empty.
-5. Create or update a Synology Docker container using:
+4. Copy production JSON files into the copy folder. At minimum copy:
 
 ```text
+timers.json
+account_views.json
+```
+
+Also copy any other JSON files the production app actually uses. Do not copy secrets into the repo or screenshots.
+
+5. Confirm copied files are readable and non-empty:
+
+```text
+/volume1/docker/clash-fleet-manager-production-copy/data/timers.json
+/volume1/docker/clash-fleet-manager-production-copy/data/account_views.json
+```
+
+6. In Synology Docker, confirm the imported image exists:
+
+```text
+clash-fleet-manager-fastapi-json:local
+```
+
+7. Create a separate container from that image:
+
+```text
+Container name:  clash-fleet-manager-fastapi-json-prod-copy
 Host port:       8003
 Container port:  8001
 Host data path:  /volume1/docker/clash-fleet-manager-production-copy/data
 Container path:  /data
+Volume mode:     read/write
 ```
 
-6. Start the container.
-7. Confirm logs show:
+8. Set environment variables exactly:
+
+```text
+FLEET_STORE_BACKEND=json
+FLEET_DATA_DIR=/data
+FLEET_SERVE_APP=1
+FLEET_APP_DIR=/app
+```
+
+9. Start the container.
+10. Confirm logs show:
 
 ```text
 Using FastAPI store backend: json
 Uvicorn running on http://0.0.0.0:8001
 ```
 
-8. Open the read endpoints:
+11. Open the read endpoints:
 
 ```text
 http://<synology-host-or-ip>:8003/api.php?action=load
 http://<synology-host-or-ip>:8003/api.php?action=loadViews
 ```
 
-9. Open the static app:
+Expected:
+
+- `load` returns JSON with a `timers` array from the copied folder.
+- `loadViews` returns JSON with a `views` array from the copied folder.
+
+12. Open the static app:
 
 ```text
 http://<synology-host-or-ip>:8003
 ```
 
-10. Confirm timers, account views, and counts look plausible.
-11. Optional: run the read-only smoke test from the development PC:
+Confirm timers, account views, and counts look plausible.
+
+13. Optional read-only smoke test from the development PC:
 
 ```powershell
 node tests/support/verify-container-runtime.mjs --base-url http://<synology-host-or-ip>:8003
 ```
 
-12. Optional: perform one write test against the copy only, then refresh and restart the container to prove persistence.
+This script checks `/`, `/api.php?action=load`, and `/api.php?action=loadViews`. It should be pointed only at the production-copy container URL.
+
+14. Small copied-data write test:
+
+```text
+Create one timer named: Phase 4C-B production-copy FastAPI test
+```
+
+Verify:
+
+- [ ] Browser refresh keeps the timer.
+- [ ] Container stop/start keeps the timer.
+- [ ] Copied `timers.json` modified timestamp changed.
+- [ ] Existing PHP/Web Station production app remains untouched.
+
+After verification, decide whether to leave or delete the test timer from the copied data. Do not silently delete it.
+
+### Strategy B rollback / cleanup
+
+Because Strategy B uses copied data only, rollback is simple:
+
+1. Stop `clash-fleet-manager-fastapi-json-prod-copy` in Synology Docker.
+2. Delete the production-copy container if desired.
+3. Keep or delete `/volume1/docker/clash-fleet-manager-production-copy/data` as desired.
+4. Continue using the existing Web Station/PHP production URL.
+
+No production restore should be required because the live production JSON folder was not mounted.
 
 ## Strategy C real production data mount steps
 
@@ -406,35 +525,34 @@ backup/account_views.json -> production-json-folder/account_views.json
 ```text
 Repo inspected                                                       ✅
 Phase 4B docs/container setup understood                              ✅
+Phase 4C runbook inspected                                            ✅
 Current git status checked                                            ⚠️ zip has no .git metadata
 Phase 4B tag confirmed                                                ⚠️ cannot confirm from zip without .git metadata
 Current production Web Station/PHP app URL identified                 ⬜
 Current production JSON folder identified                             ⬜
 Production JSON files identified                                      ⬜
+No live production JSON mount planned                                 ✅
 No MariaDB production work added                                      ✅
 No reverse proxy/nginx/DNS/router change planned                      ✅
-Backup strategy chosen                                                ✅ Strategy A until production paths are confirmed
-Production JSON backup completed                                      ⬜
-Backup verified/readable                                              ⬜
-Rollback procedure written                                            ✅
-Concurrent writer risk explained                                      ✅
-FastAPI production-candidate port chosen                              ✅ 8003 unless unavailable
-FastAPI production-candidate container plan written                    ✅
-Explicit user approval received before production mount               ⬜
-Production JSON folder mounted read/write to /data                    ⬜
+Production-copy target folder chosen                                  ✅ /volume1/docker/clash-fleet-manager-production-copy/data
+Production JSON files copied to production-copy folder                 ⬜
+Copied files verified/readable                                        ⬜
+Container name chosen                                                 ✅ clash-fleet-manager-fastapi-json-prod-copy
+Host port chosen                                                      ✅ 8003 unless unavailable
+FastAPI production-copy container created or planned                   ✅ planned
+Copied JSON folder mounted read/write to /data                         ⬜ runtime step pending
 FastAPI backend mode confirmed as JSON                                ⬜ runtime check pending
-/api.php?action=load works against production data                    ⬜
-/api.php?action=loadViews works against production data                ⬜
-Static frontend works against production data                         ⬜
-Read-only visual sanity check completed                               ⬜
-Explicit user approval received before production write test          ⬜
-Small production write test completed, if approved                    ⬜
-Write persisted after refresh, if approved                            ⬜
-Write persisted after container restart, if approved                  ⬜
-Old PHP/Web Station rollback path still available                     ⬜ runtime check pending
-Runbook created or updated                                            ✅
-Local validations run if repo files changed                           ⬜ documentation-only change; full runtime validation optional
-Phase 4C complete or deferred with clear reason                       ✅ deferred until production URL/folder are identified
+/api.php?action=load works against copied production data              ⬜ runtime check pending
+/api.php?action=loadViews works against copied production data         ⬜ runtime check pending
+Static frontend works against copied production data                   ⬜ runtime check pending
+Visual sanity check completed                                         ⬜
+Small write test completed against copied data only                    ⬜
+Write persisted after browser refresh                                 ⬜
+Write persisted after container stop/start                            ⬜
+Live PHP/Web Station production app confirmed untouched                ⬜ runtime check pending
+Runbook updated, if useful                                            ✅
+Local validations run if repo files changed                           ⬜
+Phase 4C-B complete or deferred with clear reason                      ⬜
 ```
 
 ## Definition of done
@@ -456,7 +574,8 @@ Phase 4C complete or deferred with clear reason                       ✅ deferr
 - [ ] Static frontend works.
 - [ ] `/api.php?action=load` works.
 - [ ] `/api.php?action=loadViews` works.
-- [ ] Optional persistence test works against copy only.
+- [ ] Small copied-data write test works against copy only.
+- [ ] Persistence survives refresh and container restart.
 - [ ] No live production data touched.
 
 ### Real production-data mount done
