@@ -273,3 +273,22 @@ Browser -> FastAPI container -> static app files + /api.php -> JsonFileStore -> 
 This local container path uses `FLEET_STORE_BACKEND=json`, `FLEET_SERVE_APP=1`, `FLEET_APP_DIR=/app`, and `FLEET_DATA_DIR=/data`. The host mount is `tests/runtime-app/data`, not production NAS data.
 
 Do not use the Phase 4A container runbook as a production Synology deployment procedure. The Phase 4B Synology Container Manager rehearsal is documented in `docs/SYNOLOGY_CONTAINER_REHEARSAL.md` and still uses disposable JSON data only.
+
+## Phase 4C production-data mount planning
+
+The controlled Synology production-data mount plan is documented in `docs/PHASE_4C_PRODUCTION_DATA_CUTOVER.md`.
+
+Phase 4C keeps the same near-term runtime goal:
+
+```text
+Frontend -> FastAPI compatibility endpoint -> JsonFileStore -> JSON files
+```
+
+The existing rollback path remains:
+
+```text
+Frontend -> PHP compatibility endpoint -> JSON files
+```
+
+Do not mount real production JSON data into the FastAPI container until the production folder is identified, a timestamped backup is completed and verified, concurrent-writer risk is understood, and explicit approval is given. The first production-candidate test should use a separate LAN-only port, normally `8003`, while the Web Station/PHP production URL remains unchanged.
+

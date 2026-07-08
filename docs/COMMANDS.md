@@ -75,6 +75,38 @@ node tests/support/verify-container-runtime.mjs --base-url http://<synology-host
 
 See `docs/SYNOLOGY_CONTAINER_REHEARSAL.md` for the full runbook.
 
+
+## Phase 4C production data mount planning
+
+Phase 4C is the controlled production-data planning step after the Synology Docker rehearsal. It does **not** change the production URL by default.
+
+Default safe outcome:
+
+```text
+Existing Web Station/PHP production URL remains unchanged
+FastAPI production-candidate URL uses a separate LAN-only port, usually 8003
+Production JSON is not mounted until the exact folder is identified, backed up, verified, and explicitly approved
+```
+
+Production-candidate shape:
+
+```text
+Browser on LAN
+  -> http://<synology-host-or-ip>:8003
+  -> Synology Docker FastAPI container
+  -> /api.php compatibility route
+  -> JsonFileStore
+  -> /data mounted from confirmed production JSON folder, or from a production-copy rehearsal folder
+```
+
+Read-only smoke test for a running candidate container:
+
+```powershell
+node tests/support/verify-container-runtime.mjs --base-url http://<synology-host-or-ip>:8003
+```
+
+See `docs/PHASE_4C_PRODUCTION_DATA_CUTOVER.md` for the hard stop gates, backup procedure, concurrent-writer rule, rollback procedure, and Strategy A/B/C steps.
+
 ## Phase 3F FastAPI + JSON cutover rehearsal
 
 Use this short ladder to rehearse the near-term FastAPI + JSON path while keeping PHP + JSON as rollback.

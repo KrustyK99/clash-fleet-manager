@@ -1,0 +1,26 @@
+# Phase 4C Synology Docker production-candidate example.
+#
+# This file is a template only. Do not use it until the real production JSON
+# folder has been identified, backed up, verified, and explicitly approved for
+# mounting read/write into the container.
+#
+# This does not change the existing Web Station/PHP production URL. It exposes
+# the FastAPI JSON candidate on a separate LAN-only host port.
+
+services:
+  fastapi-json-prod-candidate:
+    image: clash-fleet-manager-fastapi-json:local
+    container_name: clash-fleet-manager-fastapi-json-prod-candidate
+    ports:
+      - "8003:8001"
+    environment:
+      FLEET_STORE_BACKEND: json
+      FLEET_DATA_DIR: /data
+      FLEET_SERVE_APP: "1"
+      FLEET_APP_DIR: /app
+    volumes:
+      # Replace this with the confirmed production JSON folder only after backup.
+      # Example shape only:
+      # - /volume1/web/<confirmed-production-app-or-data-folder>/data:/data
+      - /volume1/REPLACE-WITH-CONFIRMED-PRODUCTION-JSON-FOLDER:/data
+    restart: "no"
