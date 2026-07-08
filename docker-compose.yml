@@ -1,0 +1,16 @@
+services:
+  fastapi-json:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: clash-fleet-manager-fastapi-json:local
+    container_name: clash-fleet-manager-fastapi-json
+    ports:
+      - "8001:8001"
+    environment:
+      FLEET_STORE_BACKEND: json
+      FLEET_DATA_DIR: /data
+      FLEET_SERVE_APP: "1"
+      FLEET_APP_DIR: /app
+    volumes:
+      - ./tests/runtime-app/data:/data

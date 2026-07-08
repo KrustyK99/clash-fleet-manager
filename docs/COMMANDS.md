@@ -21,6 +21,30 @@ A low-cognitive-load command reference for the project. Keep this file open in V
 | Deploy to NAS | `npm run deploy:nas` | Runs the NAS deployment PowerShell script. |
 
 
+## Phase 4A local FastAPI JSON container rehearsal
+
+This rehearsal proves the FastAPI + JSON runtime shape locally before touching Synology. It serves the static app and `/api.php` compatibility route from one FastAPI container and mounts disposable JSON data from `tests/runtime-app/data`.
+
+```powershell
+npm run container:build
+npm run container:run
+npm run verify:container
+npm run container:stop
+```
+
+Useful helpers:
+
+| Purpose | Command | Notes |
+|---|---|---|
+| Prepare disposable JSON data | `npm run container:prepare-data` | Rebuilds `tests/runtime-app/data` from fixtures. `container:run` already does this. |
+| Build local FastAPI JSON image | `npm run container:build` | Builds `clash-fleet-manager-fastapi-json:local`. |
+| Run local FastAPI JSON container | `npm run container:run` | Starts `http://127.0.0.1:8001` with `FLEET_STORE_BACKEND=json` and `/data` mounted from `tests/runtime-app/data`. |
+| Smoke test running container | `npm run verify:container` | Read-only check for `/`, `/api.php?action=load`, and `/api.php?action=loadViews`. |
+| View container logs | `npm run container:logs` | Follows logs for `clash-fleet-manager-fastapi-json`. |
+| Stop local container | `npm run container:stop` | Stops/removes the local Compose container. |
+
+See `docs/CONTAINER_RUNTIME.md` for the full runbook.
+
 ## Phase 3F FastAPI + JSON cutover rehearsal
 
 Use this short ladder to rehearse the near-term FastAPI + JSON path while keeping PHP + JSON as rollback.

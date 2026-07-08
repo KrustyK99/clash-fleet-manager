@@ -258,3 +258,18 @@ Phase 3 can be declared complete when these are true:
 ## Remaining pre-default gaps
 
 A real FastAPI deployment still needs an intentional runtime deployment choice for the NAS/local environment, including how the FastAPI process is started and how `/api.php?action=...` is routed. That work belongs after Phase 3; it is not part of the cutover rehearsal documentation.
+
+
+## Phase 4A local container rehearsal
+
+The local FastAPI JSON container rehearsal is documented in `docs/CONTAINER_RUNTIME.md`.
+
+It keeps the runtime same-origin for the browser:
+
+```text
+Browser -> FastAPI container -> static app files + /api.php -> JsonFileStore -> mounted disposable JSON data
+```
+
+This local container path uses `FLEET_STORE_BACKEND=json`, `FLEET_SERVE_APP=1`, `FLEET_APP_DIR=/app`, and `FLEET_DATA_DIR=/data`. The host mount is `tests/runtime-app/data`, not production NAS data.
+
+Do not use the Phase 4A container runbook as a Synology deployment procedure. The Synology Container Manager rehearsal belongs in a later phase.
