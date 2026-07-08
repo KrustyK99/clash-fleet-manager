@@ -31,7 +31,7 @@ Browser on LAN
   -> disposable JSON folder mounted at /data
 ```
 
-The container image listens on container port `8001`. The Synology rehearsal used host port `8002`. Phase 4C should use a separate production-candidate host port, normally `8003`.
+The container image listens on container port `8001`. The Synology rehearsal used host port `8002`. Phase 4C-B used host port `8003` for the production-copy rehearsal. Phase 4C-C should use a separate production-candidate host port, normally `8004`, so live production data is clearly separated from copied production data.
 
 Phase 4C-B has its own copied-data template:
 
@@ -122,7 +122,7 @@ Outcome:
 Suggested URL:
 
 ```text
-http://<synology-host-or-ip>:8003
+http://<synology-host-or-ip>:8004
 ```
 
 ### Strategy D — production URL cutover
@@ -140,12 +140,12 @@ Fill these in before Strategy C:
 | Synology host/IP | `TODO` |
 | Current production Web Station/PHP URL | `TODO` |
 | Current production app folder | `TODO` |
-| Current production JSON folder | `TODO` |
-| Production `timers.json` path | `TODO` |
-| Production `account_views.json` path | `TODO` |
+| Current production JSON folder | `/volume1/web/clash-timers/data` |
+| Production `timers.json` path | `/volume1/web/clash-timers/data/timers.json` |
+| Production `account_views.json` path | `/volume1/web/clash-timers/data/account_views.json` |
 | Other JSON files used by production app | `TODO` |
-| FastAPI production-candidate host port | `8003` unless unavailable |
-| FastAPI production-candidate URL | `http://<synology-host-or-ip>:8003` |
+| FastAPI production-candidate host port | `8004` unless unavailable |
+| FastAPI production-candidate URL | `http://<synology-host-or-ip>:8004` |
 
 Expected production JSON files based on the current app contract:
 
@@ -161,7 +161,7 @@ The app may also create a `backups/` folder inside the mounted data folder when 
 Preferred backup destination:
 
 ```text
-/volume1/docker/clash-fleet-manager-backups/YYYY-MM-DD-HHMM-production-json/
+/volume1/web/clash-timers/data/backups/phase-4c-c-before-fastapi-live-data-mount-YYYYMMDD-HHMMSS/
 ```
 
 At minimum, copy:
@@ -183,7 +183,7 @@ Verification checklist:
 - [ ] `account_views.json` size is non-zero.
 - [ ] `account_views.json` opens as readable JSON/text.
 - [ ] Backup timestamps make sense.
-- [ ] Backup folder is separate from the live production JSON folder.
+- [ ] Backup folder is timestamped and not one of the active live JSON files.
 
 Do not continue to Strategy C until this verification is complete.
 
@@ -243,9 +243,10 @@ Suggested settings:
 | Setting | Value |
 |---|---|
 | Image | `clash-fleet-manager-fastapi-json:local` |
-| Container name | `clash-fleet-manager-fastapi-json-prod-candidate` |
-| Host port | `8003` |
+| Container name | `clash-fleet-manager-fastapi-json-production-candidate` |
+| Host port | `8004` |
 | Container port | `8001` |
+| Host data path | `/volume1/web/clash-timers/data` |
 | Container data path | `/data` |
 | Volume mode | Read/write |
 | Restart policy | Manual / no automatic restart for candidate test |
@@ -335,8 +336,8 @@ Uvicorn running on http://0.0.0.0:8001
 11. Open the read endpoints:
 
 ```text
-http://<synology-host-or-ip>:8003/api.php?action=load
-http://<synology-host-or-ip>:8003/api.php?action=loadViews
+http://<synology-host-or-ip>:8004/api.php?action=load
+http://<synology-host-or-ip>:8004/api.php?action=loadViews
 ```
 
 Expected:
@@ -405,10 +406,10 @@ Then proceed only after explicit approval.
 2. Create a separate Synology Docker container:
 
 ```text
-Container name:  clash-fleet-manager-fastapi-json-prod-candidate
-Host port:       8003
+Container name:  clash-fleet-manager-fastapi-json-production-candidate
+Host port:       8004
 Container port:  8001
-Host data path:  <confirmed-production-json-folder>
+Host data path:  /volume1/web/clash-timers/data
 Container path:  /data
 Volume mode:     read/write
 ```
@@ -433,8 +434,8 @@ Uvicorn running on http://0.0.0.0:8001
 6. API read checks:
 
 ```text
-http://<synology-host-or-ip>:8003/api.php?action=load
-http://<synology-host-or-ip>:8003/api.php?action=loadViews
+http://<synology-host-or-ip>:8004/api.php?action=load
+http://<synology-host-or-ip>:8004/api.php?action=loadViews
 ```
 
 Expected:
@@ -445,7 +446,7 @@ Expected:
 7. Static frontend read-only visual check:
 
 ```text
-http://<synology-host-or-ip>:8003
+http://<synology-host-or-ip>:8004
 ```
 
 Confirm:
@@ -459,10 +460,10 @@ Confirm:
 8. Optional read-only smoke test:
 
 ```powershell
-node tests/support/verify-container-runtime.mjs --base-url http://<synology-host-or-ip>:8003
+node tests/support/verify-container-runtime.mjs --base-url http://<synology-host-or-ip>:8004
 ```
 
-This script is read-only. It checks `/`, `load`, and `loadViews`.
+This script is read-only. It checks `/`, `load`, and `loadViews`. Run it against live production data only with explicit approval.
 
 ## Optional production write test
 
@@ -479,7 +480,7 @@ Do not use the PHP/Web Station URL as a writer during this test.
 Smallest write:
 
 ```text
-Create one clearly named test timer: Phase 4C FastAPI production-data test
+Create one clearly named test timer: Phase 4C-C FastAPI live-data mount test
 ```
 
 Verify:
@@ -497,7 +498,7 @@ After verification, decide whether to leave or delete the test timer. Do not sil
 
 Normal rollback:
 
-1. Stop `clash-fleet-manager-fastapi-json-prod-candidate` in Synology Docker.
+1. Stop `clash-fleet-manager-fastapi-json-production-candidate` in Synology Docker.
 2. Return to the existing Web Station/PHP production URL.
 3. Confirm the PHP app loads.
 4. Confirm timers load.
@@ -529,30 +530,30 @@ Phase 4C runbook inspected                                            ✅
 Current git status checked                                            ⚠️ zip has no .git metadata
 Phase 4B tag confirmed                                                ⚠️ cannot confirm from zip without .git metadata
 Current production Web Station/PHP app URL identified                 ⬜
-Current production JSON folder identified                             ⬜
-Production JSON files identified                                      ⬜
-No live production JSON mount planned                                 ✅
+Current production JSON folder identified                             ✅ /volume1/web/clash-timers/data
+Production JSON files identified                                      ✅ timers.json and account_views.json
+No production URL cutover planned                                    ✅
 No MariaDB production work added                                      ✅
 No reverse proxy/nginx/DNS/router change planned                      ✅
 Production-copy target folder chosen                                  ✅ /volume1/docker/clash-fleet-manager-production-copy/data
-Production JSON files copied to production-copy folder                 ⬜
-Copied files verified/readable                                        ⬜
-Container name chosen                                                 ✅ clash-fleet-manager-fastapi-json-prod-copy
-Host port chosen                                                      ✅ 8003 unless unavailable
-FastAPI production-copy container created or planned                   ✅ planned
-Copied JSON folder mounted read/write to /data                         ⬜ runtime step pending
+Phase 4C-B production-copy rehearsal completed externally              ✅ per session notes
+Candidate container name chosen                                       ✅ clash-fleet-manager-fastapi-json-production-candidate
+Candidate host port chosen                                            ✅ 8004 unless unavailable
+Production backup folder chosen                                       ⬜ pending timestamped folder creation
+Production JSON backup created                                        ⬜ runtime step pending
+Backup files verified/readable/non-zero                               ⬜ runtime step pending
+Live JSON folder mounted read/write to /data                          ⬜ runtime step pending
 FastAPI backend mode confirmed as JSON                                ⬜ runtime check pending
-/api.php?action=load works against copied production data              ⬜ runtime check pending
-/api.php?action=loadViews works against copied production data         ⬜ runtime check pending
-Static frontend works against copied production data                   ⬜ runtime check pending
+/api.php?action=load works against live production data                ⬜ runtime check pending
+/api.php?action=loadViews works against live production data           ⬜ runtime check pending
+Static frontend works against live production data                     ⬜ runtime check pending
 Visual sanity check completed                                         ⬜
-Small write test completed against copied data only                    ⬜
-Write persisted after browser refresh                                 ⬜
-Write persisted after container stop/start                            ⬜
-Live PHP/Web Station production app confirmed untouched                ⬜ runtime check pending
+Controlled live-data write test explicitly approved                    ⬜
+Controlled live-data write test completed, if approved                 ⬜
+Existing Web Station/PHP production app confirmed still works          ⬜ runtime check pending
 Runbook updated, if useful                                            ✅
 Local validations run if repo files changed                           ⬜
-Phase 4C-B complete or deferred with clear reason                      ⬜
+Phase 4C-C complete or deferred with clear reason                      ⬜
 ```
 
 ## Definition of done

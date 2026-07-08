@@ -290,5 +290,5 @@ The existing rollback path remains:
 Frontend -> PHP compatibility endpoint -> JSON files
 ```
 
-Do not mount real production JSON data into the FastAPI container until the production folder is identified, a timestamped backup is completed and verified, concurrent-writer risk is understood, and explicit approval is given. The first production-candidate test should use a separate LAN-only port, normally `8003`, while the Web Station/PHP production URL remains unchanged.
+Do not mount real production JSON data into the FastAPI container until the production folder is identified, a timestamped backup is completed and verified, concurrent-writer risk is understood, and explicit approval is given. The first real production-data candidate test should use a separate LAN-only port, normally `8004` when `8003` is still used by the production-copy rehearsal, while the Web Station/PHP production URL remains unchanged.
 
