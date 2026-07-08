@@ -1,0 +1,21 @@
+# Synology Container Manager rehearsal example.
+# Copy this into a Synology Container Manager Project only after adjusting the
+# host data path and host port for your NAS.
+#
+# This rehearsal must mount disposable JSON data only. Do not point this volume
+# at the production Web Station/PHP app data folder.
+
+services:
+  fastapi-json-rehearsal:
+    image: clash-fleet-manager-fastapi-json:local
+    container_name: clash-fleet-manager-fastapi-json-rehearsal
+    ports:
+      - "8002:8001"
+    environment:
+      FLEET_STORE_BACKEND: json
+      FLEET_DATA_DIR: /data
+      FLEET_SERVE_APP: "1"
+      FLEET_APP_DIR: /app
+    volumes:
+      - /volume1/docker/clash-fleet-manager-rehearsal/data:/data
+    restart: "no"

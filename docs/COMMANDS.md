@@ -38,12 +38,42 @@ Useful helpers:
 |---|---|---|
 | Prepare disposable JSON data | `npm run container:prepare-data` | Rebuilds `tests/runtime-app/data` from fixtures. `container:run` already does this. |
 | Build local FastAPI JSON image | `npm run container:build` | Builds `clash-fleet-manager-fastapi-json:local`. |
+| Save local image for Synology import | `npm run container:save` | Exports `clash-fleet-manager-fastapi-json-local.tar` for Container Manager image import. |
 | Run local FastAPI JSON container | `npm run container:run` | Starts `http://127.0.0.1:8001` with `FLEET_STORE_BACKEND=json` and `/data` mounted from `tests/runtime-app/data`. |
 | Smoke test running container | `npm run verify:container` | Read-only check for `/`, `/api.php?action=load`, and `/api.php?action=loadViews`. |
 | View container logs | `npm run container:logs` | Follows logs for `clash-fleet-manager-fastapi-json`. |
 | Stop local container | `npm run container:stop` | Stops/removes the local Compose container. |
 
 See `docs/CONTAINER_RUNTIME.md` for the full runbook.
+
+## Phase 4B Synology Container Manager rehearsal
+
+This rehearsal takes the Phase 4A image shape to Synology Container Manager without touching production Web Station/PHP, production data, DNS, router rules, MariaDB, nginx, or reverse proxy configuration.
+
+Preferred local export path:
+
+```powershell
+npm run container:build
+npm run container:save
+```
+
+Then import `clash-fleet-manager-fastapi-json-local.tar` into Synology Container Manager and create a rehearsal container with:
+
+```text
+Host port:       8002, or another unused LAN-only rehearsal port
+Container port:  8001
+Host data path:  /volume1/docker/clash-fleet-manager-rehearsal/data
+Container path:  /data
+Browser URL:     http://<synology-host-or-ip>:8002
+```
+
+Read-only smoke test from the development PC:
+
+```powershell
+node tests/support/verify-container-runtime.mjs --base-url http://<synology-host-or-ip>:8002
+```
+
+See `docs/SYNOLOGY_CONTAINER_REHEARSAL.md` for the full runbook.
 
 ## Phase 3F FastAPI + JSON cutover rehearsal
 
@@ -182,6 +212,12 @@ This is the complete script list from `package.json`, grouped by intent.
 | `serve:test:fastapi` | `npm run _serve:fastapi` |
 | `fastapi:serve` | `npm run serve:api:fastapi` |
 | `prepare:test-app` | `node tests/support/prepare-test-app.mjs` |
+| `container:prepare-data` | `node tests/support/prepare-test-app.mjs` |
+| `container:build` | `docker compose build fastapi-json` |
+| `container:save` | `docker save clash-fleet-manager-fastapi-json:local -o clash-fleet-manager-fastapi-json-local.tar` |
+| `container:run` | `npm run container:prepare-data && docker compose up -d fastapi-json` |
+| `container:stop` | `docker compose down` |
+| `container:logs` | `docker compose logs -f fastapi-json` |
 | `prepare:mariadb:test-db` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\prepare-mariadb-test-db.ps1 -ClearData -SeedFixtures` |
 | `_serve:php` | `docker run --rm -p 8011:8011 -v "%cd%\tests\runtime-app:/app" -w /app php:8.3-cli php -S 0.0.0.0:8011` |
 | `_serve:fastapi` | `node tests/support/serve-fastapi-test-app.mjs` |

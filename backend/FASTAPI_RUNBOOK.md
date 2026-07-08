@@ -272,4 +272,4 @@ Browser -> FastAPI container -> static app files + /api.php -> JsonFileStore -> 
 
 This local container path uses `FLEET_STORE_BACKEND=json`, `FLEET_SERVE_APP=1`, `FLEET_APP_DIR=/app`, and `FLEET_DATA_DIR=/data`. The host mount is `tests/runtime-app/data`, not production NAS data.
 
-Do not use the Phase 4A container runbook as a Synology deployment procedure. The Synology Container Manager rehearsal belongs in a later phase.
+Do not use the Phase 4A container runbook as a production Synology deployment procedure. The Phase 4B Synology Container Manager rehearsal is documented in `docs/SYNOLOGY_CONTAINER_REHEARSAL.md` and still uses disposable JSON data only.

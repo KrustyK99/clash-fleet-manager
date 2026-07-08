@@ -1,4 +1,28 @@
-const baseUrl = process.env.CONTAINER_BASE_URL || 'http://127.0.0.1:8001';
+function parseBaseUrl() {
+  const args = process.argv.slice(2);
+  const baseUrlFlagIndex = args.indexOf('--base-url');
+
+  if (baseUrlFlagIndex !== -1) {
+    const value = args[baseUrlFlagIndex + 1];
+    if (!value) {
+      throw new Error('Expected a URL after --base-url.');
+    }
+    return value;
+  }
+
+  const inlineBaseUrl = args.find(arg => arg.startsWith('--base-url='));
+  if (inlineBaseUrl) {
+    const value = inlineBaseUrl.slice('--base-url='.length);
+    if (!value) {
+      throw new Error('Expected a URL after --base-url=.');
+    }
+    return value;
+  }
+
+  return process.env.CONTAINER_BASE_URL || 'http://127.0.0.1:8001';
+}
+
+const baseUrl = parseBaseUrl();
 
 function request(path) {
   const url = new URL(path, baseUrl);

@@ -18,6 +18,7 @@ It does **not** deploy FastAPI to Synology. It does **not** migrate persistence 
 ## What this rehearsal uses
 
 - Image: `clash-fleet-manager-fastapi-json:local`
+- Exported image tar, when needed for Synology import: `clash-fleet-manager-fastapi-json-local.tar`
 - Container: `clash-fleet-manager-fastapi-json`
 - Browser URL: `http://127.0.0.1:8001`
 - Compatibility route: `http://127.0.0.1:8001/api.php?action=load`
@@ -35,6 +36,14 @@ From the project root:
 ```powershell
 npm run container:build
 ```
+
+## Optional: save the image for Synology import
+
+```powershell
+npm run container:save
+```
+
+This creates `clash-fleet-manager-fastapi-json-local.tar` from the already-built `clash-fleet-manager-fastapi-json:local` image. Use this only when importing the Phase 4A image into Synology Container Manager for the Phase 4B rehearsal.
 
 ## Run the local container
 
@@ -61,6 +70,12 @@ This read-only smoke test checks:
 - `/` serves the app HTML.
 - `/api.php?action=load` returns a timers array.
 - `/api.php?action=loadViews` returns a views array.
+
+The same script can check a Synology rehearsal URL by passing a base URL:
+
+```powershell
+node tests/support/verify-container-runtime.mjs --base-url http://<synology-host-or-ip>:8002
+```
 
 For a manual browser smoke test:
 
@@ -141,11 +156,15 @@ npm run verify:container
 npm run container:stop
 ```
 
+## Synology rehearsal
+
+The Synology Container Manager rehearsal is documented separately in `docs/SYNOLOGY_CONTAINER_REHEARSAL.md`. It uses the same image shape, a separate Synology LAN-only port, and a disposable Synology JSON folder mounted to `/data`.
+
 ## What not to do yet
 
 Do not:
 
-- Deploy to Synology.
+- Cut over production on Synology.
 - Change NAS configuration.
 - Install FastAPI directly on the NAS.
 - Mount production NAS data.

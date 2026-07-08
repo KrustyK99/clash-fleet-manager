@@ -29,6 +29,7 @@
     "fastapi:serve": "npm run serve:api:fastapi",
     "container:prepare-data": "node tests/support/prepare-test-app.mjs",
     "container:build": "docker compose build fastapi-json",
+    "container:save": "docker save clash-fleet-manager-fastapi-json:local -o clash-fleet-manager-fastapi-json-local.tar",
     "container:run": "npm run container:prepare-data && docker compose up -d fastapi-json",
     "container:stop": "docker compose down",
     "container:logs": "docker compose logs -f fastapi-json",

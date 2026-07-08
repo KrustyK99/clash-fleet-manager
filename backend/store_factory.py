@@ -14,6 +14,7 @@ def create_store() -> FleetStore:
     """
 
     backend = os.environ.get("FLEET_STORE_BACKEND", "json").strip().lower()
+    print(f"Using FastAPI store backend: {backend or 'json'}")
 
     if backend in ("", "json"):
         return JsonFileStore()
