@@ -173,25 +173,88 @@ This matters most for the MariaDB E2E proof path. It prevents Playwright from ac
 - Full PHP browser E2E uses base URL `http://127.0.0.1:8011`.
 - The API parity document remains `backend/API_PARITY.md`.
 
-## Cutover rehearsal checklist
+## FastAPI + JSON cutover rehearsal
 
-Do not cut over until all applicable items are true:
+Goal:
 
-- [ ] PHP full E2E passes with `npm run test:e2e`.
-- [ ] FastAPI full E2E passes with `npm run test:e2e:fastapi`.
-- [ ] PHP contract tests pass with `npm run test:contract:php`.
-- [ ] FastAPI contract tests pass with `npm run verify:fastapi` or equivalent.
-- [ ] `backend/API_PARITY.md` has no unresolved blocking gaps.
-- [ ] Runtime data paths are understood for PHP, FastAPI, tests, and production.
-- [ ] Backup behavior is understood for `timers.json` and `account_views.json`.
-- [ ] A real app data backup exists before any production trial.
-- [ ] Rollback path is clear and PHP fallback remains available.
-- [ ] Deployment target is known.
-- [ ] FastAPI process supervision is understood.
-- [ ] Reverse proxy behavior for `/api.php?action=...` is understood.
-- [ ] The production frontend/default endpoint decision has been made deliberately.
-- [ ] No database migration is accidentally bundled into the cutover.
+```text
+Frontend -> FastAPI compatibility endpoint -> JsonFileStore -> JSON files
+```
+
+This rehearsal does not switch production persistence to MariaDB. JSON remains the trusted persistence source for this phase.
+
+The frontend still calls `api.php`. The cutover decision is made by the runtime that serves that same compatibility path:
+
+- PHP rollback/status quo: PHP serves `api.php`.
+- FastAPI rehearsal path: FastAPI serves `/api.php?action=...` on the active app origin or configured route.
+
+Before cutover rehearsal:
+
+- [ ] Confirm the PHP/status quo path works.
+- [ ] Confirm the FastAPI JSON contract path works.
+- [ ] Confirm the full browser app works through FastAPI + JSON.
+- [ ] Back up the current real JSON data files before any real runtime deployment change:
+  - `data/timers.json`
+  - `data/account_views.json`
+- [ ] Keep PHP rollback available.
+- [ ] Confirm no MariaDB environment variables are required for the FastAPI JSON path.
+
+Validation:
+
+```powershell
+npm run verify:php
+npm run verify:fastapi
+npm run verify:fastapi:e2e
+```
+
+After switching, check the normal app behaviors first: load timers, save a harmless timer/view change, reload, confirm stale-write protection still behaves normally, and confirm backup files are created where expected.
+
+Do not run a MariaDB production cutover as part of this phase. Do not run destructive MariaDB setup commands for this rehearsal.
+
+## PHP rollback checklist
+
+Rollback target:
+
+```text
+Frontend -> PHP compatibility endpoint -> JSON files
+```
+
+Use rollback if the FastAPI JSON runtime has unexpected issues.
+
+Steps:
+
+1. Stop the FastAPI runtime/server if it is currently serving the app.
+2. Restore or route the app origin back to the PHP compatibility endpoint. The browser can keep calling `api.php`; the runtime serving that path changes back to PHP.
+3. Confirm the PHP server/container expected on port `8011` is running if using the test path.
+4. Run:
+
+```powershell
+npm run verify:php
+```
+
+5. Open the app and confirm timers/views load, save, and reload normally.
+
+Notes:
+
+- Do not change MariaDB settings during rollback.
+- Do not run destructive MariaDB setup.
+- JSON files remain the trusted persistence source for this phase.
+- If a real-data trial had already started, restore the backed-up JSON files only if the active JSON files are known to be bad.
+
+## Phase 3 completion gate
+
+Phase 3 can be declared complete when these are true:
+
+- [ ] FastAPI + JSON is documented as the near-term active runtime path.
+- [ ] PHP + JSON is documented as rollback.
+- [ ] JSON remains the trusted production persistence source for now.
+- [ ] MariaDB remains opt-in and is not part of production cutover.
+- [ ] The key validation commands pass:
+  - `npm run verify:php`
+  - `npm run verify:fastapi`
+  - `npm run verify:fastapi:e2e`
+- [ ] No new architecture or extra hardening layer was added.
 
 ## Remaining pre-default gaps
 
-Before FastAPI can safely become the default backend, the project still needs a deliberate production plan for process supervision, reverse proxy routing, real-data backup/restore, rollback, and deployment. Those are intentionally outside this readiness pass.
+A real FastAPI deployment still needs an intentional runtime deployment choice for the NAS/local environment, including how the FastAPI process is started and how `/api.php?action=...` is routed. That work belongs after Phase 3; it is not part of the cutover rehearsal documentation.

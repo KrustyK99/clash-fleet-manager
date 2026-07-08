@@ -20,6 +20,40 @@ A low-cognitive-load command reference for the project. Keep this file open in V
 | Gemini-friendly package with tools | `npm run ai:gemini:tools` | Creates split zip files and includes Tools. |
 | Deploy to NAS | `npm run deploy:nas` | Runs the NAS deployment PowerShell script. |
 
+
+## Phase 3F FastAPI + JSON cutover rehearsal
+
+Use this short ladder to rehearse the near-term FastAPI + JSON path while keeping PHP + JSON as rollback.
+
+Active rehearsal path:
+
+```text
+Frontend -> FastAPI compatibility endpoint -> JsonFileStore -> JSON files
+```
+
+Rollback path:
+
+```text
+Frontend -> PHP compatibility endpoint -> JSON files
+```
+
+Validation commands:
+
+```powershell
+npm run verify:php
+npm run verify:fastapi
+npm run verify:fastapi:e2e
+```
+
+Notes:
+
+- The browser still calls `api.php`; PHP vs FastAPI is decided by which runtime serves that compatibility path.
+- FastAPI + JSON does not require MariaDB environment variables.
+- Back up `data/timers.json` and `data/account_views.json` before any real runtime deployment switch.
+- Do not run MariaDB production cutover or destructive MariaDB setup as part of Phase 3F.
+
+See `backend/FASTAPI_RUNBOOK.md` for the cutover and rollback checklists.
+
 ## Practical workflow
 
 ### Normal status-quo check
