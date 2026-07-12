@@ -216,6 +216,42 @@ See `backend/FASTAPI_RUNBOOK.md` for the cutover and rollback checklists.
 
 ## Practical workflow
 
+### Routine application change: verify both runtimes, then deploy both
+
+Use this as the normal change-to-deployment sequence while the PHP rollback path and FastAPI path are both being maintained:
+
+```powershell
+npm run verify:php
+npm run verify:fastapi:e2e
+npm run deploy:nas
+npm run deploy:nas:fastapi
+```
+
+Notes:
+
+- `verify:php` prepares the disposable test app and runs the complete PHP/status-quo Playwright suite, so a separate `prepare:test-app` step is not required.
+- `verify:fastapi:e2e` prepares the disposable test app, forces a fresh FastAPI test server, runs the complete Playwright suite against FastAPI, and stops the test server afterward.
+- Deploy only after both verification commands pass.
+
+### Backend, API, or persistence change: expanded verification
+
+Use this sequence when a change touches `backend/`, API validation or compatibility behaviour, JSON persistence, or store selection:
+
+```powershell
+npm run test:backend
+npm run verify:php
+npm run verify:fastapi
+npm run verify:fastapi:e2e
+npm run deploy:nas
+npm run deploy:nas:fastapi
+```
+
+Notes:
+
+- `test:backend` runs the Python backend test suite directly.
+- `verify:fastapi` is the narrower FastAPI API-contract checkpoint and explicitly forces the default JSON store.
+- `verify:fastapi:e2e` then validates the complete browser workflow against FastAPI. The contract coverage overlaps deliberately with the narrower check.
+
 ### Normal status-quo check
 
 ```bash
