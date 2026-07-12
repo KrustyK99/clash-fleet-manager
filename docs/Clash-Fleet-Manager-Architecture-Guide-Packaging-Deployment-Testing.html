@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Clash Fleet Manager Architecture Guide — Packaging, Deployment &amp; Testing</title>
+<style>
+    :root {
+      --ink:#172033; --muted:#5e687b; --paper:#f5f7fb; --card:#fff;
+      --navy:#183153; --blue:#2f6fed; --cyan:#0f8b9d; --green:#21875b;
+      --amber:#a86400; --red:#b13a3a; --line:#dce2ec; --soft:#edf3ff;
+      --code:#111827; --shadow:0 12px 32px rgba(23,32,51,.09);
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+    a{color:var(--blue)}
+    header{background:linear-gradient(135deg,#10233e,#244b78);color:#fff;padding:64px 24px 58px}
+    .wrap{max-width:1120px;margin:0 auto}
+    .eyebrow{font-size:.78rem;text-transform:uppercase;letter-spacing:.16em;font-weight:800;opacity:.75}
+    h1{font-size:clamp(2.3rem,5vw,4.4rem);line-height:1.05;margin:.25em 0 .3em;letter-spacing:-.035em}
+    .lead{font-size:1.22rem;max-width:840px;color:#dce9fa;margin:0}
+    .meta{margin-top:24px;font-size:.92rem;color:#bcd0e9}
+    main{padding:30px 20px 80px}
+    .toc,.section{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+    .toc{padding:26px 30px;margin:0 auto 28px}
+    .toc h2{margin-top:0}
+    .toc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 28px}
+    .toc a{text-decoration:none;font-weight:650}
+    .section{padding:38px 42px;margin:0 auto 28px;scroll-margin-top:18px}
+    h2{font-size:2rem;line-height:1.18;margin:0 0 22px;letter-spacing:-.02em}
+    h3{font-size:1.3rem;margin:30px 0 10px;color:var(--navy)}
+    h4{font-size:1.05rem;margin:22px 0 7px}
+    p{margin:10px 0 16px}
+    .section-number{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:var(--navy);color:#fff;font-size:1rem;margin-right:12px;vertical-align:5px}
+    .executive{border-left:5px solid var(--blue);background:var(--soft);padding:18px 22px;border-radius:0 12px 12px 0;margin:20px 0}
+    .decision{border:1px solid #b8d8c8;background:#eef9f3;padding:18px 22px;border-radius:12px;margin:20px 0}
+    .warning{border:1px solid #ecd39c;background:#fff8e7;padding:18px 22px;border-radius:12px;margin:20px 0}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:20px 0}
+    .card{border:1px solid var(--line);border-radius:14px;padding:20px;background:#fff}
+    .card h3,.card h4{margin-top:0}
+    .label{display:inline-block;font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:4px 8px;border-radius:99px;background:#e7edf7;color:var(--navy)}
+    .diagram{margin:24px 0;border:1px solid var(--line);border-radius:16px;background:#fbfcfe;padding:24px;overflow-x:auto}
+    .diagram-title{font-weight:800;color:var(--navy);margin-bottom:15px}
+    .flow{display:flex;align-items:stretch;justify-content:center;gap:10px;min-width:780px}
+    .node{flex:1;min-width:130px;border:2px solid #b7c6dc;background:#fff;border-radius:13px;padding:15px;text-align:center;font-weight:750;box-shadow:0 5px 14px rgba(23,32,51,.06)}
+    .node small{display:block;font-weight:500;color:var(--muted);margin-top:5px;line-height:1.35}
+    .node.blue{border-color:#80a5ef;background:#f3f7ff}.node.green{border-color:#83c9a8;background:#f2fbf6}.node.amber{border-color:#e0b86d;background:#fff9ed}
+    .arrow{display:flex;align-items:center;font-size:1.6rem;color:#71809a;font-weight:bold}
+    .stack{display:grid;gap:10px;max-width:760px;margin:0 auto}
+    .layer{border-radius:12px;padding:15px 18px;border:2px solid #b7c6dc;background:#fff;text-align:center;font-weight:750}
+    .layer span{display:block;color:var(--muted);font-weight:500;font-size:.9rem}
+    code{font-family:"Cascadia Code",Consolas,monospace;background:#eef1f6;padding:.1em .35em;border-radius:5px;font-size:.9em}
+    pre{background:var(--code);color:#e5edf9;border-radius:13px;padding:19px 21px;overflow:auto;line-height:1.55;font-size:.9rem}
+    pre code{background:none;padding:0;color:inherit}
+    table{width:100%;border-collapse:collapse;margin:18px 0;font-size:.95rem}
+    th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:12px 10px}
+    th{background:#f0f3f8;color:var(--navy)}
+    ul,ol{padding-left:24px}
+    li{margin:6px 0}
+    .file{font-family:"Cascadia Code",Consolas,monospace;color:#174d91;font-weight:650}
+    .seam{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin:12px 0}
+    .seam-side{padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;text-align:center;font-weight:700}
+    .seam-mid{color:var(--blue);font-weight:900}
+    footer{max-width:1120px;margin:0 auto;padding:0 24px 48px;color:var(--muted);font-size:.9rem}
+    .print-note{font-size:.85rem;color:var(--muted)}
+    @media(max-width:760px){.toc-grid,.grid{grid-template-columns:1fr}.section{padding:28px 22px}.seam{grid-template-columns:1fr}.seam-mid{text-align:center}.flow{min-width:700px}header{padding-top:45px}}
+    @media print{body{background:#fff}.toc,.section{box-shadow:none;break-inside:avoid}.section{border-color:#bbb}.diagram{break-inside:avoid}a{color:inherit;text-decoration:none}header{background:#183153!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style>
+</head>
+<body>
+<header>
+<div class="wrap">
+<div class="eyebrow">Architecture guide</div>
+<h1>Clash Fleet Manager Architecture Guide</h1>
+<p class="lead">A product-owner-level guide to how Clash Fleet Manager is packaged, configured, tested, deployed, and operated. It explains the architecture behind packaging, deployment, and testing without requiring a line-by-line understanding of the implementation.</p>
+<div class="meta">Clash Fleet Manager • Repository snapshot: July 10, 2026 • Current target: FastAPI + JSON on Synology NAS</div>
+</div>
+</header>
+<main class="wrap">
+<nav aria-label="Table of contents" class="toc">
+<h2>Contents</h2>
+<div class="toc-grid">
+<a href="#s1">1. Executive orientation</a>
+<a href="#s2">2. The foundational Docker model</a>
+<a href="#s3">3. From command to running application</a>
+<a href="#s4">4. How a container is configured</a>
+<a href="#s5">5. Baked files versus mounted files</a>
+<a href="#s6">6. The production NAS architecture</a>
+<a href="#s7">7. The testing architecture</a>
+<a href="#s8">8. PHP E2E command trace</a>
+<a href="#s9">9. FastAPI E2E command trace</a>
+<a href="#s10">10. Container verification and deployment</a>
+<a href="#s11">11. The important architectural seams</a>
+<a href="#s12">12. Operational command reference</a>
+<a href="#s13">13. What to remember</a>
+</div>
+</nav>
+<section class="section" id="s1">
+<h2><span class="section-number">1</span>Executive orientation</h2>
+<div class="executive"><strong>The present system is intentionally simple:</strong> a modular browser application and a FastAPI backend are packaged together in one Docker image. On the NAS, the application code is replaceable, while the live JSON data remains outside the container in a persistent mounted folder.</div>
+<p>The project is now in a sensible observation period. Automated testing gives confidence in the behaviours that were explicitly exercised. Daily use provides a different kind of assurance: it can reveal unusual data combinations, calculations, fields, or workflows that were not included in the formal test suite.</p>
+<p>This document focuses on two architectural blind spots:</p>
+<div class="grid">
+<div class="card"><span class="label">Docker</span><h3>How the runtime is manufactured</h3><p>Which files create the image, where container variables come from, how ports and folders are connected, and what changes require a rebuild.</p></div>
+<div class="card"><span class="label">Testing</span><h3>How environments are assembled</h3><p>Why PHP, FastAPI, local processes, mounted folders, packaged containers, and NAS smoke tests all exist without being pointless duplicates.</p></div>
+</div>
+<div class="decision"><strong>Current architectural endpoint:</strong> FastAPI + JSON is a complete and reasonable personal-application target. MariaDB and beyond-gate work can remain deferred unless the product’s needs materially change.</div>
+</section>
+<section class="section" id="s2">
+<h2><span class="section-number">2</span>The foundational Docker model</h2>
+<p>Most Docker confusion disappears once four concepts are kept separate.</p>
+<div class="diagram">
+<div class="diagram-title">Illustration 2.1 — From source code to a running application</div>
+<div class="flow">
+<div class="node blue">Repository<small>The editable source files on the laptop</small></div><div class="arrow">→</div>
+<div class="node amber">Dockerfile<small>The manufacturing recipe</small></div><div class="arrow">→</div>
+<div class="node blue">Docker image<small>A packaged, frozen application snapshot</small></div><div class="arrow">→</div>
+<div class="node green">Container<small>A running instance configured with ports, variables and mounts</small></div>
+</div>
+</div>
+<table>
+<thead><tr><th>Concept</th><th>Executive interpretation</th><th>Clash Fleet Manager example</th></tr></thead>
+<tbody>
+<tr><td><strong>Dockerfile</strong></td><td>Manufacturing instructions</td><td>Install Python dependencies, copy backend and frontend files, start Uvicorn.</td></tr>
+<tr><td><strong>Image</strong></td><td>A versioned deliverable</td><td><code>clash-fleet-manager-fastapi-json:local</code></td></tr>
+<tr><td><strong>Container</strong></td><td>A deployed instance of that deliverable</td><td>The running FastAPI application on the laptop or NAS.</td></tr>
+<tr><td><strong>Compose / docker run</strong></td><td>Runtime configuration</td><td>Container name, port mapping, variables, data mount and restart policy.</td></tr>
+</tbody>
+</table>
+<div class="warning"><strong>A container is not the image.</strong> The image is the packaged product. A container is one running copy of that product, connected to a particular network port and data folder.</div>
+</section>
+<section class="section" id="s3">
+<h2><span class="section-number">3</span>Following a command: from Enter to a running application</h2>
+<div class="executive"><strong>Presentation purpose:</strong> this section follows <code>npm run deploy:nas:fastapi</code> as one continuous relay. It shows which component takes control, what artifact it produces, and when build-time and runtime configuration enter the process.</div>
+<h3>3.1 The command is a relay, not a single program</h3>
+<p>When the deployment command is entered, npm does not build the container itself. It opens <span class="file">package.json</span>, finds the script definition, and launches the PowerShell deployment script. From there, each participant performs one responsibility and hands control to the next.</p>
+<div class="diagram">
+<div class="diagram-title">Illustration 3.1 — The complete deployment relay</div>
+<div class="flow">
+<div class="node"><strong>You</strong><small><code>npm run deploy:nas:fastapi</code></small></div><div class="arrow">→</div>
+<div class="node blue">npm<small>Resolves the script in <code>package.json</code></small></div><div class="arrow">→</div>
+<div class="node amber">PowerShell<small>Orchestrates build, transfer and remote startup</small></div><div class="arrow">→</div>
+<div class="node green">NAS Docker<small>Loads the image and runs the container</small></div>
+</div>
+</div>
+<h3>3.2 Step 1 — npm resolves the friendly command</h3>
+<p><strong>npm is the launcher.</strong> It reads <span class="file">package.json</span> and determines which PowerShell script to execute and which arguments to pass. At this point, Docker, FastAPI and the NAS have not yet done anything.</p>
+<div class="seam"><div class="seam-side">Human-friendly command</div><div class="seam-mid">→</div><div class="seam-side">Deployment script invocation</div></div>
+<h3>3.3 Step 2 — PowerShell becomes the deployment orchestrator</h3>
+<p>The PowerShell script understands the infrastructure-specific details: NAS address, SSH port, image name, container name, host and container ports, NAS data directory, restart policy and optional skip flags.</p>
+<p>It does not know the business meaning of builders, timers or account views. Its responsibility is narrower: package this application, transport it, and start it with the requested connections.</p>
+<h3>3.4 Step 3 — Docker builds the image</h3>
+<p>The script asks Docker to manufacture an image. During the local Compose build, three repository files cooperate:</p>
+<table>
+<thead><tr><th>File</th><th>Role in the build</th></tr></thead>
+<tbody>
+<tr><td class="file">package.json</td><td>Provides the human-friendly npm command and launches the workflow.</td></tr>
+<tr><td class="file">docker-compose.yml</td><td>Identifies the <code>fastapi-json</code> service, build context, Dockerfile and image name.</td></tr>
+<tr><td class="file">Dockerfile</td><td>Defines the image contents, dependencies, defaults and startup command.</td></tr>
+</tbody>
+</table>
+<div class="diagram">
+<div class="diagram-title">Illustration 3.2 — Build-time delegation</div>
+<div class="flow">
+<div class="node"><code>npm script</code><small><span class="file">package.json</span></small></div><div class="arrow">→</div>
+<div class="node"><code>docker compose build</code><small><span class="file">docker-compose.yml</span></small></div><div class="arrow">→</div>
+<div class="node amber"><code>Dockerfile</code><small>Manufacturing recipe</small></div><div class="arrow">→</div>
+<div class="node green">Docker image<small>Frozen application package</small></div>
+</div>
+</div>
+<h3>3.5 What the Dockerfile puts into the image</h3>
+<div class="stack">
+<div class="layer">1. Start with <code>python:3.13-slim</code><span>A small Linux base with Python already installed</span></div>
+<div class="layer">2. Establish default environment variables<span>JSON store, <code>/data</code>, application serving and <code>/app</code></span></div>
+<div class="layer">3. Install container Python requirements<span>Dependencies from <code>backend/requirements-container.txt</code></span></div>
+<div class="layer">4. Copy backend and frontend files into <code>/app</code><span>FastAPI code, HTML, CSS, data map and modular <code>app-*.js</code> files</span></div>
+<div class="layer">5. Create <code>/data</code> and expose port 8001<span>Expected internal data path and listening port</span></div>
+<div class="layer">6. Define the Uvicorn startup command<span><code>python -m uvicorn backend.main:app --host 0.0.0.0 --port 8001</code></span></div>
+</div>
+<h3>3.6 Step 4 — The image exists, but nothing is running yet</h3>
+<p>The completed image is an immutable application snapshot. It contains the backend, frontend and installed dependencies, but it is not yet a running application. A container must later be created from it.</p>
+<div class="warning"><strong>Image versus container:</strong> an image is the packaged deliverable; a container is a configured, running instance of that image.</div>
+<h3>3.7 Step 5 — Docker saves the image as a portable archive</h3>
+<p>The deployment script asks Docker to serialize the image into a <code>.tar</code> file. This archive is a generated build artifact used for transport. It is not source code and does not belong in Git.</p>
+<h3>3.8 Step 6 — SCP transfers the archive to the NAS</h3>
+<p>PowerShell uses SCP to copy the image archive and the generated remote deployment instructions to the Synology NAS. At this stage, the artifact has moved machines, but the new application is still not running.</p>
+<div class="diagram">
+<div class="diagram-title">Illustration 3.3 — Transport is separate from execution</div>
+<div class="flow">
+<div class="node blue">Laptop image<small>Saved as a <code>.tar</code> archive</small></div><div class="arrow">→</div>
+<div class="node amber">SCP over SSH<small>Secure file transport</small></div><div class="arrow">→</div>
+<div class="node green">NAS filesystem<small>Archive ready for Docker to load</small></div>
+</div>
+</div>
+<h3>3.9 Step 7 — Docker on the NAS loads the image</h3>
+<p>The NAS Docker engine imports the archive into its local image store. This makes the same application package available on the NAS. Loading an image still does not start it.</p><div class="executive"><strong>Architecture Principle — Build Once, Configure Everywhere.</strong> The laptop exports a portable image archive and transfers it to the NAS. Docker on the NAS reconstructs that image locally and then instantiates a brand-new container using NAS-specific runtime configuration such as port mappings, mounted folders, environment variables and restart policy. The running container never crosses the network.</div><div class="diagram"><div class="diagram-title">Illustration 3.3A — The image crosses the network; the container does not</div><pre>                 LAPTOP
+────────────────────────────────────
+
+Source Code
+      │
+      ▼
+Docker Build
+      │
+      ▼
+Docker Image
+      │
+      ▼
+Export (.tar)
+      │
+═══════════════ Network ═══════════════
+      │
+      ▼
+Import (.tar)
+      │
+      ▼
+NAS Docker Image
+      │
+      ▼
+docker run
+      │
+      ▼
+Running Container</pre></div>
+<h3>3.10 Step 8 — Docker creates and starts the container</h3>
+<p>The remote deployment command creates a container from the loaded image. This is the point at which the environment-specific runtime configuration is attached:</p>
+<ul>
+<li>the container name;</li>
+<li>environment variables such as <code>FLEET_STORE_BACKEND=json</code>;</li>
+<li>the host-to-container port mapping;</li>
+<li>the NAS data-folder mount;</li>
+<li>the restart policy.</li>
+</ul>
+<div class="executive"><strong>Critical distinction:</strong> application files are selected at image build time. Ports, mounted folders and final runtime variables are attached when the container is started.</div>
+<h3>3.11 Step 9 — The persistent data folder is mounted</h3>
+<p>Docker maps the real NAS directory to <code>/data</code> inside the container:</p>
+<div class="diagram">
+<div class="diagram-title">Illustration 3.4 — Data-path redirection</div>
+<div class="flow">
+<div class="node green">FastAPI sees<small><code>/data/timers.json</code></small></div><div class="arrow">↔</div>
+<div class="node blue">Docker volume mount<small>Runtime filesystem connection</small></div><div class="arrow">↔</div>
+<div class="node amber">NAS stores<small><code>/volume1/web/clash-timers/data/timers.json</code></small></div>
+</div>
+</div>
+<p>The production data therefore survives removal and replacement of the container because it never resides solely in the container’s disposable filesystem.</p>
+<h3>3.12 Step 10 — The network port is mapped</h3>
+<p>The application listens on port 8001 inside the container, while the NAS exposes it through host port 8004:</p>
+<div class="seam"><div class="seam-side">Browser requests NAS port <code>8004</code></div><div class="seam-mid">→</div><div class="seam-side">Docker forwards to container port <code>8001</code></div></div>
+<h3>3.13 Step 11 — FastAPI starts</h3>
+<p>Uvicorn launches FastAPI using the startup command stored in the image. FastAPI reads its runtime variables, sees the mounted <code>/data</code> directory, finds the application files under <code>/app</code>, and begins listening for HTTP requests.</p>
+<h3>3.14 Step 12 — The browser receives the application</h3>
+<p>The browser connects to the NAS. FastAPI returns <code>index.html</code>, CSS and JavaScript. The running frontend then calls API endpoints such as <code>/api/load</code>; FastAPI reads the mounted JSON files and returns the response.</p>
+<div class="diagram">
+<div class="diagram-title">Illustration 3.5 — The final request path</div>
+<div class="flow">
+<div class="node">Browser<small><code>192.168.2.252:8004</code></small></div><div class="arrow">→</div>
+<div class="node blue">Docker port mapping<small><code>8004 → 8001</code></small></div><div class="arrow">→</div>
+<div class="node green">FastAPI<small>Serves frontend and API</small></div><div class="arrow">→</div>
+<div class="node amber">Mounted JSON data<small>Persistent NAS files</small></div>
+</div>
+</div>
+<h3>3.15 Which repository state is deployed?</h3>
+<p>A normal build packages the files currently present in the working folder. Docker does not automatically fetch GitHub and does not require a commit. Committed changes and uncommitted working changes can both enter the image if they are included by the Dockerfile and not excluded by <span class="file">.dockerignore</span>.</p>
+<div class="decision"><strong>Governance interpretation:</strong> “deploy the latest repo” means “build from the current permitted working tree, transfer that exact image, and start a new container from it.” The image provides consistency between the laptop build and the NAS runtime.</div>
+</section>
+<section class="section" id="s4">
+<h2><span class="section-number">4</span>How a container is configured</h2>
+<p>The image contains defaults, but the running container receives the final operational configuration. Values can be supplied at several levels, with runtime values able to override image defaults.</p><div class="executive"><strong>Architecture Principle #1 — Build Once, Configure Everywhere.</strong> Build the application once into an immutable image. Deploy that same image into different environments by supplying different runtime configuration (ports, mounted folders, environment variables, restart policies and networking). The software package remains the same; only its operating environment changes.</div>
+<div class="diagram">
+<div class="diagram-title">Illustration 4.1 — Configuration layers</div>
+<div class="stack">
+<div class="layer">Dockerfile defaults<span>Portable assumptions built into the image</span></div>
+<div class="layer">Compose or <code>docker run</code> values<span>Environment-specific runtime choices</span></div>
+<div class="layer">Script parameters<span>Operator-selected NAS, ports, names, folders and optional behaviour</span></div>
+</div>
+</div>
+<h3>4.1 Application behaviour variables</h3>
+<table>
+<thead><tr><th>Variable</th><th>Meaning</th><th>Current production value</th></tr></thead>
+<tbody>
+<tr><td><code>FLEET_STORE_BACKEND</code></td><td>Selects the persistence implementation.</td><td><code>json</code></td></tr>
+<tr><td><code>FLEET_DATA_DIR</code></td><td>Tells FastAPI where the persistence files are visible inside the container.</td><td><code>/data</code></td></tr>
+<tr><td><code>FLEET_SERVE_APP</code></td><td>Enables serving the browser application from FastAPI.</td><td><code>1</code></td></tr>
+<tr><td><code>FLEET_APP_DIR</code></td><td>Tells FastAPI where the frontend files live.</td><td><code>/app</code></td></tr>
+</tbody>
+</table>
+<h3>4.2 Runtime wiring</h3>
+<p>Environment variables are only one type of container configuration. The runtime also defines:</p>
+<ul>
+<li><strong>Container name:</strong> how Docker identifies the running instance.</li>
+<li><strong>Port mapping:</strong> which host port forwards traffic to the application’s internal port.</li>
+<li><strong>Volume mount:</strong> which external folder appears at <code>/data</code>.</li>
+<li><strong>Restart policy:</strong> whether Docker should restart the container under defined conditions.</li>
+</ul>
+<pre><code>docker run -d \
+  --name clash-fleet-manager-fastapi-json-production-candidate \
+  -p 8004:8001 \
+  -e FLEET_STORE_BACKEND=json \
+  -e FLEET_DATA_DIR=/data \
+  -e FLEET_SERVE_APP=1 \
+  -e FLEET_APP_DIR=/app \
+  -v /volume1/web/clash-timers/data:/data \
+  --restart no \
+  clash-fleet-manager-fastapi-json:local</code></pre>
+<p class="print-note">The deployment script’s defaults are shown. Parameters can override the container name, data directory, host port, container port and restart policy.</p>
+</section>
+<section class="section" id="s5">
+<h2><span class="section-number">5</span>Baked files versus mounted files</h2>
+<p>This is the most important practical distinction in the present deployment.</p>
+<div class="grid">
+<div class="card"><span class="label">Baked into image</span><h3>Application files</h3><ul><li>FastAPI backend</li><li><code>index.html</code></li><li><code>styles.css</code></li><li><code>coc-data-map.js</code></li><li>All matching <code>app-*.js</code> files</li><li>Installed Python packages</li></ul><p><strong>Changing these requires rebuilding and redeploying the image.</strong></p></div>
+<div class="card"><span class="label">Mounted at runtime</span><h3>Production data</h3><ul><li><code>timers.json</code></li><li><code>account_views.json</code></li><li>Generated backups under the live data path</li></ul><p><strong>These survive container replacement because they live outside the container.</strong></p></div>
+</div>
+<div class="diagram">
+<div class="diagram-title">Illustration 5.1 — Container filesystem view</div>
+<div class="flow">
+<div class="node blue">Image contents<small><strong>/app</strong><br/>backend + frontend</small></div>
+<div class="arrow">+</div>
+<div class="node green">NAS folder<small><strong>/volume1/web/clash-timers/data</strong></small></div>
+<div class="arrow">→</div>
+<div class="node amber">Running container<small><strong>/app</strong> from image<br/><strong>/data</strong> from NAS mount</small></div>
+</div>
+</div>
+<div class="executive"><strong>Replacement model:</strong> the container is disposable; the data is not. Deployment removes and recreates the container while reconnecting the new instance to the same live NAS data directory.</div>
+</section>
+<section class="section" id="s6">
+<h2><span class="section-number">6</span>The production NAS architecture</h2>
+<div class="diagram">
+<div class="diagram-title">Illustration 6.1 — End-to-end production request path</div>
+<div class="flow">
+<div class="node">Browser<small>Phone, tablet or computer</small></div><div class="arrow">→</div>
+<div class="node blue">NAS host port 8004<small>External entry point</small></div><div class="arrow">→</div>
+<div class="node green">Container port 8001<small>Uvicorn / FastAPI</small></div><div class="arrow">→</div>
+<div class="node amber">Application<small>Frontend files + API</small></div>
+</div>
+</div>
+<div class="diagram">
+<div class="diagram-title">Illustration 6.2 — Persistence path</div>
+<div class="flow">
+<div class="node green">FastAPI JSON store<small>Reads and writes <code>/data</code></small></div><div class="arrow">→</div>
+<div class="node blue">Docker mount<small><code>/data</code> ↔ NAS folder</small></div><div class="arrow">→</div>
+<div class="node amber">Live NAS files<small><code>timers.json</code><br/><code>account_views.json</code></small></div>
+</div>
+</div>
+<h3>6.1 Why the frontend and API share one container</h3>
+<p>FastAPI serves both the browser files and API endpoints from the same origin. That reduces operational components and avoids the need to coordinate cross-origin browser permissions between separate frontend and backend servers.</p>
+<h3>6.2 What happens during NAS deployment</h3>
+<ol>
+<li>The laptop builds the current image unless <code>-SkipBuild</code> is used.</li>
+<li>Docker saves the image into a <code>.tar</code> archive unless <code>-SkipSave</code> is used.</li>
+<li>SCP copies the archive and a generated remote shell script to the NAS.</li>
+<li>The NAS loads the image into its local Docker image store.</li>
+<li>The script validates the data directory and expected JSON files.</li>
+<li>The existing named candidate container is stopped and removed.</li>
+<li>A fresh container is started with variables, port mapping and the live data mount.</li>
+<li>The script runs smoke tests against the deployed URL and API endpoints.</li>
+</ol>
+</section>
+<section class="section" id="s7">
+<h2><span class="section-number">7</span>The testing architecture</h2>
+<p>The project has a testing ladder rather than one universal test. Each level protects a different seam and carries a different cost.</p>
+<table>
+<thead><tr><th>Layer</th><th>Primary question</th><th>Representative command</th></tr></thead>
+<tbody>
+<tr><td>Backend tests</td><td>Does the persistence and backend logic behave correctly in isolation?</td><td><code>npm run test:backend</code></td></tr>
+<tr><td>API contract</td><td>Does FastAPI preserve the API behaviour expected from PHP?</td><td><code>npm run verify:fastapi</code></td></tr>
+<tr><td>Browser E2E</td><td>Can a real browser complete application workflows against the selected backend?</td><td><code>npm run verify:php</code>, <code>npm run verify:fastapi:e2e</code></td></tr>
+<tr><td>Container smoke test</td><td>Was the application packaged and started correctly as an image?</td><td><code>npm run verify:container</code></td></tr>
+<tr><td>NAS smoke test</td><td>Did the transferred image start correctly with NAS paths and ports?</td><td>Included in <code>npm run deploy:nas:fastapi</code></td></tr>
+<tr><td>Daily use</td><td>Are there unanticipated calculation, field or workflow problems?</td><td>Normal use over the observation period</td></tr>
+</tbody>
+</table>
+<div class="diagram">
+<div class="diagram-title">Illustration 7.1 — Confidence accumulates by layer</div>
+<div class="flow">
+<div class="node">Backend logic<small>Focused and fast</small></div><div class="arrow">→</div>
+<div class="node">API compatibility<small>Protects the replacement seam</small></div><div class="arrow">→</div>
+<div class="node">Browser workflows<small>End-to-end behaviour</small></div><div class="arrow">→</div>
+<div class="node">Packaged runtime<small>Docker correctness</small></div><div class="arrow">→</div>
+<div class="node green">Real operation<small>Unknown unknowns</small></div>
+</div>
+</div>
+<p>These tests overlap intentionally, but they are not exact duplicates. A locally correct backend can still be incorrectly packaged. A correctly packaged image can still be incorrectly wired to a NAS folder or port.</p>
+</section>
+<section class="section" id="s8">
+<h2><span class="section-number">8</span>PHP E2E command trace</h2>
+<p>The default <code>npm run test:e2e</code> delegates to the PHP E2E path. The more explicit verification command is <code>npm run verify:php</code>.</p>
+<div class="diagram">
+<div class="diagram-title">Illustration 8.1 — PHP test environment</div>
+<div class="flow">
+<div class="node blue">Current repo files<small>Frontend + <code>api.php</code></small></div><div class="arrow">→</div>
+<div class="node amber"><code>tests/runtime-app</code><small>Fresh disposable copy + fixture JSON</small></div><div class="arrow">→</div>
+<div class="node green">Stock PHP container<small>Folder mounted at <code>/app</code></small></div><div class="arrow">→</div>
+<div class="node">Playwright<small>Browser tests at port 8011</small></div>
+</div>
+</div>
+<h3>8.1 Sequence</h3>
+<ol>
+<li><span class="file">tests/support/prepare-test-app.mjs</span> deletes any old <code>tests/runtime-app</code>.</li>
+<li>It copies the current frontend modules and <code>api.php</code> into that folder.</li>
+<li>It copies known fixture versions of <code>timers.json</code> and <code>account_views.json</code>.</li>
+<li>Playwright’s <code>webServer</code> starts <code>npm run serve:test:docker</code>.</li>
+<li>That command launches the stock <code>php:8.3-cli</code> image.</li>
+<li>The disposable folder is mounted from Windows into container path <code>/app</code>.</li>
+<li>PHP’s development server listens inside the container and host port 8011 forwards to it.</li>
+<li>Playwright runs desktop and applicable mobile-browser tests.</li>
+<li>When Playwright ends, its managed test server is stopped; the PHP container uses <code>--rm</code>, so Docker removes it.</li>
+</ol>
+<div class="executive"><strong>Why a mount here?</strong> The PHP test uses an unmodified stock PHP image. The runtime application is supplied through a mounted disposable folder, avoiding the need to build a special PHP image for every test run.</div>
+</section>
+<section class="section" id="s9">
+<h2><span class="section-number">9</span>FastAPI E2E command trace</h2>
+<p><code>npm run verify:fastapi:e2e</code> deliberately forces Playwright not to reuse an existing server. This ensures the test runner creates and controls a fresh FastAPI test process.</p>
+<div class="diagram">
+<div class="diagram-title">Illustration 9.1 — FastAPI test environment</div>
+<div class="flow">
+<div class="node blue">Current backend code<small>Runs from repository root</small></div><div class="arrow">+</div>
+<div class="node amber"><code>tests/runtime-app</code><small>Disposable frontend + fixture data</small></div><div class="arrow">→</div>
+<div class="node green">Local Python / Uvicorn process<small>Not a Docker container</small></div><div class="arrow">→</div>
+<div class="node">Playwright<small>Browser tests at port 8001</small></div>
+</div>
+</div>
+<h3>9.1 Sequence</h3>
+<ol>
+<li>The command sets <code>APP_E2E_TARGET=fastapi</code> and <code>PLAYWRIGHT_REUSE_EXISTING_SERVER=0</code>.</li>
+<li>Playwright identifies FastAPI as the application target and uses base URL <code>http://127.0.0.1:8001</code>.</li>
+<li>The disposable test application is rebuilt from current frontend files and fixtures.</li>
+<li><span class="file">serve-fastapi-test-app.mjs</span> selects the local virtual-environment Python when available.</li>
+<li>It launches Uvicorn from the repository root using current backend code.</li>
+<li>It sets <code>FLEET_APP_DIR</code> to the disposable frontend folder and <code>FLEET_DATA_DIR</code> to its fixture-data subfolder.</li>
+<li>Playwright executes the browser suite.</li>
+<li>Playwright terminates its managed server; the Node launcher forwards the termination signal to Uvicorn.</li>
+</ol>
+<div class="warning"><strong>Important correction to the simplest mental model:</strong> the standard FastAPI E2E path does not create a temporary FastAPI Docker container. It creates a temporary FastAPI <em>process and disposable runtime environment</em>. Container packaging is tested separately.</div>
+</section>
+<section class="section" id="s10">
+<h2><span class="section-number">10</span>Container verification and deployment</h2>
+<h3>10.1 Local packaged-container path</h3>
+<p>The local container commands answer a packaging question that the standard FastAPI E2E suite does not answer.</p>
+<div class="diagram">
+<div class="diagram-title">Illustration 10.1 — Local packaged runtime</div>
+<div class="flow">
+<div class="node"><code>container:build</code><small>Manufacture image</small></div><div class="arrow">→</div>
+<div class="node"><code>container:run</code><small>Prepare fixture data + Compose up</small></div><div class="arrow">→</div>
+<div class="node green"><code>verify:container</code><small>Check HTML, timers API and views API</small></div><div class="arrow">→</div>
+<div class="node"><code>container:stop</code><small>Compose down</small></div>
+</div>
+</div>
+<p>Compose mounts <code>./tests/runtime-app/data</code>/data. The application code is baked into the image; only the test data is mounted.</p>
+<h3>10.2 NAS deployment path</h3>
+<div class="diagram">
+<div class="diagram-title">Illustration 10.2 — Laptop to NAS</div>
+<div class="flow">
+<div class="node blue">Build image<small>Laptop Docker</small></div><div class="arrow">→</div>
+<div class="node">Save <code>.tar</code><small>Portable image archive</small></div><div class="arrow">→</div>
+<div class="node">SCP transfer<small>SSH port 34222</small></div><div class="arrow">→</div>
+<div class="node amber">Docker load on NAS<small>Register image</small></div><div class="arrow">→</div>
+<div class="node green">Fresh container<small>Port 8004 + live data mount</small></div>
+</div>
+</div>
+<p>The deployment script does not modify the existing PHP/Web Station application, reverse proxy, DNS, or MariaDB. This preserves rollback and keeps the migration seam controlled.</p>
+</section>
+<section class="section" id="s11">
+<h2><span class="section-number">11</span>The important architectural seams</h2>
+<p>Your preferred way of reasoning about the project—managing seams—is especially effective here.</p>
+<div class="seam"><div class="seam-side">Browser frontend</div><div class="seam-mid">↔ API contract ↔</div><div class="seam-side">PHP or FastAPI backend</div></div>
+<div class="seam"><div class="seam-side">FastAPI application</div><div class="seam-mid">↔ store interface ↔</div><div class="seam-side">JSON or MariaDB persistence</div></div>
+<div class="seam"><div class="seam-side">Repository files</div><div class="seam-mid">↔ Dockerfile ↔</div><div class="seam-side">Docker image</div></div>
+<div class="seam"><div class="seam-side">Docker image</div><div class="seam-mid">↔ Compose / docker run ↔</div><div class="seam-side">Running container</div></div>
+<div class="seam"><div class="seam-side">Container <code>/data</code></div><div class="seam-mid">↔ volume mount ↔</div><div class="seam-side">Persistent NAS folder</div></div>
+<div class="seam"><div class="seam-side">Container port 8001</div><div class="seam-mid">↔ port mapping ↔</div><div class="seam-side">NAS host port 8004</div></div>
+<div class="seam"><div class="seam-side">Playwright</div><div class="seam-mid">↔ webServer lifecycle ↔</div><div class="seam-side">Temporary PHP or FastAPI runtime</div></div>
+<div class="seam"><div class="seam-side">Laptop</div><div class="seam-mid">↔ SSH / SCP ↔</div><div class="seam-side">Synology NAS</div></div>
+<h3>11.1 The practical management question at every seam</h3>
+<p>For each connection, ask:</p>
+<ol>
+<li>What crosses this boundary?</li>
+<li>Which file or script controls it?</li>
+<li>How is the boundary tested?</li>
+<li>What survives when one side is replaced?</li>
+</ol>
+<p>This provides architectural control without needing to memorize every implementation detail.</p>
+</section>
+<section class="section" id="s12">
+<h2><span class="section-number">12</span>Operational command reference</h2>
+<table>
+<thead><tr><th>Command</th><th>What it is really doing</th><th>Environment type</th></tr></thead>
+<tbody>
+<tr><td><code>npm run verify:php</code></td><td>Build disposable app folder, mount it into a temporary stock PHP container, run Playwright.</td><td>Disposable mounted test runtime</td></tr>
+<tr><td><code>npm run verify:fastapi</code></td><td>Start/verify the FastAPI API contract path through the PowerShell verifier.</td><td>Focused backend compatibility runtime</td></tr>
+<tr><td><code>npm run verify:fastapi:e2e</code></td><td>Build disposable app folder, launch local Uvicorn with fixture paths, run Playwright, stop it.</td><td>Disposable local-process test runtime</td></tr>
+<tr><td><code>npm run container:build</code></td><td>Create a packaged image from the current working tree.</td><td>Image manufacturing</td></tr>
+<tr><td><code>npm run container:run</code></td><td>Prepare fixture data and run the packaged image locally through Compose.</td><td>Local production-style container</td></tr>
+<tr><td><code>npm run verify:container</code></td><td>Smoke-test the running packaged image’s HTML and two read APIs.</td><td>Packaging verification</td></tr>
+<tr><td><code>npm run container:stop</code></td><td>Stop and remove the local Compose runtime.</td><td>Cleanup</td></tr>
+<tr><td><code>npm run deploy:nas:fastapi</code></td><td>Build, save, transfer, load, replace, mount and smoke-test the NAS container.</td><td>Production-candidate deployment</td></tr>
+<tr><td><code>npm run deploy:nas:fastapi:dry</code></td><td>Show the deployment path while skipping external changes.</td><td>Deployment rehearsal</td></tr>
+<tr><td><code>npm run deploy:nas:fastapi:reuse-image</code></td><td>Reuse the existing local image archive rather than rebuilding and resaving it.</td><td>Explicit optimized deployment path</td></tr>
+</tbody>
+</table>
+<div class="warning"><strong>Use the optimized reuse command deliberately.</strong> The normal deployment command rebuilds from the current working tree. The reuse command is faster but can deploy an older saved image if the operator has not verified what it contains.</div>
+</section>
+<section class="section" id="s13">
+<h2><span class="section-number">13</span>What to remember</h2>
+<ol>
+<li><strong>A Dockerfile builds an image; Compose or <code>docker run</code> starts a container.</strong></li>
+<li><strong>The image is a frozen snapshot of permitted working-tree files at build time.</strong></li>
+<li><strong>Application code is baked into the production image; live JSON data is mounted from the NAS.</strong></li>
+<li><strong>Replacing the container does not replace the mounted data.</strong></li>
+<li><strong>The standard PHP E2E path uses a temporary Docker container and a mounted disposable app folder.</strong></li>
+<li><strong>The standard FastAPI E2E path uses a temporary local Python process, not a Docker container.</strong></li>
+<li><strong>Container verification exists to test packaging, which application E2E tests alone cannot prove.</strong></li>
+<li><strong>The NAS deployment script owns the laptop-to-NAS seam: build, transfer, runtime wiring and smoke testing.</strong></li>
+<li><strong>Daily use is now a valid final test layer for behaviours that were never explicitly encoded in automated tests.</strong></li>
+</ol>
+<div class="decision"><strong>Executive summary:</strong> the architecture separates replaceable application packaging from persistent business data, and it applies progressively broader tests across the main seams. You do not need intimate code knowledge to manage it responsibly; you need to know which artifact controls each boundary and which test proves that boundary.</div>
+</section>
+</main>
+<footer>
+<p><strong>Source basis:</strong> current repository files including <code>Dockerfile</code>, <code>docker-compose.yml</code>, <code>.dockerignore</code>, <code>package.json</code>, <code>playwright.config.js</code>, <code>tests/support/prepare-test-app.mjs</code>, <code>tests/support/serve-fastapi-test-app.mjs</code>, <code>tests/support/verify-container-runtime.mjs</code>, and <code>Tools/deploy-fastapi-container-to-nas.ps1</code>.</p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,8 @@
+Overlay rebased against clash-fleet-manager-20260711-205225.zip.
+
+Copy these files over the project root, preserving paths.
+This version keeps the newer controlled-running-state timer-card regression test
+and adds the zero-timer authoritative snapshot regression test.
+
+After applying, run:
+  npm run test:e2e

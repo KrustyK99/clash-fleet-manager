@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 3,
+  "lastUpdated": null,
+  "views": [
+    {
+      "id": "all",
+      "label": "All Accounts",
+      "accounts": null,
+      "system": true
+    },
+    {
+      "id": "view-1",
+      "label": "View 1",
+      "accounts": [
+        "Heisenberg",
+        "Jesse Pinkman",
+        "Dark Lord"
+      ]
+    },
+    {
+      "id": "view-2",
+      "label": "View 2",
+      "accounts": [
+        "Felicity",
+        "Isabella",
+        "Lady Scarlett"
+      ]
+    }
+  ],
+  "snapshotFreshnessSettings": {
+    "freshHours": 24,
+    "agingHours": 72
+  },
+  "accountTagMap": {}
+}

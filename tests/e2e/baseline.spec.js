@@ -19,6 +19,636 @@ async function showMenuIfNeeded(page) {
   }
 }
 
+test('extracted CSS and script files load successfully', async ({ page }) => {
+  const assetResponses = new Map();
+
+  page.on('response', response => {
+    const url = response.url();
+
+    if (/\/(styles\.css|coc-data-map\.js|app-config\.js|app-state\.js|app-utils\.js|app-snapshot-meta\.js|app-account-views\.js|app-snapshot-meta-actions\.js|app-saved-views-ui\.js|app-timer-entry-ui\.js|app-timer-entry-actions-ui\.js|app-account-controls-ui\.js|app-ui-layout\.js|app-snapshot-import-ui\.js|app-snapshot-collector-ui\.js|app-snapshot-import-actions\.js|app-timer-filters\.js|app-account-summary\.js|app-account-summary-ui\.js|app-timer-filter-ui\.js|app-timer-list-actions-ui\.js|app-timer-lifecycle-actions\.js|app-timer-runtime\.js|app-timer-card-ui\.js|app-fleet-summary-ui\.js|app-timer-list-render-ui\.js|app-backup-io-ui\.js|app-api-client\.js|app-main\.js|app-bootstrap\.js)(\?|$)/.test(url)) {
+      assetResponses.set(url.split('/').pop().split('?')[0], response.status());
+    }
+  });
+
+  await page.goto('/');
+
+  // This test is about extracted file loading, not app save/load status.
+  // The sync badge may legitimately say Loaded, Saved, Saving, or Save failed
+  // depending on fixture normalization and parallel test timing.
+  await expect(page.getByText('CLASH TIMERS')).toBeVisible();
+
+  expect(assetResponses.get('styles.css')).toBe(200);
+  expect(assetResponses.get('coc-data-map.js')).toBe(200);
+  expect(assetResponses.get('app-config.js')).toBe(200);
+  expect(assetResponses.get('app-state.js')).toBe(200);
+  expect(assetResponses.get('app-utils.js')).toBe(200);
+  expect(assetResponses.get('app-snapshot-meta.js')).toBe(200);
+  expect(assetResponses.get('app-account-views.js')).toBe(200);
+  expect(assetResponses.get('app-snapshot-meta-actions.js')).toBe(200);
+  expect(assetResponses.get('app-saved-views-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-entry-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-entry-actions-ui.js')).toBe(200);
+  expect(assetResponses.get('app-account-controls-ui.js')).toBe(200);
+  expect(assetResponses.get('app-ui-layout.js')).toBe(200);
+  expect(assetResponses.get('app-snapshot-import-ui.js')).toBe(200);
+  expect(assetResponses.get('app-snapshot-collector-ui.js')).toBe(200);
+  expect(assetResponses.get('app-snapshot-import-actions.js')).toBe(200);
+  expect(assetResponses.get('app-timer-filters.js')).toBe(200);
+  expect(assetResponses.get('app-account-summary.js')).toBe(200);
+  expect(assetResponses.get('app-account-summary-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-filter-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-list-actions-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-lifecycle-actions.js')).toBe(200);
+  expect(assetResponses.get('app-timer-runtime.js')).toBe(200);
+  expect(assetResponses.get('app-timer-card-ui.js')).toBe(200);
+  expect(assetResponses.get('app-fleet-summary-ui.js')).toBe(200);
+  expect(assetResponses.get('app-timer-list-render-ui.js')).toBe(200);
+  expect(assetResponses.get('app-backup-io-ui.js')).toBe(200);
+  expect(assetResponses.get('app-api-client.js')).toBe(200);
+  expect(assetResponses.get('app-main.js')).toBe(200);
+  expect(assetResponses.get('app-bootstrap.js')).toBe(200);
+
+  const assets = await page.evaluate(() => ({
+    stylesheets: Array.from(document.styleSheets).map(sheet => sheet.href || ''),
+    scripts: Array.from(document.scripts).map(script => script.src || '')
+  }));
+
+  expect(assets.stylesheets.some(href => href.endsWith('/styles.css'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/coc-data-map.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-config.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-state.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-utils.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-snapshot-meta.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-account-views.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-snapshot-meta-actions.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-saved-views-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-entry-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-entry-actions-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-account-controls-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-ui-layout.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-snapshot-import-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-snapshot-collector-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-snapshot-import-actions.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-filters.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-account-summary.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-account-summary-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-filter-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-list-actions-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-lifecycle-actions.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-runtime.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-card-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-fleet-summary-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-timer-list-render-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-backup-io-ui.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-api-client.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-main.js'))).toBeTruthy();
+  expect(assets.scripts.some(src => src.endsWith('/app-bootstrap.js'))).toBeTruthy();
+
+  const configScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-config.js'));
+  const stateScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-state.js'));
+  const utilsScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-utils.js'));
+  const apiClientScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-api-client.js'));
+  const mainScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-main.js'));
+  const bootstrapScriptIndex = assets.scripts.findIndex(src => src.endsWith('/app-bootstrap.js'));
+  expect(stateScriptIndex).toBe(configScriptIndex + 1);
+  expect(utilsScriptIndex).toBe(stateScriptIndex + 1);
+  expect(apiClientScriptIndex).toBe(mainScriptIndex - 1);
+  expect(bootstrapScriptIndex).toBe(mainScriptIndex + 1);
+  expect(bootstrapScriptIndex).toBe(assets.scripts.length - 1);
+
+  const globalsLoaded = await page.evaluate(() => ({
+    hasUpgradeTypes: Array.isArray(window.UPGRADE_TYPES),
+    hasDataMap: !!window.COC_DATA_ID_MAP,
+    hasCoreState: typeof timers !== 'undefined'
+      && Array.isArray(timers)
+      && typeof filterGroup === 'string'
+      && typeof saveInFlight === 'boolean',
+    hasUtilityFunction: typeof window.fmt === 'function',
+    hasSnapshotMetaFunction: typeof window.getSnapshotFreshness === 'function',
+    hasAccountViewsFunction: typeof window.getSelectedAccountView === 'function',
+    hasSnapshotMetaActionsFunction: typeof window.learnAccountTagMapping === 'function'
+      && typeof window.seedAccountTagMapFromSnapshotMeta === 'function'
+      && typeof window.saveAccountTagMapQuietly === 'function'
+      && typeof window.updateSnapshotMetaFromParsedSnapshot === 'function'
+      && typeof window.refreshSnapshotMetadataDependentUi === 'function',
+    hasSavedViewsUiFunction: typeof window.renderAccountViewsEditor === 'function',
+    hasTimerEntryUiFunction: typeof window.openBulkModal === 'function' && typeof window.parseBulkTimerText === 'function',
+    hasTimerEntryActionsUiFunction: typeof window.saveTimer === 'function'
+      && typeof window.saveBulkTimers === 'function'
+      && typeof window.quickAdd === 'function',
+    hasAccountControlsUiFunction: typeof window.renderAccountViewPicker === 'function'
+      && typeof window.setAccountView === 'function'
+      && typeof window.applySavedAccountView === 'function'
+      && typeof window.applyAccountViewChangesAfterSave === 'function'
+      && typeof window.populateAccountControls === 'function'
+      && typeof window.setupNativeSelectRenderGuard === 'function',
+    hasLayoutFunction: typeof window.setupScrollTopButton === 'function',
+    hasSnapshotImportUiFunction: typeof window.openSnapshotModal === 'function' && typeof window.renderSnapshotCandidates === 'function',
+    hasSnapshotCollectorUiFunction: typeof window.openBatchSnapshotModal === 'function' && typeof window.renderBatchSnapshotRows === 'function',
+    hasSnapshotImportActionsFunction: typeof window.parseAccountSnapshot === 'function'
+      && typeof window.saveSnapshotTimers === 'function'
+      && typeof window.saveBatchSnapshotTimers === 'function'
+      && typeof window.applySnapshotImportForAccount === 'function',
+    hasTimerFiltersFunction: typeof window.getVisibleTimerList === 'function',
+    hasAccountSummaryFunction: typeof window.buildAccountSummaryRows === 'function',
+    hasAccountSummaryUiFunction: typeof window.renderAccountSummary === 'function',
+    hasTimerFilterUiFunction: typeof window.renderGroupBar === 'function' && typeof window.renderStats === 'function' && typeof window.resetFilters === 'function',
+    hasTimerListActionsUiFunction: typeof window.toggleDeleteSelectionMode === 'function' && typeof window.renderDeleteSelectionBar === 'function' && typeof window.toggleTimerActions === 'function',
+    hasTimerLifecycleActionsFunction: typeof window.startTimer === 'function'
+      && typeof window.pauseTimer === 'function'
+      && typeof window.resetTimer === 'function'
+      && typeof window.deleteTimer === 'function'
+      && typeof window.startAll === 'function'
+      && typeof window.pauseAll === 'function'
+      && typeof window.resetExpired === 'function',
+    hasTimerRuntimeFunction: typeof window.tick === 'function'
+      && typeof window.renderTimersSafely === 'function'
+      && typeof window.playAlert === 'function'
+      && typeof window.updateTimerCardRuntimeFields === 'function'
+      && typeof window.refreshVisibleTimerRuntimeFields === 'function',
+    hasTimerCardUiFunction: typeof window.renderTimerCard === 'function',
+    hasFleetSummaryUiFunction: typeof window.renderFleetSummaryModal === 'function',
+    hasTimerListRenderUiFunction: typeof window.renderTimers === 'function',
+    hasBackupIoUiFunction: typeof window.exportTimers === 'function' && typeof window.importTimers === 'function',
+    hasApiClient: typeof window.FleetApiClient === 'object'
+      && typeof window.FleetApiClient.loadTimers === 'function'
+      && typeof window.FleetApiClient.saveTimers === 'function'
+      && typeof window.FleetApiClient.loadAccountViews === 'function'
+      && typeof window.FleetApiClient.saveAccountViews === 'function',
+    hasMainAppFunction: typeof window.save === 'function'
+      && typeof window.load === 'function'
+      && typeof window.reloadTimerFile === 'function'
+      && typeof window.normalizeTimersAfterLoad === 'function',
+    hasBootstrapFunction: typeof window.boot === 'function'
+  }));
+
+  expect(globalsLoaded).toEqual({
+    hasUpgradeTypes: true,
+    hasDataMap: true,
+    hasCoreState: true,
+    hasUtilityFunction: true,
+    hasSnapshotMetaFunction: true,
+    hasAccountViewsFunction: true,
+    hasSnapshotMetaActionsFunction: true,
+    hasSavedViewsUiFunction: true,
+    hasTimerEntryUiFunction: true,
+    hasTimerEntryActionsUiFunction: true,
+    hasAccountControlsUiFunction: true,
+    hasLayoutFunction: true,
+    hasSnapshotImportUiFunction: true,
+    hasSnapshotCollectorUiFunction: true,
+    hasSnapshotImportActionsFunction: true,
+    hasTimerFiltersFunction: true,
+    hasAccountSummaryFunction: true,
+    hasAccountSummaryUiFunction: true,
+    hasTimerFilterUiFunction: true,
+    hasTimerListActionsUiFunction: true,
+    hasTimerLifecycleActionsFunction: true,
+    hasTimerRuntimeFunction: true,
+    hasTimerCardUiFunction: true,
+    hasFleetSummaryUiFunction: true,
+    hasTimerListRenderUiFunction: true,
+    hasBackupIoUiFunction: true,
+    hasApiClient: true,
+    hasMainAppFunction: true,
+    hasBootstrapFunction: true
+  });
+});
+
+test('extracted app configuration is available to the browser app', async ({ page }) => {
+  await page.goto('/');
+
+  const config = await page.evaluate(() => ({
+    upgradeTypes: window.UPGRADE_TYPES,
+    noteTemplates: window.NOTE_TEMPLATES,
+    accountPresets: window.ACCOUNT_PRESETS,
+    defaultViews: window.DEFAULT_ACCOUNT_VIEWS,
+    freshnessSettings: window.DEFAULT_SNAPSHOT_FRESHNESS_SETTINGS
+  }));
+
+  expect(Array.isArray(config.upgradeTypes)).toBeTruthy();
+  expect(config.upgradeTypes).toContain('Builder');
+  expect(config.upgradeTypes).toContain('Lab');
+
+  expect(Array.isArray(config.noteTemplates)).toBeTruthy();
+  expect(config.noteTemplates).toContain('Check lab');
+
+  expect(Array.isArray(config.accountPresets)).toBeTruthy();
+  expect(config.accountPresets.length).toBeGreaterThan(0);
+
+  expect(Array.isArray(config.defaultViews)).toBeTruthy();
+  expect(config.defaultViews.some(view => view.id === 'all')).toBeTruthy();
+
+  expect(config.freshnessSettings.freshHours).toBeGreaterThan(0);
+  expect(config.freshnessSettings.agingHours).toBeGreaterThan(
+    config.freshnessSettings.freshHours
+  );
+});
+
+test('running timer tick updates runtime fields without rebuilding filter UI', async ({ page }) => {
+  await page.goto('/');
+
+  const probe = await page.evaluate(() => {
+    if (tickInterval) {
+      clearInterval(tickInterval);
+      tickInterval = null;
+    }
+
+    const now = Date.now();
+    timers = [{
+      id: 'lightweight-tick-probe',
+      name: 'Lightweight Tick Probe',
+      duration: 120,
+      remaining: 60,
+      status: 'running',
+      endTime: now + 59000,
+      repeat: false,
+      sound: false,
+      created: now - 1000,
+      account: 'Probe Account',
+      group: 'Probe Account',
+      upgradeType: 'Builder',
+      note: '',
+      pinned: false,
+      expiredAt: null
+    }];
+    sortKey = 'name';
+    sortDir = 1;
+    filterGroup = 'All';
+    filterDue = 'All';
+    filterType = 'All';
+    filterStatus = 'All';
+    filterPinned = false;
+    selectedAccountView = 'all';
+    expandedAccount = null;
+    expandedGapType = null;
+    deleteSelectionMode = false;
+    selectedTimerIds = new Set();
+    timerCopySourceId = null;
+    cardModes = {};
+
+    renderTimers();
+
+    const dueMarker = document.querySelector('#due-bar .group-pill');
+    const summaryMarker = document.querySelector('#account-summary .account-summary-table');
+    dueMarker.dataset.tickProbe = 'kept';
+    if (summaryMarker) summaryMarker.dataset.tickProbe = 'kept';
+
+    const remainingEl = document.querySelector('#tc-lightweight-tick-probe [data-timer-remaining]');
+    const progressEl = document.querySelector('#tc-lightweight-tick-probe [data-timer-progress]');
+    const beforeText = remainingEl.textContent;
+    const beforeProgress = progressEl.style.width;
+
+    tick();
+
+    return {
+      beforeText,
+      afterText: remainingEl.textContent,
+      beforeProgress,
+      afterProgress: progressEl.style.width,
+      dueMarkerKept: document.querySelector('#due-bar .group-pill[data-tick-probe="kept"]') === dueMarker,
+      summaryMarkerKept: summaryMarker
+        ? document.querySelector('#account-summary .account-summary-table[data-tick-probe="kept"]') === summaryMarker
+        : true
+    };
+  });
+
+  expect(probe.afterText).not.toBe(probe.beforeText);
+  expect(probe.afterProgress).not.toBe(probe.beforeProgress);
+  expect(probe.dueMarkerKept).toBeTruthy();
+  expect(probe.summaryMarkerKept).toBeTruthy();
+});
+
+test('new timer modal static selects are populated and note template fills note field', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /new timer/i }).click();
+
+  const modal = page.locator('#modal');
+  await expect(modal).toBeVisible();
+
+  const typeOptions = await page.locator('#f-upgrade-type option').allTextContents();
+  expect(typeOptions[0]).toBe('— Select type —');
+  expect(typeOptions).toContain('Builder');
+  expect(typeOptions).toContain('Lab');
+
+  const noteOptions = await page.locator('#f-note-template option').allTextContents();
+  expect(noteOptions[0]).toBe('— Choose a quick note —');
+  expect(noteOptions).toContain('Check lab');
+
+  await page.locator('#f-note-template').selectOption({ label: 'Check lab' });
+
+  await expect(page.locator('#f-note')).toHaveValue('Check lab');
+  await expect(page.locator('#f-note-template')).toHaveValue('');
+
+  await modal.getByRole('button', { name: /^Cancel$/ }).click();
+
+  await expect(modal).toBeHidden();
+});
+
+test('edit timer modal opens with the selected timer values', async ({ page }) => {
+  await page.goto('/');
+
+  const firstCard = page.locator('#timer-list .timer-card').first();
+  await expect(firstCard).toBeVisible();
+
+  const timerName = await firstCard.locator('.timer-name').innerText();
+
+  await firstCard.locator('button[title="Edit full timer"]').click();
+
+  const modal = page.locator('#modal');
+  await expect(modal).toBeVisible();
+  await expect(page.locator('#modal-title')).toHaveText('Edit Timer');
+  await expect(page.locator('#f-name')).toHaveValue(timerName);
+
+  await modal.getByRole('button', { name: /^Cancel$/ }).click();
+
+  await expect(modal).toBeHidden();
+});
+
+test('timer card secondary display toggles between elapsed and end time', async ({ page }) => {
+  await page.goto('/');
+
+  // The fixture contains real end times, so its running timers eventually expire.
+  // Put one existing timer into a controlled in-memory running state so this UI
+  // test remains independent of the date on which the suite is executed.
+  const firstCard = page.locator('#timer-list .timer-card').first();
+  await expect(firstCard).toBeVisible();
+  const timerId = await firstCard.getAttribute('data-timer-id');
+
+  await page.evaluate(id => {
+    const timer = timers.find(candidate => String(candidate.id) === String(id));
+    if (!timer) throw new Error(`Timer ${id} was not found in app state.`);
+
+    timer.duration = Math.max(Number(timer.duration) || 0, 3600);
+    timer.remaining = 1800;
+    timer.status = 'running';
+    timer.endTime = Date.now() + timer.remaining * 1000;
+    timer.expiredAt = null;
+    cardModes[timer.id] = 'elapsed';
+    renderTimers();
+  }, timerId);
+
+  const secondary = page.locator(`#tc-${timerId} .timer-secondary`);
+
+  await expect(secondary).toBeVisible();
+  await expect(secondary).toContainText(/elapsed/i);
+
+  await secondary.click();
+
+  await expect(secondary).toContainText(/ends/i);
+
+  await secondary.click();
+
+  await expect(secondary).toContainText(/elapsed/i);
+});
+
+test('timer cards render stable core presentation elements', async ({ page }) => {
+  await page.goto('/');
+
+  const firstCard = page.locator('#timer-list .timer-card').first();
+
+  await expect(firstCard).toBeVisible();
+  await expect(firstCard.locator('.timer-name')).toBeVisible();
+  await expect(firstCard.locator('.timer-display')).toBeVisible();
+  await expect(firstCard.locator('.timer-meta')).toBeVisible();
+  await expect(firstCard.locator('.timer-due-badge')).toBeVisible();
+  await expect(firstCard.locator('.progress-bar .progress-fill')).toHaveCount(1);
+  await expect(firstCard.locator('.card-actions button[title="Adjust time"]')).toHaveCount(1);
+  await expect(firstCard.locator('.card-actions button[title="Edit full timer"]')).toHaveCount(1);
+});
+
+test('bulk add modal opens with default rows and row controls work', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /multi add/i }).click();
+
+  const modal = page.locator('#bulk-modal');
+  const rows = page.locator('#bulk-rows .bulk-timer-row');
+
+  await expect(modal).toBeVisible();
+  await expect(modal.getByRole('heading', { name: /add multiple timers/i })).toBeVisible();
+
+  await expect(page.locator('#bulk-start')).toBeChecked();
+  await expect(page.locator('#bulk-sound')).toBeChecked();
+  await expect(rows).toHaveCount(5);
+
+  await page.locator('.bulk-add-row').click();
+  await expect(rows).toHaveCount(6);
+
+  await rows.last().locator('.bulk-remove-btn').click();
+  await expect(rows).toHaveCount(5);
+
+  await page.locator('#bulk-paste-text').fill('X-Bow 3h 57m');
+  await modal.getByRole('button', { name: /clear list/i }).click();
+
+  await expect(page.locator('#bulk-paste-text')).toHaveValue('');
+  await expect(page.locator('#bulk-paste-status')).toHaveText('List cleared.');
+  await expect(page.locator('#bulk-paste-status')).toHaveClass(/ok/);
+
+  await page.locator('#bulk-paste-text').fill('X-Bow 3h 57m\nGold Storage 6d 7h');
+  await modal.getByRole('button', { name: /parse list/i }).click();
+
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first().locator('.bulk-name')).toHaveValue('X-Bow');
+  await expect(page.locator('#bulk-paste-status')).toContainText('Parsed 2 timers');
+  await expect(page.locator('#bulk-paste-status')).toHaveClass(/ok/);
+
+  await modal.getByRole('button', { name: /^Cancel$/ }).click();
+
+  await expect(modal).toBeHidden();
+});
+
+test('extracted utility helpers preserve expected behavior', async ({ page }) => {
+  await page.goto('/');
+
+  const result = await page.evaluate(() => ({
+    splitSeconds: splitSeconds(90061),
+    clampNegative: clampNonNegativeSeconds(-12),
+    clampDecimal: clampNonNegativeSeconds(12.9),
+    fmtShort: fmt(65),
+    fmtHour: fmt(3661),
+    fmtDay: fmt(90061),
+    fmtDurationZero: fmtDuration(0),
+    fmtDurationMixed: fmtDuration(90061),
+    escaped: esc('<tag attr="x">&'),
+    timerArg: timerIdArg('abc"123'),
+    bulkTimerLine: parseBulkTimerLine('1. X-Bow 3h 57m'),
+    normalizedTag: normalizePlayerTag('  abc 123 '),
+    dueReady: dueWindow({ status: 'expired', remaining: 999 }),
+    dueSoon: dueWindow({ status: 'running', remaining: 3600 }),
+    dueToday: dueWindow({ status: 'running', remaining: 86400 }),
+    dueLater: dueWindow({ status: 'running', remaining: 86401 })
+  }));
+
+  expect(result.splitSeconds).toEqual({ d: 1, h: 1, m: 1, s: 1 });
+
+  expect(result.clampNegative).toBe(0);
+  expect(result.clampDecimal).toBe(12);
+
+  expect(result.fmtShort).toBe('01:05');
+  expect(result.fmtHour).toBe('1:01:01');
+  expect(result.fmtDay).toBe('1d 01:01:01');
+
+  expect(result.fmtDurationZero).toBe('0s');
+  expect(result.fmtDurationMixed).toBe('1d 1h 1m 1s');
+
+  expect(result.escaped).toBe('&lt;tag attr=&quot;x&quot;&gt;&amp;');
+  expect(result.timerArg).toBe('&quot;abc\\&quot;123&quot;');
+  expect(result.bulkTimerLine).toEqual({
+    name: 'X-Bow',
+    days: 0,
+    hours: 3,
+    minutes: 57,
+    seconds: 0
+  });
+
+  expect(result.normalizedTag).toBe('#ABC123');
+
+  expect(result.dueReady).toMatchObject({ key: 'Ready', cls: 'ready', order: 0 });
+  expect(result.dueSoon).toMatchObject({ key: 'Soon', cls: 'soon', order: 1 });
+  expect(result.dueToday).toMatchObject({ key: 'Today', cls: 'today', order: 2 });
+  expect(result.dueLater).toMatchObject({ key: 'Later', cls: 'later', order: 3 });
+});
+
+
+test('extracted snapshot metadata helpers preserve expected behavior', async ({ page }) => {
+  await page.goto('/');
+
+  const result = await page.evaluate(() => {
+    snapshotFreshnessSettings = normalizeSnapshotFreshnessSettings({ freshHours: 6, agingHours: 24 });
+    accountSnapshotMeta = normalizeAccountSnapshotMeta({
+      Bart: {
+        loadedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
+        tag: '#abc123',
+        candidateCount: 4,
+        selectedCount: 3,
+        builderCapacity: { homeTotal: 6, builderBaseTotal: 2 }
+      }
+    });
+
+    const snapshot = {
+      tag: ' xyz789 ',
+      playerName: 'Snapshot Bart',
+      buildings: [
+        { data: '1000015', cnt: 5 },
+        { data: '1000064', lvl: 1 }
+      ],
+      buildings2: [
+        { data: '1000034', lvl: 9 }
+      ]
+    };
+
+    const terryLikeSnapshot = {
+      buildings: [
+        { data: '1000015', lvl: 1, cnt: 4 },
+        { data: '1000093', lvl: 1, cnt: 1 }
+      ],
+      buildings2: [
+        { data: '1000034', lvl: 5, cnt: 1 }
+      ]
+    };
+
+    const bobControlSnapshot = {
+      buildings: [
+        { data: '1000015', cnt: 5 }
+      ],
+      buildings2: [
+        { data: '1000034', lvl: 9 },
+        { data: '1000081', lvl: 5 }
+      ]
+    };
+
+    return {
+      normalizedSettings: normalizeSnapshotFreshnessSettings({ freshHours: 99.8, agingHours: 12 }),
+      normalizedTagMap: normalizeAccountTagMap({ abc123: 'Bart', ' #def456 ': ' Elvira Dark ' }),
+      playerTag: getSnapshotPlayerTag(snapshot),
+      playerName: getSnapshotPlayerName(snapshot),
+      freshness: getSnapshotFreshness('Bart'),
+      builderCapacity: getAccountBuilderCapacity('Bart'),
+      derivedCapacity: deriveBuilderCapacityFromSnapshot(snapshot),
+      capacityText: snapshotBuilderCapacityStatusText(snapshot),
+      terryLikeCapacity: deriveBuilderCapacityFromSnapshot(terryLikeSnapshot),
+      bobControlCapacity: deriveBuilderCapacityFromSnapshot(bobControlSnapshot)
+    };
+  });
+
+  expect(result.normalizedSettings).toEqual({ freshHours: 100, agingHours: 101 });
+  expect(result.normalizedTagMap).toEqual({ '#ABC123': 'Bart', '#DEF456': 'Elvira Dark' });
+  expect(result.playerTag).toBe('#XYZ789');
+  expect(result.playerName).toBe('Snapshot Bart');
+  expect(result.freshness).toMatchObject({ key: 'fresh', cls: 'fresh', label: 'Fresh' });
+  expect(result.builderCapacity).toEqual({ homeTotal: 6, builderBaseTotal: 2 });
+  expect(result.derivedCapacity).toEqual({ homeTotal: 6, builderBaseTotal: 2 });
+  expect(result.capacityText).toBe(' Detected capacity: 6 home builders, 2 Builder Base builders.');
+  expect(result.terryLikeCapacity).toEqual({ homeTotal: 4, builderBaseTotal: 1 });
+  expect(result.bobControlCapacity).toEqual({ homeTotal: 6, builderBaseTotal: 2 });
+});
+
+
+test('account control bridge populates saved view and account selects', async ({ page }) => {
+  await page.goto('/');
+
+  await showMenuIfNeeded(page);
+
+  const accountViewOptions = await page.locator('#account-view-select option').allTextContents();
+  expect(accountViewOptions.length).toBeGreaterThan(0);
+  expect(accountViewOptions).toContain('All Accounts');
+
+  const quickAccountOptions = await page.locator('#q-account option').allTextContents();
+  expect(quickAccountOptions[0]).toBe('— Select account —');
+  expect(quickAccountOptions.length).toBeGreaterThan(1);
+
+  const bulkAccountOptions = await page.locator('#bulk-account option').allTextContents();
+  expect(bulkAccountOptions[0]).toBe('— Select account or scope —');
+  expect(bulkAccountOptions.some((label) => /^All Accounts \(/.test(label))).toBeTruthy();
+
+  const snapshotAccountOptions = await page.locator('#snapshot-account option').allTextContents();
+  expect(snapshotAccountOptions[0]).toBe('— Select account —');
+  expect(snapshotAccountOptions.length).toBeGreaterThan(1);
+
+  await expect(page.locator('#account-suggestions option').first()).toHaveCount(1);
+});
+
+test('timer filter/status bars render baseline controls after app load', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.locator('#group-bar .filter-bar-label')).toHaveText('Account');
+  await expect(page.locator('#due-bar .filter-bar-label')).toHaveText('Due');
+  await expect(page.locator('#type-bar .filter-bar-label')).toHaveText('Type');
+  await expect(page.locator('#stats-bar .filter-bar-label')).toHaveText('Status');
+
+  await expect(page.locator('#group-bar .account-pill').first()).toBeVisible();
+  await expect(page.locator('#due-bar').getByRole('button', { name: /ready now/i })).toBeVisible();
+  await expect(page.locator('#type-bar').getByRole('button', { name: /^all \(/i })).toBeVisible();
+  await expect(page.locator('#stats-bar').getByRole('button', { name: /reset filters/i })).toBeVisible();
+  await expect(page.locator('#stats-bar').getByRole('button', { name: /pinned/i })).toBeVisible();
+});
+
+test('delete selection mode opens with stable controls and can cancel', async ({ page }) => {
+  await page.goto('/');
+
+  const deleteButton = page.locator('#delete-mode-btn');
+  const deleteBar = page.locator('#delete-selection-bar');
+
+  await expect(page.locator('#timer-list .timer-card').first()).toBeVisible();
+
+  await deleteButton.click();
+
+  await expect(deleteButton).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#delete-mode-label')).toHaveText('Delete On');
+  await expect(deleteBar).toHaveClass(/visible/);
+  await expect(deleteBar).toContainText(/Delete mode/i);
+  await expect(deleteBar.getByRole('button', { name: /select visible/i })).toBeVisible();
+  await expect(deleteBar.getByRole('button', { name: /^cancel$/i })).toBeVisible();
+
+  await deleteBar.getByRole('button', { name: /^cancel$/i }).click();
+
+  await expect(deleteButton).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#delete-mode-label')).toHaveText('Delete');
+  await expect(deleteBar).not.toHaveClass(/visible/);
+});
+
 test('account filter pill filters the timer list and reset restores all timers', async ({ page, request }) => {
   const response = await request.get('/api.php?action=load');
   expect(response.ok()).toBeTruthy();
@@ -140,6 +770,24 @@ test('saved account view scopes timers and can return to all accounts', async ({
 
   await expect(page.locator('#account-view-select')).toHaveValue('all');
   await expect(timerCards).toHaveCount(timers.length);
+});
+
+test('saved views management modal opens with editor and freshness settings', async ({ page }) => {
+  await page.goto('/');
+
+  await showMenuIfNeeded(page);
+  await page.getByRole('button', { name: /^Manage$/ }).click();
+
+  const modal = page.locator('#account-views-modal');
+  await expect(modal).toBeVisible();
+  await expect(modal.getByRole('heading', { name: /manage saved views/i })).toBeVisible();
+  await expect(modal.locator('.account-view-editor-row').first()).toBeVisible();
+  await expect(modal.locator('#snapshot-fresh-hours')).toBeVisible();
+  await expect(modal.locator('#snapshot-aging-hours')).toBeVisible();
+
+  await modal.getByRole('button', { name: /^Cancel$/ }).click();
+
+  await expect(modal).toBeHidden();
 });
 
 test('search filters timers and clear search restores the full list', async ({ page, request }) => {
@@ -322,7 +970,64 @@ test('fleet summary modal opens', async ({ page }) => {
   await page.locator('#fleet-summary-btn').click();
 
   await expect(page.getByRole('heading', { name: /fleet summary/i })).toBeVisible();
-  await expect(page.getByText(/Active timers/i)).toBeVisible();
+  await expect(page.locator('.fleet-kpi-label').getByText('Active timers', { exact: true })).toBeVisible();
+  const matrixSection = page.locator('#fleet-section-matrix');
+  await expect(matrixSection).toBeVisible();
+  await expect(matrixSection.locator('.fleet-panel-title').getByText(/Queue coverage matrix/i)).toBeVisible();
+  await expect(page.locator('.fleet-matrix-sort-btn.account')).toBeVisible();
+});
+
+test('fleet summary matrix sorting remains interactive', async ({ page }) => {
+  await page.goto('/');
+
+  await page.locator('#fleet-summary-btn').click();
+
+  const matrixSection = page.locator('#fleet-section-matrix');
+  await expect(matrixSection).toBeVisible();
+
+  const matrix = matrixSection.locator('.fleet-matrix');
+  await expect(matrix).toBeVisible();
+  await expect(matrix.locator('.fleet-matrix-row').first()).toBeVisible();
+
+  await matrix.getByRole('button', { name: /sort home ascending/i }).click();
+
+  await expect(matrixSection).toBeVisible();
+  await expect(matrixSection.locator('.fleet-matrix')).toBeVisible();
+  await expect(
+    matrixSection.locator('.fleet-matrix-sort-btn.active .fleet-matrix-sort-label').filter({ hasText: /^Home$/ })
+  ).toBeVisible();
+  await expect(matrixSection.locator('.fleet-matrix-row').first()).toBeVisible();
+});
+
+test('account snapshot add modal opens with safe defaults and validates empty paste', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /snapshot add/i }).click();
+
+  const modal = page.locator('#snapshot-modal');
+
+  await expect(modal).toBeVisible();
+  await expect(modal.getByRole('heading', { name: /add timers from account snapshot/i })).toBeVisible();
+
+  await expect(page.locator('#snapshot-start')).toBeChecked();
+  await expect(page.locator('#snapshot-sound')).toBeChecked();
+  await expect(page.locator('#snapshot-include-helper')).not.toBeChecked();
+  await expect(page.locator('#snapshot-replace-existing')).not.toBeChecked();
+  await expect(page.locator('#snapshot-preserve-manual-notes')).toBeChecked();
+  await expect(page.locator('#snapshot-preserve-manual-notes')).toBeDisabled();
+
+  await expect(page.locator('#snapshot-candidate-rows')).toContainText(
+    /paste and parse a snapshot to see timer candidates/i
+  );
+
+  await modal.getByRole('button', { name: /^Parse Snapshot$/ }).click();
+
+  await expect(page.locator('#snapshot-status')).toContainText(/paste account json first/i);
+  await expect(page.locator('#snapshot-status')).toHaveClass(/warning/);
+
+  await modal.getByRole('button', { name: /^Cancel$/ }).click();
+
+  await expect(modal).toBeHidden();
 });
 
 // Keep this as a smoke/guard test only. Full Snapshot Collector imports mutate
@@ -357,4 +1062,90 @@ test('snapshot collector opens with safe defaults and validates empty paste', as
   await modal.getByRole('button', { name: /^Cancel$/ }).click();
 
   await expect(modal).toBeHidden();
+});
+// Intercept persistence so this regression test can inspect the outgoing payload
+// without mutating the disposable runtime data shared by later tests.
+test('snapshot collector treats a zero-timer snapshot as authoritative while preserving manual timers', async ({ page }) => {
+  await page.goto('/');
+
+  const setup = await page.evaluate(() => {
+    const nonTerryCount = timers.filter(timer => getAccount(timer) !== 'Terry').length;
+    const terrySnapshotCount = timers.filter(timer => getAccount(timer) === 'Terry' && (
+      timer.snapshotPath || /^Snapshot(?:\s+[^|]+)?\s+\|/i.test(String(timer.note || ''))
+    )).length;
+
+    timers.push({
+      id: 'zero-snapshot-manual-no-note',
+      name: 'Manual Terry reminder',
+      duration: 3600,
+      remaining: 3600,
+      account: 'Terry',
+      group: 'Terry',
+      upgradeType: 'Other',
+      note: '',
+      repeat: false,
+      sound: true,
+      status: 'stopped',
+      endTime: null,
+      expiredAt: null,
+      pinned: false,
+      created: Date.now()
+    });
+
+    return { nonTerryCount, terrySnapshotCount };
+  });
+
+  expect(setup.terrySnapshotCount).toBeGreaterThan(0);
+
+  await page.getByRole('button', { name: /snapshot collector/i }).click();
+
+  const modal = page.locator('#batch-snapshot-modal');
+  const beforeAddMs = await page.evaluate(() => Date.now());
+  const noTimerSnapshot = {
+    tag: '#R0LQJ0UUC',
+    name: 'Terry',
+    buildings: [
+      { data: 1000000, lvl: 6, cnt: 4 }
+    ]
+  };
+
+  await page.locator('#batch-snapshot-json-text').fill(JSON.stringify(noTimerSnapshot));
+  await modal.getByRole('button', { name: /^Add Snapshot$/ }).click();
+
+  const stagedRow = page.locator('.batch-snapshot-row').first();
+  await expect(stagedRow.locator('.batch-snapshot-include')).toBeChecked();
+  await expect(stagedRow.locator('.batch-snapshot-include')).toBeEnabled();
+  await expect(stagedRow).toContainText(/no active timers found/i);
+  await expect(stagedRow).toContainText(/stale snapshot timers will be removed/i);
+  await expect(page.locator('#batch-snapshot-summary')).toContainText(/1 selected\/importable/i);
+  await expect(page.locator('#batch-snapshot-replace-existing')).toBeChecked();
+  await expect(page.locator('#batch-snapshot-preserve-manual-notes')).toBeChecked();
+
+  let savedPayload = null;
+  await page.route('**/api.php?action=save', async route => {
+    savedPayload = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok:true, lastUpdated:new Date().toISOString() })
+    });
+  });
+
+  await modal.getByRole('button', { name: /^Import Selected Accounts$/ }).click();
+  await expect(modal).toBeHidden();
+
+  expect(savedPayload).toBeTruthy();
+  expect(savedPayload.timers.filter(timer => (timer.account || timer.group) !== 'Terry')).toHaveLength(setup.nonTerryCount);
+
+  const terryTimers = savedPayload.timers.filter(timer => (timer.account || timer.group) === 'Terry');
+  expect(terryTimers).toHaveLength(1);
+  expect(terryTimers[0].id).toBe('zero-snapshot-manual-no-note');
+  expect(terryTimers[0].snapshotPath).toBeUndefined();
+
+  expect(savedPayload.accountSnapshotMeta.Terry.candidateCount).toBe(0);
+  expect(savedPayload.accountSnapshotMeta.Terry.selectedCount).toBe(0);
+
+  const recordedAtMs = Date.parse(savedPayload.accountSnapshotMeta.Terry.lastLoadedAt);
+  expect(recordedAtMs).toBeGreaterThanOrEqual(beforeAddMs);
+  expect(recordedAtMs).toBeLessThanOrEqual(Date.now());
 });
