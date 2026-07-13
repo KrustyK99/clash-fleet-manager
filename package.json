@@ -20,6 +20,7 @@
     "verify:fastapi": "powershell -ExecutionPolicy Bypass -NoProfile -File .\\Tools\\verify-fastapi-contract.ps1",
     "verify:fastapi:mariadb": "powershell -ExecutionPolicy Bypass -NoProfile -File .\\Tools\\verify-fastapi-mariadb-contract.ps1",
     "verify:fastapi:e2e": "set \"PLAYWRIGHT_REUSE_EXISTING_SERVER=0\"&& npm run test:e2e:fastapi -- --reporter=line",
+    "verify:fastapi:container:e2e": "node tests/support/verify-fastapi-container-e2e.mjs",
     "verify:fastapi:mariadb:e2e": "powershell -ExecutionPolicy Bypass -NoProfile -File .\\Tools\\verify-fastapi-mariadb-e2e.ps1",
     "serve:php": "npm run prepare:test-app && npm run _serve:php",
     "serve:fastapi": "npm run prepare:test-app && npm run _serve:fastapi",
@@ -57,7 +58,8 @@
     "deploy:nas:fastapi:dry": "powershell -ExecutionPolicy Bypass -NoProfile -File .\\Tools\\deploy-fastapi-container-to-nas.ps1 -NasHost 192.168.2.252 -NasUser lincoln -SshPort 34222 -DryRun",
     "deploy:nas:fastapi:reuse-image": "powershell -ExecutionPolicy Bypass -NoProfile -File .\\Tools\\deploy-fastapi-container-to-nas.ps1 -NasHost 192.168.2.252 -NasUser lincoln -SshPort 34222 -SkipBuild -SkipSave -Yes",
     "test:backend": "python -m pytest tests/backend",
-    "test:backend:mariadb": "python -m pytest tests/backend -m mariadb"
+    "test:backend:mariadb": "python -m pytest tests/backend -m mariadb",
+    "verify-and-deploy": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-and-deploy.ps1"
   },
   "repository": {
     "type": "git",

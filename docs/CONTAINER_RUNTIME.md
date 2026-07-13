@@ -29,21 +29,61 @@ It does **not** deploy FastAPI to Synology. It does **not** migrate persistence 
 
 The host JSON folder is prepared from test fixtures by `tests/support/prepare-test-app.mjs`. This keeps the container away from real app data and away from NAS production data.
 
-## Build the image
+## Complete automated container E2E verification
 
-From the project root:
+From the project root, the preferred pre-deployment verification is:
+
+```powershell
+npm run verify:fastapi:container:e2e
+```
+
+This command:
+
+1. Removes any stale local Compose instance for this project.
+2. Builds a fresh `clash-fleet-manager-fastapi-json:local` image.
+3. Prepares disposable JSON fixtures under `tests/runtime-app/data`.
+4. Starts and health-checks the FastAPI container on port `8001`.
+5. Runs the existing read-only container smoke test.
+6. Runs the complete Playwright E2E suite against the running container.
+7. Prints container logs when verification fails.
+8. Stops and removes the disposable container whether the run passes, fails, or is interrupted.
+
+The locally built image remains available after the disposable container is removed.
+
+## Preferred tested-image release flow
+
+Use the following sequence to build once, test the packaged artifact, export that exact image, and deploy it to the NAS without another build:
+
+```powershell
+npm run verify:php
+npm run verify:fastapi:e2e
+npm run verify:fastapi:container:e2e
+npm run deploy:nas
+npm run container:save
+npm run deploy:nas:fastapi:reuse-image
+```
+
+The local disposable container is not transferred. `container:save` exports the tested Docker image, and the NAS deployment loads that image and creates a new NAS container with the production data mount and NAS runtime settings. Do not rebuild the image or modify the source between successful container verification and image export when the objective is to promote the exact tested artifact.
+
+The NAS deployment command performs a limited post-deployment smoke check. Full behavioural testing remains in the disposable test environments rather than against production data.
+
+## Build the image manually
+
+For the lower-level manual workflow:
 
 ```powershell
 npm run container:build
 ```
 
-## Optional: save the image for Synology import
+## Save the tested image for Synology deployment
+
+After `npm run verify:fastapi:container:e2e` passes, export the image that was used to create the disposable test container:
 
 ```powershell
 npm run container:save
 ```
 
-This creates `clash-fleet-manager-fastapi-json-local.tar` from the already-built `clash-fleet-manager-fastapi-json:local` image. Use this only when importing the Phase 4A image into Synology Docker for the Phase 4B rehearsal.
+This creates `clash-fleet-manager-fastapi-json-local.tar` from the already-tested `clash-fleet-manager-fastapi-json:local` image. The local test container has been removed, but the image remains in Docker's local image store. The tar contains the image, not the container and not the disposable test data.
 
 ## Run the local container
 
@@ -59,7 +99,7 @@ Open:
 http://127.0.0.1:8001
 ```
 
-## Smoke test the running container
+## Smoke test an already-running container
 
 ```powershell
 npm run verify:container
@@ -147,14 +187,13 @@ npm run verify:fastapi
 npm run verify:fastapi:e2e
 ```
 
-Then run the container checks:
+Then run the full packaged-container verification:
 
 ```powershell
-npm run container:build
-npm run container:run
-npm run verify:container
-npm run container:stop
+npm run verify:fastapi:container:e2e
 ```
+
+The lower-level build/run/smoke/stop commands remain useful for manual investigation, but the one-command verifier is the preferred final local gate before deployment.
 
 ## Synology rehearsal
 

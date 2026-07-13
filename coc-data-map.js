@@ -128,5 +128,12 @@ window.COC_DATA_ID_MAP = {
   '1000035': { name: 'Elixir Collector', type: 'Builder Base', village: 'Home' },
   '1000036': { name: 'Elixir Storage', type: 'Builder Base', village: 'Home' },
   '1000045': { name: 'Multi Mortar', type: 'Builder Base', village: 'Home' },
-  '4000033': { name: 'Beta Minion', type: 'Builder Base', village: 'Home' }
+  '4000033': { name: 'Beta Minion', type: 'Builder Base', village: 'Home' },
+  '1000057': { name: 'Giant Cannon', type: 'Builder Base', village: 'Home' },
+  '28000005': { name: 'Battle Copter', type: 'Builder Base', village: 'Home' },
+  '28000003': { name: 'Battle Machine', type: 'Builder Base', village: 'Home' },
+  '12000011': { name: 'Push Trap', type: 'Builder Base', village: 'Home' },
+  '4000032': { name: 'Sneaker Archer', type: 'Builder Base', village: 'Home' },
+  '1000050': { name: 'Firecrackers', type: 'Builder Base', village: 'Home' },
+  '12000010': { name: 'Spring Trap', type: 'Builder Base', village: 'Home' }
 };

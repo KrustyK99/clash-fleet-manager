@@ -12,7 +12,8 @@ A low-cognitive-load command reference for the project. Keep this file open in V
 | PHP verification | `npm run verify:php` | Prepares the runtime app and runs the PHP/status-quo suite with line output. May reuse the expected local PHP/Docker server on port `8011`. |
 | FastAPI contract verification | `npm run verify:fastapi` | Runs the PowerShell FastAPI contract verification wrapper and explicitly forces the default JSON store. |
 | FastAPI E2E verification | `npm run verify:fastapi:e2e` | Runs the FastAPI E2E path with line output using the default JSON store. Forces a fresh test server. |
-| Local FastAPI container smoke test | `npm run verify:container` | Read-only check for the local container runtime. |
+| FastAPI container E2E verification | `npm run verify:fastapi:container:e2e` | Builds a fresh image, starts a disposable container, runs the complete Playwright suite against the container, prints logs on failure, and always removes the container. |
+| Local FastAPI container smoke test | `npm run verify:container` | Read-only check for an already-running local container runtime. |
 | Backend unit/contract tests | `npm run test:backend` | Runs the Python backend tests against the default JSON path. |
 | FastAPI MariaDB contract verification | `npm run verify:fastapi:mariadb` | Opt-in only. Requires disposable MariaDB test database variables. |
 | FastAPI MariaDB E2E verification | `npm run verify:fastapi:mariadb:e2e` | Optional full browser suite against FastAPI + MariaDB test DB. Forces a fresh FastAPI server so it cannot accidentally reuse a JSON-backed server. |
@@ -24,11 +25,21 @@ A low-cognitive-load command reference for the project. Keep this file open in V
 | Deploy static/PHP app to NAS | `npm run deploy:nas` | Runs the older NAS deployment PowerShell script. |
 | Dry-run FastAPI NAS container deployment | `npm run deploy:nas:fastapi:dry` | Safe preview of the FastAPI container deployment. Does not perform the real deployment. |
 | Deploy FastAPI NAS container | `npm run deploy:nas:fastapi` | Builds/saves/copies the image, recreates the NAS container, mounts production JSON data, and smoke-tests the candidate URL. |
-| Reuse existing FastAPI image for NAS deployment | `npm run deploy:nas:fastapi:reuse-image` | Skips local Docker build/save and redeploys using the existing image tar path. Useful for retrying deployment mechanics. |
+| Deploy an already-saved FastAPI image to NAS | `npm run deploy:nas:fastapi:reuse-image` | Skips local Docker build/save and deploys the existing image tar. This is the preferred release command after `verify:fastapi:container:e2e` and `container:save`, because it deploys the exact image that passed container E2E testing. |
 
 ## Phase 4A local FastAPI JSON container rehearsal
 
 This rehearsal proves the FastAPI + JSON runtime shape locally before touching Synology. It serves the static app and `/api.php` compatibility route from one FastAPI container and mounts disposable JSON data from `tests/runtime-app/data`.
+
+For the complete automated verification, run:
+
+```powershell
+npm run verify:fastapi:container:e2e
+```
+
+This builds a fresh image, prepares disposable JSON data, starts and health-checks the container, runs the existing smoke test, runs the complete Playwright suite against that container, captures container logs on failure, and removes the container whether the verification passes or fails.
+
+The lower-level manual smoke-test sequence remains available:
 
 ```powershell
 npm run container:build
@@ -45,7 +56,8 @@ Useful helpers:
 | Build local FastAPI JSON image | `npm run container:build` | Builds `clash-fleet-manager-fastapi-json:local`. |
 | Save local image for Synology import | `npm run container:save` | Exports `clash-fleet-manager-fastapi-json-local.tar` for Synology Docker image import. |
 | Run local FastAPI JSON container | `npm run container:run` | Starts `http://127.0.0.1:8001` with `FLEET_STORE_BACKEND=json` and `/data` mounted from `tests/runtime-app/data`. |
-| Smoke test running container | `npm run verify:container` | Read-only check for `/`, `/api.php?action=load`, and `/api.php?action=loadViews`. |
+| Full E2E verification of packaged container | `npm run verify:fastapi:container:e2e` | Builds and tests a disposable container through the complete Playwright suite, then removes it. |
+| Smoke test running container | `npm run verify:container` | Read-only check for `/`, `/api.php?action=load`, and `/api.php?action=loadViews` against an already-running container. |
 | View container logs | `npm run container:logs` | Follows logs for `clash-fleet-manager-fastapi-json`. |
 | Stop local container | `npm run container:stop` | Stops/removes the local Compose container. |
 
@@ -161,24 +173,33 @@ Use the dry-run first:
 npm run deploy:nas:fastapi:dry
 ```
 
-If the preview looks correct, run the real deployment:
+### Preferred tested-image promotion path
+
+After the packaged image passes container E2E verification, save that already-tested image and deploy the saved tar without rebuilding it:
+
+```powershell
+npm run verify:fastapi:container:e2e
+npm run container:save
+npm run deploy:nas:fastapi:reuse-image
+```
+
+This is the preferred release path because `verify:fastapi:container:e2e` builds and tests the image, `container:save` exports that same local image, and `deploy:nas:fastapi:reuse-image` skips both build and save while loading the exported image on the NAS. The disposable local test container is removed; the image remains and is the artifact promoted to the NAS.
+
+The all-in-one deployment command remains available:
 
 ```powershell
 npm run deploy:nas:fastapi
 ```
 
-If the build/save image step already succeeded and only the NAS deployment mechanics need to be retried, use:
-
-```powershell
-npm run deploy:nas:fastapi:reuse-image
-```
+That command builds and saves a new image as part of deployment. Use it when an independent build-and-deploy is intended, not when the goal is to promote the exact image that already passed container E2E verification.
 
 Important notes:
 
 - These commands target the configured NAS host `192.168.2.252`, SSH user `lincoln`, and SSH port `34222` from `package.json`.
 - `deploy:nas:fastapi:dry` uses `-DryRun` and is the safe preview command.
-- `deploy:nas:fastapi` passes `-Yes`, so it is the real deployment command.
-- `deploy:nas:fastapi:reuse-image` passes `-SkipBuild -SkipSave -Yes`, so it assumes the image tar already exists.
+- `deploy:nas:fastapi` passes `-Yes` and performs a fresh build/save before deployment.
+- `deploy:nas:fastapi:reuse-image` passes `-SkipBuild -SkipSave -Yes`, so it requires the image tar created by `container:save`.
+- Do not rebuild the image or change the source between successful container E2E verification and `container:save` if the objective is to deploy the exact tested artifact.
 - See `docs/PHASE_4C_D_PRODUCTION_URL_CUTOVER_RUNBOOK.md` and `backend/FASTAPI_RUNBOOK.md` before using these commands for an actual production URL cutover.
 
 ## Phase 3F FastAPI + JSON cutover rehearsal
@@ -223,15 +244,21 @@ Use this as the normal change-to-deployment sequence while the PHP rollback path
 ```powershell
 npm run verify:php
 npm run verify:fastapi:e2e
+npm run verify:fastapi:container:e2e
 npm run deploy:nas
-npm run deploy:nas:fastapi
+npm run container:save
+npm run deploy:nas:fastapi:reuse-image
 ```
 
 Notes:
 
 - `verify:php` prepares the disposable test app and runs the complete PHP/status-quo Playwright suite, so a separate `prepare:test-app` step is not required.
-- `verify:fastapi:e2e` prepares the disposable test app, forces a fresh FastAPI test server, runs the complete Playwright suite against FastAPI, and stops the test server afterward.
-- Deploy only after both verification commands pass.
+- `verify:fastapi:e2e` prepares the disposable test app, forces a fresh local FastAPI/Uvicorn test server, runs the complete Playwright suite, and stops the test server afterward.
+- `verify:fastapi:container:e2e` builds the deployable image, runs the smoke test and complete Playwright suite against a disposable container created from that image, then removes the container while leaving the tested image available locally.
+- `container:save` exports that already-tested image to `clash-fleet-manager-fastapi-json-local.tar`.
+- `deploy:nas:fastapi:reuse-image` skips rebuilding and re-exporting, loads the saved image on the NAS, creates a new NAS container from it, and performs the deployment smoke check.
+- This build-once, test-once, deploy-the-tested-image sequence is preferred over calling `deploy:nas:fastapi` after verification, because that command performs another build.
+- Deploy only after all verification commands pass, and do not rebuild or modify the source between container verification and image export.
 
 ### Backend, API, or persistence change: expanded verification
 
@@ -242,15 +269,19 @@ npm run test:backend
 npm run verify:php
 npm run verify:fastapi
 npm run verify:fastapi:e2e
+npm run verify:fastapi:container:e2e
 npm run deploy:nas
-npm run deploy:nas:fastapi
+npm run container:save
+npm run deploy:nas:fastapi:reuse-image
 ```
 
 Notes:
 
 - `test:backend` runs the Python backend test suite directly.
 - `verify:fastapi` is the narrower FastAPI API-contract checkpoint and explicitly forces the default JSON store.
-- `verify:fastapi:e2e` then validates the complete browser workflow against FastAPI. The contract coverage overlaps deliberately with the narrower check.
+- `verify:fastapi:e2e` validates the complete browser workflow against a fresh local FastAPI/Uvicorn process. The contract coverage overlaps deliberately with the narrower check.
+- `verify:fastapi:container:e2e` validates the packaging boundary by running that complete workflow against the deployable Docker image.
+- `container:save` and `deploy:nas:fastapi:reuse-image` promote that tested image to the NAS without another build.
 
 ### Normal status-quo check
 
@@ -272,7 +303,15 @@ npm run verify:fastapi
 npm run verify:fastapi:e2e
 ```
 
-### Local container smoke test
+### Full FastAPI container E2E verification
+
+```powershell
+npm run verify:fastapi:container:e2e
+```
+
+Use this as the final local pre-deployment check of the packaged FastAPI image. It performs the build, disposable data preparation, container startup/readiness check, smoke test, complete Playwright suite, failure log capture, and cleanup automatically.
+
+### Manual local container smoke test
 
 ```powershell
 npm run container:build
@@ -393,6 +432,7 @@ This is the complete script list from `package.json`, grouped by intent.
 | `verify:fastapi` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\verify-fastapi-contract.ps1` |
 | `verify:fastapi:mariadb` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\verify-fastapi-mariadb-contract.ps1` |
 | `verify:fastapi:e2e` | `set "PLAYWRIGHT_REUSE_EXISTING_SERVER=0"&& npm run test:e2e:fastapi -- --reporter=line` |
+| `verify:fastapi:container:e2e` | `node tests/support/verify-fastapi-container-e2e.mjs` |
 | `verify:fastapi:mariadb:e2e` | `powershell -ExecutionPolicy Bypass -NoProfile -File .\Tools\verify-fastapi-mariadb-e2e.ps1` |
 | `verify:container` | `node tests/support/verify-container-runtime.mjs` |
 
@@ -454,7 +494,8 @@ This is the complete script list from `package.json`, grouped by intent.
 
 - `php` means the current/status-quo backend path.
 - `fastapi` means the new backend path being used for the strangler migration.
-- `container:*` scripts are for the Dockerized FastAPI + JSON runtime shape.
+- `container:*` scripts are lower-level helpers for the Dockerized FastAPI + JSON runtime shape.
+- `verify:fastapi:container:e2e` is the preferred one-command full verification of that packaged container shape.
 - `_serve:*` scripts are internal helpers. Prefer the friendlier `serve:*` commands unless Playwright or another wrapper needs the old name.
 - `serve:test:*` aliases are intentionally preserved because Playwright configuration may still call those names.
 - `deploy:nas` is the older static/PHP NAS deployment path.
