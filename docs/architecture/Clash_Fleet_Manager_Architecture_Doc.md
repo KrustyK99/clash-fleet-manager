@@ -1,6 +1,6 @@
 # Technical Design Document: Clash Fleet Manager
 
-**Version:** 10.4
+**Version:** 10.5
 **Status:** Draft for Review  
 
 ---
@@ -83,20 +83,48 @@ When something is ambiguous, the question is simply: *does this make my app bett
 
 The phases, scope tables, and non-goals below remain largely valid as *engineering* guidance, but their framing shifts:
 
-* **Phases 0–3 and 5** (baseline tests, API contract, FastAPI + MariaDB schema, frontend modularization) are now the **pre-gate personal-app program.** They are the destination of phase one, not steps toward the droplet.
-* **Phase 4 (auth) and Phase 6 (production hardening)** are now explicitly **post-gate.** They move behind the decision and are not assumed.
+* **Phases 0–2 and Phase 5** establish the protected operational baseline: regression coverage, a stable API contract, FastAPI with JSON persistence, and a modularized current frontend. This baseline is allowed to remain the final personal application indefinitely.
+* **Phase 3** remains pre-gate engineering work, but it is now an **independently promotable MariaDB successor workstream**, not a mandatory continuation or assumed cutover.
+* **Phase 4 (auth) and Phase 6 (production hardening)** are explicitly **post-gate.** They move behind the strategic decision and are not assumed.
 * Wherever the text reads "for the SaaS target" or "for production," substitute "because it is good architecture, and conveniently also a seam." The work is the same; the *reason* is now self-justifying rather than conditional on a future that may never arrive.
-* The schema-first decision (merging the original Phases 2–3 into a single schema-first cutover, with the API contract as the fixed invariant and the legacy JSON path retained as a hot fallback) stands, because the schema is what fixes the present overwrite pain — not merely what enables a future.
+* Stale-save protection already fixes the present overwrite/data-loss problem. A normalized MariaDB schema may later improve granularity, history, querying, and data management, but schema work is not required to preserve the overwrite protection that already exists.
+
+### 0.6 Protected Operational Baseline and Successor-Work Seam
+
+The current FastAPI/JSON application is an accepted operational baseline. It satisfies the present personal-use requirement and may remain the active application indefinitely.
+
+MariaDB persistence, deeper data modeling, and any future frontend replacement are successor workstreams developed on the other side of a protected seam. They are not emergency remediation, and they are not prerequisites for continuing to use or maintain the current application.
+
+The operating rule is:
+
+> **The current application remains complete and usable while successor components earn the right to replace it.**
+
+This has the following consequences:
+
+* JSON remains the default operational datastore until an explicit MariaDB promotion decision is made.
+* MariaDB schema work begins as an isolated development and testing activity, not as an immediate operational migration.
+* DDL must be stored in source control and capable of creating a clean database in a disposable local MariaDB container.
+* The schema may be inspected and tested through DBeaver or another database client without connecting the operational application to it.
+* Database work may pause, restart, change direction, or be abandoned without leaving the operational application in a partially migrated state.
+* The existing frontend, API behavior, JSON datastore, and operational data must not depend on unfinished MariaDB work.
+* Schema design, backend persistence integration, data migration, operational cutover, and frontend replacement are separate decisions and should not be combined into one change.
+* Dual-writing to JSON and MariaDB is not the default migration strategy. It may only be introduced through a separately designed and tested work package because it adds synchronization and recovery risk.
+* The existing application remains the behavioral reference implementation. A successor must demonstrate API and user-flow parity before it is considered for promotion.
+* A future frontend replacement must consume a stable API and must not require the datastore migration and frontend rewrite to occur simultaneously.
+
+The MariaDB promotion boundary is separate from the strategic multi-tenant gate described in Section 0.3. The MariaDB boundary asks whether a tested successor persistence implementation should replace the current JSON datastore. The strategic gate asks whether the personal application should become an internet-exposed service for other users.
+
+No MariaDB cutover is implied merely because schema development has begun or because an opt-in compatibility store exists.
 
 ## 1. Context & Scope
 
-**Overview:** The project is a migration of a legacy, monolithic Clash of Clans fleet management tool into a modern, well-architected **personal application** — modular, testable, and pleasant to maintain — with the data model and seams left in place so that a multi-tenant future is an *optional* path behind the gate rather than an assumed destination (see Section 0). The current legacy implementation consists of an HTML/JavaScript frontend, a lightweight PHP backend, and JSON flat-file persistence.
+**Overview:** The project has evolved from a legacy monolithic tool into a working, well-architected **personal application** that is modular, testable, and pleasant to maintain. The accepted operational baseline now consists of the classic-script HTML/JavaScript frontend, the FastAPI backend, and JSON flat-file persistence. The PHP path remains available as a legacy compatibility and verification path during the transition. MariaDB and any future frontend replacement are isolated successor workstreams rather than prerequisites for continued operation.
 
-**Migration Strategy:** The migration will use the Strangler Fig pattern. The system will be migrated iteratively to preserve stability, isolate variables, and avoid cascading debugging failures. The guiding principle is to change one major system concern at a time.
+**Migration Strategy:** The project uses the Strangler Fig pattern. Completed replacements become the new protected baseline, while later successor components are developed behind explicit seams. Each step should change one major system concern at a time so regressions can be isolated and unfinished work cannot destabilize the operational application.
 
 **Runtime Environment:** The primary runtime is the local/NAS environment where the personal app actually lives. A constrained DigitalOcean Droplet using Docker Compose is the *post-gate* production target should the multi-tenant path ever be taken; designing against a low-cost host with limited CPU, memory, and storage remains a useful efficiency discipline either way.
 
-**Primary Architectural Bias:** Preserve the hard-won behavior of the existing tool while gradually replacing implementation details. Regression risk is treated as more important than architectural purity.
+**Primary Architectural Bias:** Preserve the hard-won behavior of the existing tool while gradually replacing implementation details. Regression risk is treated as more important than architectural purity. A successor component is not entitled to operational use merely because it has been implemented; it must earn promotion through evidence.
 
 ---
 
@@ -124,6 +152,8 @@ The following assumptions shape the initial architecture and migration plan. If 
 
 * **Regression Risk Is Higher Than Greenfield Complexity:** The existing app already works and contains many learned edge cases. The migration should prioritize preserving known behavior over rewriting large areas for architectural purity.
 
+* **No Migration Urgency:** The current FastAPI/JSON application already meets the personal-use requirement. MariaDB and frontend successor work may proceed slowly, pause indefinitely, or stop without creating an incomplete operational state.
+
 * **Testing Must Precede Major Refactoring:** The frontend monolith should not be aggressively split apart until key user flows are protected by automated browser tests.
 
 * **Operational Simplicity Beats Theoretical Elegance:** When two designs are technically valid, the simpler design should be preferred unless the more complex option directly reduces a known risk.
@@ -131,7 +161,7 @@ The following assumptions shape the initial architecture and migration plan. If 
 ---
 ### 1.2 Day-1 Implementation Scope
 
-This section defines what is included in the initial build and what is intentionally deferred. The purpose is to keep the first implementation focused, testable, and runnable in the local/NAS environment. "Day-1" here means the pre-gate personal-app program (see Section 0); items justified only by the post-gate multi-tenant path are called out as deferred.
+This section defines the capabilities included in the pre-gate personal-app program and the successor work that may be developed without being promoted. "Day-1" is retained as the historical label, but it no longer implies that every listed successor capability must replace the accepted FastAPI/JSON operational baseline.
 
 ### In Scope
 
@@ -141,7 +171,7 @@ The Day-1 implementation includes the following:
 
 * **FastAPI Backend:** A Python/FastAPI backend replacing the legacy PHP API while preserving the essential load/save behavior needed by the frontend.
 
-* **MariaDB Persistence:** Relational persistence for users, fleets, accounts, timers, saved views, account tag mappings, snapshot metadata, and game object mappings.
+* **MariaDB Successor Workstream:** Source-controlled DDL, an isolated containerized database, schema tests, and an optional relational persistence implementation for accounts, timers, saved views, account tag mappings, snapshot metadata, game object mappings, events, and history. Inclusion in the engineering program does not imply operational cutover.
 
 * **Owner-Scoped Data Model (seam):** All user-owned data is scoped to an `owner_id` ownership boundary from the start. Today this is a no-op filter with one owner; it is kept as a cheap seam so isolation is already in place if the gate opens.
 
@@ -159,7 +189,7 @@ The Day-1 implementation includes the following:
 
 * **Stale Save Protection:** The system must reject stale writes from old browser tabs or devices rather than silently overwriting newer data.
 
-* **Basic Backup and Restore Procedure:** A simple, documented way to back up and restore the local database. (Scheduled offsite disaster recovery is post-gate operations work — see Section 0.3 — but a basic local backup is sensible even for personal use.)
+* **Basic Backup and Restore Procedure:** If MariaDB is promoted, provide a simple, documented way to back up and restore the local database before it becomes operational. Scheduled offsite disaster recovery remains post-gate operations work (see Section 0.3).
 
 * **Baseline Automated Testing:** Playwright tests must cover critical frontend user flows, and backend tests must cover persistence, owner-scoped queries, and stale-write rejection (the latter being the actual fix for the present overwrite bug).
 
@@ -229,33 +259,41 @@ The Day-1 implementation does not include the following:
 
 ## 3. System Architecture
 
-* **Thick Client / Thin Server:** To protect the constrained host from avoidable CPU spikes, the browser will continue to handle heavy compute logic such as JSON snapshot parsing, timer math, filtering, sorting, and local UI rendering. The backend will act as a lightweight API and persistence layer.
+* **Thick Client / Thin Server:** To protect the constrained host from avoidable CPU spikes, the browser will continue to handle heavy compute logic such as JSON snapshot parsing, timer math, filtering, sorting, and local UI rendering. The backend acts as a lightweight API and persistence boundary.
 
-* **FastAPI Backend:** The legacy PHP API will be replaced with a Python/FastAPI backend. The first FastAPI version should preserve the behavior of the existing load/save API before introducing deeper structural changes.
+* **FastAPI Backend:** FastAPI is the accepted operational backend and preserves the established load/save API behavior. The PHP implementation remains available as a legacy compatibility and verification path while the transition history remains useful.
 
-* **Docker Compose Deployment:** The application will run through Docker Compose, including the frontend service, FastAPI service, MariaDB, and supporting infrastructure such as reverse proxying if required.
+* **Protected Operational Runtime:** The operational application runs the frontend and FastAPI against JSON persistence. MariaDB may run separately as a disposable development/test service and is added to the operational runtime only after an explicit promotion decision.
 
-* **Local Containerized Simulation:** The local Windows development environment should simulate production constraints where practical by enforcing CPU and memory limits in `docker-compose.yaml`.
+* **Docker Compose Deployment:** Docker Compose provides repeatable application and test runtimes. Supporting services such as MariaDB or reverse proxying are included only in the compositions and environments that actually require them.
 
-* **API Versioning Contract:** Initial API routes will use simple URL-based versioning, such as `/api/v1`. Header-based versioning is deferred unless API growth justifies it later.
+* **Local Containerized Simulation:** The local Windows development environment should simulate deployment constraints where practical by enforcing CPU and memory limits in `docker-compose.yaml`.
 
-* **Frontend Refactoring Constraint:** The frontend monolith should not be aggressively modularized until key user flows are covered by Playwright tests. Refactoring should begin with pure utility functions, snapshot parsing, and API client code before moving into UI rendering.
+* **API Versioning Contract:** Initial API routes use simple URL-based versioning, such as `/api/v1`. Header-based versioning is deferred unless API growth justifies it later.
+
+* **Current Frontend Modularization:** The current classic-script frontend has been incrementally decomposed behind Playwright regression coverage. This modularization is distinct from any future decision to replace the frontend technology or user interface.
+
+* **Successor Isolation:** A normalized MariaDB store and a future frontend replacement must each be independently testable against stable contracts. Neither workstream may require the other to be completed or promoted at the same time.
 
 ---
 
 ## 4. Data Strategy
 
-* **Relational Multi-Tenancy:** The backend will use MariaDB 10.11. All user-owned records will be scoped to a tenant, fleet, or user ownership boundary. Global uniqueness should be avoided unless the value is truly global. Most uniqueness rules should be tenant-scoped compound constraints.
+* **Operational Datastore:** JSON remains the default operational datastore until an explicit MariaDB promotion decision is made.
+
+* **MariaDB Relational Target:** The normalized successor model will use MariaDB 10.11 unless a later decision changes the engine. User-owned records will be scoped to a tenant, fleet, or owner boundary. Global uniqueness should be avoided unless a value is truly global; most uniqueness rules should be owner-scoped compound constraints.
+
+* **Compatibility Bridge vs. Normalized Model:** The existing Phase 3B `fleet_documents` schema and `MariaDbStore` deliberately store current API aggregates as JSON documents. They prove that MariaDB can sit behind the `FleetStore` seam, but they are not the normalized domain schema and do not imply an operational migration.
 
 * **Configuration Durability:** Saved views, account tag mappings, snapshot freshness settings, and game object mappings should be treated as durable configuration, not disposable timer state.
 
-* **Timer State as Operational Data:** Timers are time-sensitive operational records. Legacy timer data may be rebuilt rather than fully migrated, but new timer records should be persisted relationally.
+* **Timer State as Operational Data:** Timers are time-sensitive operational records. A future MariaDB cutover may rebuild current timer state rather than require full legacy ETL, but the active JSON implementation remains authoritative until promotion.
 
-* **Optimistic Concurrency:** Mutable records must include an `updated_at`, revision number, or equivalent version token. Saves from stale clients must be rejected rather than silently overwriting newer server state.
+* **Optimistic Concurrency:** Mutable records must include an `updated_at`, revision number, or equivalent version token. Saves from stale clients must be rejected rather than silently overwriting newer server state. This rule applies regardless of datastore.
 
-* **Snapshot Payload Strategy:** Raw Clash account snapshots may be parsed client-side and reduced into timer candidates before persistence. Raw snapshot storage is optional and should be introduced only if it supports debugging, auditability, or future features. Browser-side compression should be treated as an optimization to evaluate after measuring payload size, not as a Day-1 requirement.
+* **Snapshot Payload Strategy:** Raw Clash account snapshots may be parsed client-side and reduced into timer candidates before persistence. Raw snapshot storage is optional and should be introduced only if it supports debugging, auditability, history, or future features. Browser-side compression should be evaluated only after measuring payload size.
 
-* **Disaster Recovery:** A scheduled backup process will export MariaDB data, compress it, and push it to secure offsite object storage. Restore procedures must be documented and tested, not merely assumed.
+* **Backup and Recovery:** Disposable schema-laboratory databases need only be reproducible from DDL and seed data. Before MariaDB is promoted, local backup and restore must be documented and rehearsed. Scheduled offsite disaster recovery remains post-gate operations work.
 
 ---
 
@@ -285,7 +323,7 @@ The Day-1 implementation does not include the following:
 
 * **Rollback Strategy:** Each deploy should have a simple rollback path, such as reverting to the previous Git commit and restarting containers. Database migrations must be handled carefully and backed up before execution.
 
-* **Backups:** MariaDB backups must run on a schedule and be stored offsite. Backup success/failure should be visible through logs or alerts.
+* **Backups:** Before a personal-use MariaDB cutover, local backup and restore must be proven. Scheduled offsite backups, alerting, and retention policies apply only after the strategic gate is opened.
 
 * **Restore Testing:** A backup is not considered valid until a restore path has been tested at least once in a non-production environment.
 
@@ -303,7 +341,11 @@ The Day-1 implementation does not include the following:
 
 * **Frontend Unit Testing:** Unit tests should be introduced for extracted pure functions, especially snapshot parsing, timer calculations, freshness calculations, sorting, and work queue classification.
 
-* **Backend Testing:** The FastAPI backend will be tested with `pytest`. Tests must cover persistence, tenant scoping, stale-write rejection, input validation, and backup-sensitive behavior where practical.
+* **Backend Testing:** The FastAPI backend is tested with `pytest`. Tests must cover persistence contracts, owner scoping where implemented, stale-write rejection, input validation, and backup-sensitive behavior where practical.
+
+* **Database Schema Testing:** MariaDB DDL must build successfully from an empty database. Tests should verify constraints, indexes, triggers, seed data, and destructive/restrictive relationship behavior independently of the operational app.
+
+* **Parity Testing:** Any MariaDB-backed successor must run the same store contract, API contract, and browser flows as the JSON-backed baseline before promotion is considered.
 
 * **Regression Fixtures:** Known edge cases from the existing app should be preserved as test fixtures. This includes builder counts, guardian timers, builder base queues, account tag mapping, saved views, snapshot freshness, and stale save conflicts.
 
@@ -313,11 +355,13 @@ The Day-1 implementation does not include the following:
 
 ## Appendix A: Migration Phases
 
-The migration will follow a staged Strangler Fig approach. Each phase changes only one major variable at a time so that regressions can be isolated quickly and the existing working tool remains available throughout the transition.
+The migration follows a staged Strangler Fig approach. Each phase changes only one major variable at a time so regressions can be isolated quickly and the existing working tool remains available throughout the transition. Completed phases become part of the protected operational baseline; unfinished successor phases remain optional and isolated.
 
-> **Gate ordering note (v10.3):** The phase *numbers* are inherited from the original plan and no longer match the pre/post-gate split exactly. Read it this way: **Phases 0–3 and Phase 5 are pre-gate** (the personal-app program — schema-first cutover, the overwrite fix, and frontend modularization), and **Phase 4 and Phase 6 are post-gate** (auth and production hardening). In particular, frontend modularization (Phase 5) is pre-gate work even though it is numbered after the gate; sequence it by what helps the personal app, not by the number. See Section 0.
+> **Gate and promotion note (v10.5):** Phases 0–2 and Phase 5 establish the accepted FastAPI/JSON personal application. Phase 3 is pre-gate MariaDB successor work, but only Phase 3E can authorize an operational datastore cutover. Phase 4 and Phase 6 remain post-gate authentication and public-service operations work. A future frontend replacement is a separate optional successor workstream and is not coupled to MariaDB promotion. See Sections 0.3 and 0.6.
 
 ### Phase 0: Baseline the Legacy Application
+
+> **Current status:** Substantially completed and retained as regression history.
 
 Before any structural migration begins, the current `index.html`, `api.php`, `timers.json`, and `account_views.json` implementation will be treated as the behavioral baseline.
 
@@ -336,6 +380,8 @@ Exit criteria:
 
 ### Phase 1: Define the API Contract
 
+> **Current status:** Substantially completed; the API contract now protects both PHP and FastAPI compatibility paths.
+
 The existing PHP/file-based API will be documented as the initial API contract before it is replaced.
 
 Key activities:
@@ -352,6 +398,8 @@ Exit criteria:
 * The new backend has a clear compatibility target.
 
 ### Phase 2: Replace PHP with FastAPI While Keeping File Storage
+
+> **Current status:** Completed as the accepted operational baseline. FastAPI with JSON persistence is deployed, verified, and independently usable.
 
 The first backend migration step will replace `api.php` with a Python/FastAPI service while continuing to use JSON files for persistence.
 
@@ -371,25 +419,110 @@ Exit criteria:
 * JSON file persistence remains intact.
 * Deployment remains simple and reversible.
 
-### Phase 3: Introduce MariaDB Persistence
+### Phase 3: Develop and Evaluate MariaDB Persistence
 
-Once FastAPI is stable, persistence will move from JSON files to MariaDB.
+Phase 3 is an independently promotable successor workstream. Beginning or completing any subphase does not commit the operational application to leave JSON.
 
-This phase changes the datastore while keeping the API contract stable.
+#### Phase 3A: Isolated MariaDB Schema Laboratory
+
+Develop the database model without creating any dependency from the operational application.
 
 Key activities:
 
-* Add MariaDB schema for users, fleets, accounts, timers, saved views, account tag mappings, snapshot metadata, and game object mappings.
-* Implement tenant-scoped reads and writes.
-* Add optimistic concurrency fields to mutable records.
-* Keep compatibility logic where practical so the frontend does not need a major rewrite.
+* Store all DDL, triggers, indexes, and seed scripts in source control.
+* Start MariaDB in a disposable local container with an isolated volume and non-production credentials.
+* Prove that an empty database can be created repeatably from the DDL.
+* Connect through DBeaver or another database manager for inspection and exploratory testing.
+* Add representative seed data and automated tests for constraints, relationships, indexes, triggers, and history-protection rules.
+* Permit the schema to be destroyed, redesigned, paused, or abandoned without affecting the operational JSON application.
 
 Exit criteria:
 
-* Timer and configuration data persist in MariaDB.
-* Tenant isolation is enforced by schema and query design.
+* A clean database can be rebuilt from source-controlled artifacts.
+* Schema tests pass independently of FastAPI and the operational application.
+* The DDL and supporting documentation accurately describe the intended model.
+* No operational component depends on the laboratory database.
+
+#### Phase 3B: Compatibility-Store Proof
+
+Prove the persistence seam while preserving the existing aggregate API payloads.
+
+> **Current status:** Implemented as an opt-in bridge through `FleetStore`, `MariaDbStore`, and `backend/db/mariadb_schema.sql`. The current `fleet_documents` model stores API aggregates as JSON documents and is deliberately not the normalized domain model.
+
+Key activities:
+
+* Keep `JsonFileStore` as the operational default.
+* Run the MariaDB implementation only when explicitly selected through configuration.
+* Execute the same store-contract, API-contract, and browser E2E tests against both persistence implementations.
+* Preserve stale-save rejection and backup behavior.
+* Use the bridge to validate configuration, connectivity, transactions, error handling, container execution, and deployability.
+
+Exit criteria:
+
+* MariaDB can sit behind the existing persistence seam without changing the frontend contract.
+* The bridge passes its contract and E2E verification.
+* JSON remains independently deployable and operational.
+* Documentation clearly states that the bridge is not the normalized schema or a production cutover.
+
+#### Phase 3C: Normalized Domain Schema
+
+Design the heavier relational model needed for long-term data management.
+
+Key activities:
+
+* Model accounts, timers, snapshots, timer candidates, saved views, game objects, events, event status, configuration, and required history.
+* Add cheap ownership, origin, lifecycle, and concurrency seams where they clarify the model or avoid expensive future retrofits.
+* Define foreign-key behavior deliberately so operational cleanup does not accidentally erase required history.
+* Capture unknown game-object mappings without blocking imports.
+* Record architectural decisions and rejected alternatives as the model evolves.
+* Keep this schema separate from the compatibility document-store bridge unless an explicit migration plan joins them.
+
+Exit criteria:
+
+* The normalized DDL builds cleanly from an empty database.
+* Constraints encode the agreed business rules.
+* Representative use cases can be inserted, updated, queried, and rejected as expected.
+* The schema is understandable and inspectable without requiring a frontend rewrite.
+
+#### Phase 3D: Normalized FastAPI Persistence and Parity
+
+Implement the normalized store behind stable application contracts while JSON remains the operational default.
+
+Key activities:
+
+* Implement repository/store operations against the normalized schema.
+* Preserve the existing API contract where practical and version deliberate contract changes explicitly.
+* Compare normalized MariaDB behavior against the JSON reference implementation.
+* Run backend contract tests and browser E2E tests against the normalized store.
+* Keep schema design, backend integration, migration tooling, and frontend work in separate commits and work packages.
+
+Exit criteria:
+
+* Critical API and user flows pass against normalized MariaDB.
 * Stale writes are rejected rather than silently overwriting newer data.
-* Backup and restore procedures are tested.
+* Failures do not affect the operational JSON environment.
+* Remaining parity differences are documented and intentionally accepted or resolved.
+
+#### Phase 3E: Migration Rehearsal and Explicit Promotion Decision
+
+This is the technical promotion boundary between the protected JSON baseline and a MariaDB-backed operational application. Promotion is optional; remaining on JSON is a valid outcome.
+
+Key activities:
+
+* Rehearse representative data conversion into an isolated MariaDB environment.
+* Verify backup, restore, rollback, and clean-rebuild procedures.
+* Test the complete deployment flow using the exact image and schema artifacts intended for promotion.
+* Confirm user-visible parity and document any intentionally changed behavior.
+* Evaluate whether MariaDB provides enough practical benefit to justify additional operational complexity.
+* Make an explicit go/no-go decision. Do not infer approval from completed development work.
+
+Promotion criteria:
+
+* The schema and migration are repeatable from source control.
+* Contract, parity, and browser tests pass.
+* Backup, restore, and rollback have been rehearsed.
+* The current JSON application remains available as a tested rollback path for the agreed transition window.
+* The decision record explicitly approves MariaDB as the new operational datastore.
 
 ### Phase 4: Add Authentication and Tenant Isolation — **THE GATE (post-gate work begins here)**
 
@@ -411,7 +544,9 @@ Exit criteria:
 * Backend tests verify tenant isolation.
 * Existing single-user behavior maps cleanly into a default tenant/fleet model.
 
-### Phase 5: Incrementally Modularize the Frontend
+### Phase 5: Incrementally Modularize the Current Frontend
+
+> **Current status:** Substantially completed using classic browser scripts, explicit load order, behavior-preserving extraction, and Playwright regression coverage.
 
 Only after backend behavior and test coverage are stable will the frontend monolith be split into smaller modules.
 
@@ -429,6 +564,24 @@ Exit criteria:
 * Snapshot parsing and timer logic are independently testable.
 * Playwright tests continue to protect core user flows.
 * Refactoring remains incremental and reversible.
+
+#### Phase 5B: Optional Future Frontend Replacement
+
+A future frontend rewrite is a separate successor workstream, not a continuation that must begin after modularization and not a prerequisite for MariaDB work.
+
+Key activities:
+
+* Define the stable API contract the replacement frontend will consume.
+* Recreate critical user flows behind automated acceptance tests.
+* Keep the current frontend operational until the replacement demonstrates sufficient parity and usability.
+* Avoid coupling the rewrite to normalized schema development, persistence cutover, or public-service authentication.
+* Make a separate promotion decision when the replacement has earned confidence.
+
+Exit criteria:
+
+* The replacement can run against an approved API without direct knowledge of datastore implementation.
+* Critical user flows pass independently of the current frontend.
+* The existing frontend remains a viable fallback until an explicit promotion decision.
 
 ### Phase 6: Production Hardening — **post-gate**
 
@@ -543,9 +696,11 @@ Recommended conflict response:
 
 ## Appendix D: Backup and Restore Procedure
 
+> **Scope note (v10.5):** A disposable schema-laboratory database is recreated from DDL and seed data rather than treated as operational data. Before any personal-use MariaDB promotion, local backup, restore, and rollback must be rehearsed. The scheduled offsite requirements below apply after the strategic public-service gate is opened.
+
 ### Backup Requirements
 
-The production MariaDB database must be backed up automatically on a schedule.
+A post-gate production MariaDB database must be backed up automatically on a schedule.
 
 Minimum requirements:
 
@@ -624,18 +779,21 @@ Fixtures should include known cases for:
 * Account tag mapping.
 * Snapshot freshness metadata.
 
-### Backend Test Cases
+### Backend and Database Test Cases
 
-Backend tests should cover:
+Backend and database tests should cover:
 
-* Creating and loading tenant-scoped timers.
-* Preventing cross-tenant reads.
-* Preventing cross-tenant writes.
+* Rebuilding each MariaDB schema from an empty database.
+* Enforcing required constraints, indexes, foreign-key behavior, and trigger rules.
+* Running the persistence contract against JSON and each MariaDB implementation.
+* Creating and loading owner-scoped timers where the normalized model applies.
+* Preventing cross-owner reads and writes where ownership is implemented.
 * Rejecting stale saves.
 * Saving and loading saved views.
 * Saving and loading account tag mappings.
 * Validating malformed payloads.
 * Ensuring backup-sensitive operations do not silently fail.
+* Preserving critical browser behavior across datastore implementations.
 
 ### Regression Philosophy
 
@@ -658,6 +816,9 @@ The following decisions remain open and should be resolved before or during earl
 | CI/CD timing | Defer | Reconsider after manual deploy process stabilizes. |
 | Billing | Out of scope | Revisit only after product usage justifies it. |
 | Header-based API versioning | Defer | `/api/v1` is simpler for the initial build. |
+| MariaDB operational promotion | No decision until Phase 3E | Completing DDL or a store implementation does not authorize cutover. Remaining on JSON is valid. |
+| Normalized schema scope | Develop iteratively in Phase 3C | Keep the current document-store bridge distinct from the normalized domain model. |
+| Future frontend replacement | Optional and independently promotable | It must consume a stable API and must not be coupled to MariaDB cutover. |
 
 ---
 
@@ -675,6 +836,7 @@ These items are intentionally not part of Day 1 but may be considered later.
 * Historical analytics based on snapshot history.
 * Automated import helpers beyond paste/upload snapshot workflows.
 * Full visual redesign.
+* Optional replacement frontend technology and migration.
 
 ## Appendix H: AI-Assisted Development Governance
 
